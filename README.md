@@ -42,9 +42,25 @@ Traditional project managers are often bloated, overly complex, or lack structur
 ## ✨ Key Features
 
 - **🤖 AI Requirement Parser**: Type out a messy, brain-dumped project idea, and the built-in AI assistant will parse it into structured Targets and Actions in seconds.
-- **🗺️ Interactive Steps Roadmap**: A premium, dynamic navigation banner tracking the real-time status of your project lifecycle (T ➔ A ➔ S ➔ K).
-- **🎨 Premium Visual Design**: Built with high-fidelity dark modes, custom HSL color systems, elegant gradients, and interactive micro-animations.
+- **📊 Project Dashboard**: Start every project from a concise overview of total progress, T-A-S-K stage health, action statistics, overdue work, and the next recommended step.
+- **🗺️ Interactive Steps Roadmap**: A dynamic navigation banner tracking the real-time status of your project lifecycle (T ➔ A ➔ S ➔ K).
+- **✅ Action Workflow Controls**: Filter actions by status, priority, overdue state, upcoming due dates, or missing due dates. New actions created from a board column keep the selected workflow status.
+- **🤝 Delivery Acceptance Tracking**: Record service targets, deliverables, delivery dates, and acceptance status so finished work becomes a real handoff record.
+- **📦 Retrospective & Backup**: Generate a structured retrospective document, export a project as JSON, and import snapshots as new projects without overwriting local data.
+- **🎨 Focused Desktop UI**: Built with high-fidelity light/dark modes, compact information density, custom HSL color systems, and practical micro-interactions.
 - **⚡ Native & Web Dual Support**: Ships as a native desktop application (powered by Tauri) and also runs flawlessly inside the browser.
+
+---
+
+## 💾 Local-First Data Model
+
+TASK currently stores project data locally in the browser/WebView via `localStorage`. It is designed for focused personal planning and local desktop usage first.
+
+- Use **Keep → Export Project** to download a portable `.task.json` backup.
+- Use **Keep → Import Project** to restore a snapshot as a new project.
+- Imported projects receive fresh IDs, so existing projects are not overwritten.
+
+Current non-goals: multi-user collaboration, cloud sync, account permissions, and hosted production deployment.
 
 ---
 

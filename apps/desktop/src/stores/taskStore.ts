@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
 import { uuid } from "@/lib/utils";
+import type { AcceptanceStatus, TaskProjectSnapshot } from "@/lib/taskPlanning";
 
 export interface Project {
   id: string;
@@ -38,6 +39,8 @@ export interface Serve {
   deliverable: string;
   client: string;
   status: "draft" | "delivered" | "active";
+  deliveredAt?: string;
+  acceptanceStatus: AcceptanceStatus;
   createdAt: string;
 }
 
@@ -65,7 +68,10 @@ export const useTaskStore = defineStore("task", () => {
       activeProjectId.value = localStorage.getItem("task-active-project-id") || "";
       targets.value = JSON.parse(localStorage.getItem("task-targets") || "[]");
       actions.value = JSON.parse(localStorage.getItem("task-actions") || "[]");
-      serves.value = JSON.parse(localStorage.getItem("task-serves") || "[]");
+      serves.value = JSON.parse(localStorage.getItem("task-serves") || "[]").map((serve: Serve) => ({
+        ...serve,
+        acceptanceStatus: serve.acceptanceStatus || "pending",
+      }));
       keeps.value = JSON.parse(localStorage.getItem("task-keeps") || "[]");
 
       // Initialize a default project if none exists
@@ -144,6 +150,21 @@ export const useTaskStore = defineStore("task", () => {
     }
   }
 
+  function addProjectSnapshot(snapshot: TaskProjectSnapshot) {
+    projects.value.push(snapshot.project);
+    targets.value.push(...snapshot.targets);
+    actions.value.push(...snapshot.actions);
+    serves.value.push(...snapshot.serves);
+    keeps.value.push(...snapshot.keeps);
+    activeProjectId.value = snapshot.project.id;
+
+    saveProjects();
+    saveTargets();
+    saveActions();
+    saveServes();
+    saveKeeps();
+  }
+
   // Targets CRUD
   function addTarget(title: string, description: string, milestones: { title: string; completed: boolean }[] = []) {
     const target: Target = {
@@ -174,13 +195,13 @@ export const useTaskStore = defineStore("task", () => {
   }
 
   // Actions CRUD
-  function addAction(title: string, description: string, priority: "low" | "medium" | "high" = "medium", dueDate?: string) {
+  function addAction(title: string, description: string, priority: "low" | "medium" | "high" = "medium", dueDate?: string, status: "todo" | "in_progress" | "done" = "todo") {
     const action: Action = {
       id: uuid(),
       projectId: activeProjectId.value,
       title,
       description,
-      status: "todo",
+      status,
       priority,
       dueDate,
       createdAt: new Date().toISOString(),
@@ -204,7 +225,7 @@ export const useTaskStore = defineStore("task", () => {
   }
 
   // Serves CRUD
-  function addServe(title: string, description: string, deliverable: string, client: string, status: "draft" | "delivered" | "active" = "draft") {
+  function addServe(title: string, description: string, deliverable: string, client: string, status: "draft" | "delivered" | "active" = "draft", deliveredAt?: string, acceptanceStatus: AcceptanceStatus = "pending") {
     const serve: Serve = {
       id: uuid(),
       projectId: activeProjectId.value,
@@ -213,6 +234,8 @@ export const useTaskStore = defineStore("task", () => {
       deliverable,
       client,
       status,
+      deliveredAt,
+      acceptanceStatus,
       createdAt: new Date().toISOString(),
     };
     serves.value.push(serve);
@@ -275,6 +298,7 @@ export const useTaskStore = defineStore("task", () => {
     keeps,
     loadAll,
     addProject,
+    addProjectSnapshot,
     deleteProject,
     addTarget,
     updateTarget,

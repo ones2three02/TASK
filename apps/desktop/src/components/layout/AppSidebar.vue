@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useTaskStore } from "@/stores/taskStore";
-import { Target, ListTodo, Handshake, Archive, Plus, Trash2, ChevronDown, FolderGit2, FolderPlus, X, Sparkles } from "@lucide/vue";
+import { Target, ListTodo, Handshake, Archive, Plus, Trash2, ChevronDown, FolderGit2, FolderPlus, X, Sparkles, LayoutDashboard } from "@lucide/vue";
 import AiParserModal from "@/components/task/AiParserModal.vue";
 
 const showAiModal = ref(false);
 
 const props = defineProps<{
   sidebarWidth: number;
-  activeModule: "target" | "action" | "serve" | "keep";
+  activeModule: "dashboard" | "target" | "action" | "serve" | "keep";
   classicLayout?: boolean;
 }>();
 
 const emit = defineEmits<{
-  "select-module": [module: "target" | "action" | "serve" | "keep"];
+  "select-module": [module: "dashboard" | "target" | "action" | "serve" | "keep"];
   startResize: [event: MouseEvent];
 }>();
 
@@ -106,6 +106,20 @@ function handleDeleteProject() {
       <!-- T-A-S-K Navigation Menu -->
       <div class="flex-1 min-h-0 p-3 flex flex-col gap-2">
         <label class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 block px-1 mb-1">TASK 核心流程</label>
+
+        <button
+          class="w-full flex items-center gap-3 px-3 py-3 rounded-lg border text-left transition-all hover:bg-muted/50"
+          :class="activeModule === 'dashboard' ? 'bg-primary/10 text-primary border-primary/30 font-medium' : 'border-transparent text-muted-foreground'"
+          @click="emit('select-module', 'dashboard')"
+        >
+          <div class="h-8 w-8 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <LayoutDashboard class="h-4 w-4" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-semibold uppercase tracking-wider">DASHBOARD</div>
+            <div class="text-[10px] text-muted-foreground/90 truncate mt-0.5">项目健康度和下一步建议</div>
+          </div>
+        </button>
 
         <!-- T: Target -->
         <button

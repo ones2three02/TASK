@@ -11,6 +11,7 @@ import TargetManager from "@/components/task/TargetManager.vue";
 import ActionManager from "@/components/task/ActionManager.vue";
 import ServeManager from "@/components/task/ServeManager.vue";
 import KeepManager from "@/components/task/KeepManager.vue";
+import DashboardManager from "@/components/task/DashboardManager.vue";
 import TaskRoadmap from "@/components/task/TaskRoadmap.vue";
 import { useTaskStore } from "@/stores/taskStore";
 import EditorToolbar from "@/components/layout/EditorToolbar.vue";
@@ -93,7 +94,7 @@ const queryStore = useQueryStore();
 const settingsStore = useSettingsStore();
 const savedSqlStore = useSavedSqlStore();
 const taskStore = useTaskStore();
-const activeModule = ref<"target" | "action" | "serve" | "keep">("target");
+const activeModule = ref<"dashboard" | "target" | "action" | "serve" | "keep">("dashboard");
 const { message: toastMessage, visible: toastVisible, toast } = useToast();
 const { isDark, themeMode, applyTheme, setThemeMode } = useTheme();
 const { checkingUpdates, updateInfo, updateCheckMessage, showUpdateDialog, isDownloadingUpdate, downloadProgress, updateReady, hasUpdateAvailable, openUrl, checkUpdates, openLatestRelease, downloadAndInstallUpdate, restartApp } = useAppUpdater();
@@ -1059,8 +1060,9 @@ onUnmounted(() => {
 
           <div :class="isClassicLayout ? 'flex-1 min-w-0 overflow-hidden' : 'flex-1 min-w-0 overflow-hidden rounded-md border border-border/80 bg-background'">
             <div class="h-full flex flex-col min-w-0">
-              <TaskRoadmap :active-module="activeModule" @select-module="(mod) => (activeModule = mod)" />
-              <TargetManager v-if="activeModule === 'target'" />
+              <TaskRoadmap v-if="activeModule !== 'dashboard'" :active-module="activeModule" @select-module="(mod) => (activeModule = mod)" />
+              <DashboardManager v-if="activeModule === 'dashboard'" @select-module="(mod) => (activeModule = mod)" />
+              <TargetManager v-else-if="activeModule === 'target'" />
               <ActionManager v-else-if="activeModule === 'action'" />
               <ServeManager v-else-if="activeModule === 'serve'" />
               <KeepManager v-else-if="activeModule === 'keep'" />

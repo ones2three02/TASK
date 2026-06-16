@@ -7,16 +7,37 @@ import { suggestServeKeepWithAi } from "@/lib/aiParser";
 import { Plus, ListTodo, Calendar, Trash2, Edit, ArrowRight, ArrowLeft, MoreHorizontal, X, Trophy, Handshake, Archive, Loader2, Sparkles, CheckCircle2, Circle } from "@lucide/vue";
 
 const taskStore = useTaskStore();
+const today = new Date().toISOString().slice(0, 10);
+const statusFilter = ref<"all" | "todo" | "in_progress" | "done">("all");
+const priorityFilter = ref<"all" | "low" | "medium" | "high">("all");
+const dateFilter = ref<"all" | "overdue" | "next7" | "none">("all");
 
 // Filter actions for active project
 const projectActions = computed(() => {
   return taskStore.actions.filter((a) => a.projectId === taskStore.activeProjectId);
 });
 
+const filteredProjectActions = computed(() => {
+  return projectActions.value.filter((action) => {
+    if (statusFilter.value !== "all" && action.status !== statusFilter.value) return false;
+    if (priorityFilter.value !== "all" && action.priority !== priorityFilter.value) return false;
+    if (dateFilter.value === "none") return !action.dueDate;
+    if (dateFilter.value === "overdue") return isActionOverdue(action);
+    if (dateFilter.value === "next7") {
+      if (!action.dueDate) return false;
+      const due = new Date(`${action.dueDate}T00:00:00`).getTime();
+      const start = new Date(`${today}T00:00:00`).getTime();
+      const end = start + 7 * 24 * 60 * 60 * 1000;
+      return due >= start && due <= end;
+    }
+    return true;
+  });
+});
+
 // Columns definition
-const todoActions = computed(() => projectActions.value.filter((a) => a.status === "todo"));
-const inProgressActions = computed(() => projectActions.value.filter((a) => a.status === "in_progress"));
-const doneActions = computed(() => projectActions.value.filter((a) => a.status === "done"));
+const todoActions = computed(() => filteredProjectActions.value.filter((a) => a.status === "todo"));
+const inProgressActions = computed(() => filteredProjectActions.value.filter((a) => a.status === "in_progress"));
+const doneActions = computed(() => filteredProjectActions.value.filter((a) => a.status === "done"));
 
 const settingsStore = useSettingsStore();
 const { toast } = useToast();
@@ -84,6 +105,7 @@ const formTitle = ref("");
 const formDescription = ref("");
 const formPriority = ref<"low" | "medium" | "high">("medium");
 const formDueDate = ref("");
+const formStatus = ref<"todo" | "in_progress" | "done">("todo");
 
 function openAddDialog(status: "todo" | "in_progress" | "done" = "todo") {
   isEdit.value = false;
@@ -92,6 +114,7 @@ function openAddDialog(status: "todo" | "in_progress" | "done" = "todo") {
   formDescription.value = "";
   formPriority.value = "medium";
   formDueDate.value = "";
+  formStatus.value = status;
   showDialog.value = true;
 }
 
@@ -102,6 +125,7 @@ function openEditDialog(action: Action) {
   formDescription.value = action.description;
   formPriority.value = action.priority;
   formDueDate.value = action.dueDate || "";
+  formStatus.value = action.status;
   showDialog.value = true;
 }
 
@@ -115,10 +139,11 @@ function submitForm() {
       existing.description = formDescription.value.trim();
       existing.priority = formPriority.value;
       existing.dueDate = formDueDate.value || undefined;
+      existing.status = formStatus.value;
       taskStore.updateAction(existing);
     }
   } else {
-    taskStore.addAction(formTitle.value.trim(), formDescription.value.trim(), formPriority.value, formDueDate.value || undefined);
+    taskStore.addAction(formTitle.value.trim(), formDescription.value.trim(), formPriority.value, formDueDate.value || undefined, formStatus.value);
   }
   showDialog.value = false;
 }
@@ -163,6 +188,10 @@ function getPriorityLabel(priority: "low" | "medium" | "high") {
       return "低";
   }
 }
+
+function isActionOverdue(action: Action) {
+  return action.status !== "done" && !!action.dueDate && action.dueDate < today;
+}
 </script>
 
 <template>
@@ -181,6 +210,38 @@ function getPriorityLabel(priority: "low" | "medium" | "high") {
           <Plus class="h-4 w-4" />
           发起行动
         </button>
+      </div>
+
+      <div class="grid grid-cols-1 gap-3 border-t border-border/40 pt-4 md:grid-cols-3">
+        <label class="space-y-1.5 text-xs font-medium text-muted-foreground">
+          状态筛选
+          <select v-model="statusFilter" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            <option value="all">全部状态</option>
+            <option value="todo">准备发起</option>
+            <option value="in_progress">行动进行中</option>
+            <option value="done">行动已完成</option>
+          </select>
+        </label>
+
+        <label class="space-y-1.5 text-xs font-medium text-muted-foreground">
+          优先级筛选
+          <select v-model="priorityFilter" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            <option value="all">全部优先级</option>
+            <option value="high">高优先级</option>
+            <option value="medium">中优先级</option>
+            <option value="low">低优先级</option>
+          </select>
+        </label>
+
+        <label class="space-y-1.5 text-xs font-medium text-muted-foreground">
+          时间筛选
+          <select v-model="dateFilter" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            <option value="all">全部时间</option>
+            <option value="overdue">已逾期</option>
+            <option value="next7">7 天内</option>
+            <option value="none">无截止日期</option>
+          </select>
+        </label>
       </div>
     </div>
 
@@ -213,6 +274,7 @@ function getPriorityLabel(priority: "low" | "medium" | "high") {
                   {{ action.dueDate }}
                 </span>
               </div>
+              <span v-if="isActionOverdue(action)" class="inline-flex w-fit items-center rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-500">已逾期</span>
               <h4 class="font-medium text-sm leading-snug">{{ action.title }}</h4>
               <p class="text-xs text-muted-foreground line-clamp-2 leading-relaxed" v-if="action.description">
                 {{ action.description }}
@@ -267,6 +329,7 @@ function getPriorityLabel(priority: "low" | "medium" | "high") {
                   {{ action.dueDate }}
                 </span>
               </div>
+              <span v-if="isActionOverdue(action)" class="inline-flex w-fit items-center rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-500">已逾期</span>
               <h4 class="font-medium text-sm leading-snug">{{ action.title }}</h4>
               <p class="text-xs text-muted-foreground line-clamp-2 leading-relaxed" v-if="action.description">
                 {{ action.description }}
@@ -405,6 +468,22 @@ function getPriorityLabel(priority: "low" | "medium" | "high") {
           <div class="space-y-1.5">
             <label class="text-xs font-medium text-muted-foreground">截止日期（可选）</label>
             <input v-model="formDueDate" type="date" class="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">行动状态</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                v-for="s in ['todo', 'in_progress', 'done'] as const"
+                :key="s"
+                type="button"
+                class="h-9 rounded-md border text-xs font-medium flex items-center justify-center transition-colors"
+                :class="formStatus === s ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground'"
+                @click="formStatus = s"
+              >
+                {{ s === "todo" ? "准备发起" : s === "in_progress" ? "进行中" : "已完成" }}
+              </button>
+            </div>
           </div>
         </div>
 

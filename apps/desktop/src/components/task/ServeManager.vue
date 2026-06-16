@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTaskStore, type Serve } from "@/stores/taskStore";
+import type { AcceptanceStatus } from "@/lib/taskPlanning";
 import { Plus, Handshake, Trash2, Edit, CheckSquare, Users, FileCheck, X } from "@lucide/vue";
 
 const taskStore = useTaskStore();
@@ -19,6 +20,8 @@ const formDescription = ref("");
 const formDeliverable = ref("");
 const formClient = ref("");
 const formStatus = ref<"draft" | "active" | "delivered">("draft");
+const formDeliveredAt = ref("");
+const formAcceptanceStatus = ref<AcceptanceStatus>("pending");
 
 function openAddDialog() {
   isEdit.value = false;
@@ -28,6 +31,8 @@ function openAddDialog() {
   formDeliverable.value = "";
   formClient.value = "";
   formStatus.value = "draft";
+  formDeliveredAt.value = "";
+  formAcceptanceStatus.value = "pending";
   showDialog.value = true;
 }
 
@@ -39,6 +44,8 @@ function openEditDialog(serve: Serve) {
   formDeliverable.value = serve.deliverable;
   formClient.value = serve.client;
   formStatus.value = serve.status;
+  formDeliveredAt.value = serve.deliveredAt || "";
+  formAcceptanceStatus.value = serve.acceptanceStatus || "pending";
   showDialog.value = true;
 }
 
@@ -53,10 +60,12 @@ function submitForm() {
       existing.deliverable = formDeliverable.value.trim();
       existing.client = formClient.value.trim();
       existing.status = formStatus.value;
+      existing.deliveredAt = formDeliveredAt.value || undefined;
+      existing.acceptanceStatus = formAcceptanceStatus.value;
       taskStore.updateServe(existing);
     }
   } else {
-    taskStore.addServe(formTitle.value.trim(), formDescription.value.trim(), formDeliverable.value.trim(), formClient.value.trim(), formStatus.value);
+    taskStore.addServe(formTitle.value.trim(), formDescription.value.trim(), formDeliverable.value.trim(), formClient.value.trim(), formStatus.value, formDeliveredAt.value || undefined, formAcceptanceStatus.value);
   }
   showDialog.value = false;
 }
@@ -89,6 +98,28 @@ function getStatusLabel(status: "draft" | "active" | "delivered") {
       return "规划草案";
   }
 }
+
+function getAcceptanceBadge(status: AcceptanceStatus) {
+  switch (status) {
+    case "accepted":
+      return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+    case "changes_requested":
+      return "bg-red-500/10 text-red-500 border-red-500/20";
+    case "pending":
+      return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+  }
+}
+
+function getAcceptanceLabel(status: AcceptanceStatus) {
+  switch (status) {
+    case "accepted":
+      return "验收通过";
+    case "changes_requested":
+      return "需调整";
+    case "pending":
+      return "待验收";
+  }
+}
 </script>
 
 <template>
@@ -118,6 +149,9 @@ function getStatusLabel(status: "draft" | "active" | "delivered") {
             <div class="flex items-center gap-2">
               <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full border shrink-0" :class="getStatusBadge(serve.status)">
                 {{ getStatusLabel(serve.status) }}
+              </span>
+              <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full border shrink-0" :class="getAcceptanceBadge(serve.acceptanceStatus)">
+                {{ getAcceptanceLabel(serve.acceptanceStatus) }}
               </span>
             </div>
             <h3 class="font-medium text-base truncate mt-2">{{ serve.title }}</h3>
@@ -153,6 +187,14 @@ function getStatusLabel(status: "draft" | "active" | "delivered") {
             <div class="min-w-0">
               <div class="font-medium text-[10px] text-muted-foreground uppercase tracking-wider">核心交付物 / 产出物</div>
               <div class="font-medium text-foreground truncate mt-0.5">{{ serve.deliverable || "未定义交付物" }}</div>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-2.5 bg-muted/20 p-2.5 rounded-lg border border-border/20 sm:col-span-2">
+            <CheckSquare class="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+            <div class="min-w-0">
+              <div class="font-medium text-[10px] text-muted-foreground uppercase tracking-wider">交付日期 / 验收状态</div>
+              <div class="font-medium text-foreground truncate mt-0.5">{{ serve.deliveredAt || "未填写交付日期" }} · {{ getAcceptanceLabel(serve.acceptanceStatus) }}</div>
             </div>
           </div>
         </div>
@@ -231,6 +273,27 @@ function getStatusLabel(status: "draft" | "active" | "delivered") {
                 @click="formStatus = s"
               >
                 {{ getStatusLabel(s) }}
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">交付日期（可选）</label>
+            <input v-model="formDeliveredAt" type="date" class="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">验收状态</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                v-for="s in ['pending', 'accepted', 'changes_requested'] as const"
+                :key="s"
+                type="button"
+                class="h-9 rounded-md border text-xs font-medium flex items-center justify-center transition-colors"
+                :class="formAcceptanceStatus === s ? getAcceptanceBadge(s) + ' border-current' : 'border-border hover:bg-muted text-muted-foreground'"
+                @click="formAcceptanceStatus = s"
+              >
+                {{ getAcceptanceLabel(s) }}
               </button>
             </div>
           </div>

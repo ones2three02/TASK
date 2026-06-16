@@ -239,7 +239,6 @@ function getPriorityColor(priority: string) {
           <!-- Right: Actions preview -->
           <div class="flex flex-col gap-3">
             <h4 class="text-sm font-semibold flex items-center gap-2 border-b pb-2 border-border/40 text-indigo-500">
-              <Spacer />
               <ListTodo class="h-4 w-4" />
               拆解出的任务卡片 (A - Actions)
             </h4>

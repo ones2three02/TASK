@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTaskStore, type Keep } from "@/stores/taskStore";
-import { Plus, Archive, Trash2, Edit, FileText, Link, PackageOpen, ExternalLink, X } from "@lucide/vue";
+import { buildProjectRetrospective, exportProjectSnapshot, normalizeImportedProjectSnapshot } from "@/lib/taskPlanning";
+import { Plus, Archive, Trash2, Edit, FileText, Link, PackageOpen, ExternalLink, X, Download, Upload, ClipboardList } from "@lucide/vue";
 
 const taskStore = useTaskStore();
 
@@ -22,9 +23,11 @@ const editId = ref("");
 const formName = ref("");
 const formType = ref<"document" | "link" | "archive">("document");
 const formContent = ref("");
+const importInputRef = ref<HTMLInputElement | null>(null);
 
 // Selected keep details (for reading documents)
 const selectedKeepForView = ref<Keep | null>(null);
+const activeProject = computed(() => taskStore.projects.find((p) => p.id === taskStore.activeProjectId));
 
 function openAddDialog() {
   isEdit.value = false;
@@ -78,6 +81,46 @@ function visitLink(url: string) {
   window.open(finalUrl, "_blank");
 }
 
+function createRetrospective() {
+  if (!activeProject.value) return;
+  const retrospective = buildProjectRetrospective(activeProject.value, projectKeepsProjectTargets.value, projectKeepsProjectActions.value, projectKeepsProjectServes.value, projectKeeps.value);
+  taskStore.addKeep(`项目复盘 - ${activeProject.value.name}`, "document", retrospective);
+}
+
+function exportCurrentProject() {
+  if (!activeProject.value) return;
+  const snapshot = exportProjectSnapshot(activeProject.value, projectKeepsProjectTargets.value, projectKeepsProjectActions.value, projectKeepsProjectServes.value, projectKeeps.value);
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${activeProject.value.name || "task-project"}.task.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function openImportDialog() {
+  importInputRef.value?.click();
+}
+
+async function importProject(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    const snapshot = normalizeImportedProjectSnapshot(JSON.parse(await file.text()));
+    taskStore.addProjectSnapshot(snapshot);
+  } catch (error) {
+    alert(error instanceof Error ? error.message : "导入 TASK 项目失败，请检查 JSON 文件格式。");
+  } finally {
+    input.value = "";
+  }
+}
+
+const projectKeepsProjectTargets = computed(() => taskStore.targets.filter((t) => t.projectId === taskStore.activeProjectId));
+const projectKeepsProjectActions = computed(() => taskStore.actions.filter((a) => a.projectId === taskStore.activeProjectId));
+const projectKeepsProjectServes = computed(() => taskStore.serves.filter((s) => s.projectId === taskStore.activeProjectId));
+
 function getKeepIcon(type: "document" | "link" | "archive") {
   switch (type) {
     case "document":
@@ -124,10 +167,25 @@ function getKeepLabel(type: "document" | "link" | "archive") {
           </h2>
           <p class="text-xs text-muted-foreground mt-1">项目资产需要积累。沉淀有价值的文档、快捷工具网页、归档包，告别项目碎片化。</p>
         </div>
-        <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1" @click="openAddDialog">
-          <Plus class="h-4 w-4" />
-          新增留存
-        </button>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <button class="inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium hover:bg-muted transition-colors gap-1" @click="createRetrospective">
+            <ClipboardList class="h-4 w-4" />
+            生成复盘
+          </button>
+          <button class="inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium hover:bg-muted transition-colors gap-1" @click="exportCurrentProject">
+            <Download class="h-4 w-4" />
+            导出项目
+          </button>
+          <button class="inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium hover:bg-muted transition-colors gap-1" @click="openImportDialog">
+            <Upload class="h-4 w-4" />
+            导入项目
+          </button>
+          <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1" @click="openAddDialog">
+            <Plus class="h-4 w-4" />
+            新增留存
+          </button>
+          <input ref="importInputRef" type="file" accept="application/json,.json" class="hidden" @change="importProject" />
+        </div>
       </div>
     </div>
 
