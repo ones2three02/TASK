@@ -69,7 +69,7 @@ jobs:
             echo "::error::TAURI_SIGNING_PRIVATE_KEY_BASE64 secret is required for in-app updates."
             exit 1
           fi
-          delimiter="TASK_SIGNING_KEY_$(uuidgen)"
+          delimiter="TASK_SIGNING_KEY_END"
           {
             echo "TAURI_SIGNING_PRIVATE_KEY<<$delimiter"
             echo "$TAURI_SIGNING_PRIVATE_KEY_BASE64" | base64 --decode
