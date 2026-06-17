@@ -22,8 +22,12 @@ jobs:
         include:
           - name: macOS
             os: macos-latest
+            cargoBuildJobs: 2
+            cxxFlags: ""
           - name: Windows
-            os: windows-latest
+            os: windows-2022
+            cargoBuildJobs: 1
+            cxxFlags: "/std:c++17 /EHsc"
 
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +59,10 @@ jobs:
         run: pnpm typecheck
 
       - name: Build desktop package
+        env:
+          CARGO_BUILD_JOBS: ${{ matrix.cargoBuildJobs }}
+          CXXFLAGS: ${{ matrix.cxxFlags }}
+          CXXFLAGS_x86_64_pc_windows_msvc: ${{ matrix.cxxFlags }}
         run: pnpm tauri build
 
       - name: Upload macOS package

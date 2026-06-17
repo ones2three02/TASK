@@ -30,7 +30,7 @@ jobs:
             cargoBuildJobs: 2
             cxxFlags: ""
           - name: Windows
-            os: windows-latest
+            os: windows-2022
             cargoBuildJobs: 1
             cxxFlags: "/std:c++17 /EHsc"
 
