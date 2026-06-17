@@ -1,0 +1,88 @@
+name: App Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, for example v0.5.33"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Release ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+          - name: Windows
+            os: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./ -> target"
+          shared-key: app-release-${{ runner.os }}
+          cache-on-failure: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Setup Tauri updater signing key
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY_BASE64: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_BASE64 }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY_BASE64" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY_BASE64 secret is required for in-app updates."
+            exit 1
+          fi
+          echo "$TAURI_SIGNING_PRIVATE_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/task-updater.key"
+          echo "TAURI_SIGNING_PRIVATE_KEY=$RUNNER_TEMP/task-updater.key" >> "$GITHUB_ENV"
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build and publish Tauri release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          releaseName: "TASK ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          releaseBody: "TASK desktop release with signed in-app updater artifacts."
+          releaseDraft: false
+          prerelease: false
+          args: --config src-tauri/tauri.release.conf.json
