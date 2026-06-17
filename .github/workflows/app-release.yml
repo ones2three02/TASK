@@ -69,11 +69,13 @@ jobs:
             echo "::error::TAURI_SIGNING_PRIVATE_KEY_BASE64 secret is required for in-app updates."
             exit 1
           fi
-          echo "$TAURI_SIGNING_PRIVATE_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/task-updater.key"
-          echo "TAURI_SIGNING_PRIVATE_KEY=$RUNNER_TEMP/task-updater.key" >> "$GITHUB_ENV"
-          if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
-            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" >> "$GITHUB_ENV"
-          fi
+          delimiter="TASK_SIGNING_KEY_$(uuidgen)"
+          {
+            echo "TAURI_SIGNING_PRIVATE_KEY<<$delimiter"
+            echo "$TAURI_SIGNING_PRIVATE_KEY_BASE64" | base64 --decode
+            echo "$delimiter"
+          } >> "$GITHUB_ENV"
+          echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" >> "$GITHUB_ENV"
 
       - name: Build and publish Tauri release
         uses: tauri-apps/tauri-action@v0
