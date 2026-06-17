@@ -73,6 +73,7 @@ jobs:
           {
             echo "TAURI_SIGNING_PRIVATE_KEY<<$delimiter"
             echo "$TAURI_SIGNING_PRIVATE_KEY_BASE64" | base64 --decode
+            echo
             echo "$delimiter"
           } >> "$GITHUB_ENV"
           echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" >> "$GITHUB_ENV"
