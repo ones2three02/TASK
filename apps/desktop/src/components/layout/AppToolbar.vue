@@ -24,7 +24,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const { isMac, isDesktop, minimize, toggleMaximize, close } = useWindowControls();
+const { isMac, isDesktop, isFullscreen, minimize, toggleMaximize, close } = useWindowControls();
 
 const themeItems = computed(() => [
   { value: "light", label: t("toolbar.themeLight") || "明亮", icon: Sun },
@@ -44,7 +44,7 @@ function onToolbarDblClick() {
 </script>
 
 <template>
-  <div class="h-10 flex items-center justify-between px-3 border-b bg-muted/30 shrink-0 overflow-hidden" :class="{ 'pl-17.5': shouldReserveMacTrafficLightInset(isMac, false, isDesktop) }" data-tauri-drag-region @dblclick="onToolbarDblClick">
+  <div class="h-10 flex items-center justify-between px-3 border-b bg-muted/30 shrink-0 overflow-hidden" :class="{ 'pl-[208px]': shouldReserveMacTrafficLightInset(isMac, isFullscreen, isDesktop) }" data-tauri-drag-region @dblclick="onToolbarDblClick">
     <!-- Brand / Title -->
     <div class="flex items-center gap-2 select-none" data-tauri-drag-region>
       <div class="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center shadow-sm">

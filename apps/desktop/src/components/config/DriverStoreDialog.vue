@@ -61,7 +61,7 @@ const runtimeError = ref("");
 const runtimeBusy = ref<string | null>(null);
 let runtimeTimer: ReturnType<typeof setInterval> | null = null;
 const DRIVER_RUNTIME_POLL_MS = 5000;
-const OFFLINE_DRIVER_DOWNLOAD_URL = "https://dbxio.com/cn/drivers";
+const OFFLINE_DRIVER_DOWNLOAD_URL = "https://github.com/ones2three02/TASK";
 
 let unlisten: (() => void) | null = null;
 const lastProgressPercent = ref<number | null>(null);

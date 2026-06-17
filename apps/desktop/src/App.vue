@@ -280,7 +280,7 @@ async function applyUiScale(scale: number) {
     await getCurrentWebview().setZoom(scale);
     window.dispatchEvent(new CustomEvent("dbx:ui-scale-applied", { detail: { scale } }));
   } catch (error) {
-    console.warn("[DBX] Failed to apply UI scale", { scale, error });
+    console.warn("[TASK] Failed to apply UI scale", { scale, error });
   }
 }
 
@@ -779,10 +779,10 @@ function changeActiveSchema(schema: string | undefined) {
   if (tab) queryStore.updateSchema(tab.id, schema);
 }
 function openGitHub() {
-  openUrl("https://github.com/t8y2/dbx");
+  openUrl("https://github.com/ones2three02/TASK");
 }
 function openMcpGuide() {
-  openUrl("https://dbxio.com/cn/docs/mcp");
+  openUrl("https://github.com/ones2three02/TASK");
 }
 
 function setSidebarOpen(open: boolean) {

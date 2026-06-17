@@ -1840,51 +1840,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dbx"
-version = "0.5.32"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "calamine",
- "chrono",
- "csv",
- "dbx-core",
- "deadpool-postgres",
- "duckdb",
- "font-kit",
- "futures",
- "log",
- "mongodb",
- "percent-encoding",
- "portpicker",
- "redis",
- "reqwest 0.12.28",
- "russh",
- "rust_decimal",
- "rustls 0.23.40",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-log",
- "tauri-plugin-process",
- "tauri-plugin-shell",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tauri-plugin-window-state",
- "tiberius",
- "tokio",
- "tokio-postgres",
- "tokio-util",
- "uuid",
- "zip 4.6.1",
-]
-
-[[package]]
 name = "dbx-core"
 version = "0.1.0"
 dependencies = [
@@ -7804,6 +7759,51 @@ name = "target-lexicon"
 version = "0.12.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
+
+[[package]]
+name = "task"
+version = "0.5.32"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "calamine",
+ "chrono",
+ "csv",
+ "dbx-core",
+ "deadpool-postgres",
+ "duckdb",
+ "font-kit",
+ "futures",
+ "log",
+ "mongodb",
+ "percent-encoding",
+ "portpicker",
+ "redis",
+ "reqwest 0.12.28",
+ "russh",
+ "rust_decimal",
+ "rustls 0.23.40",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-log",
+ "tauri-plugin-process",
+ "tauri-plugin-shell",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tauri-plugin-window-state",
+ "tiberius",
+ "tokio",
+ "tokio-postgres",
+ "tokio-util",
+ "uuid",
+ "zip 4.6.1",
+]
 
 [[package]]
 name = "tauri"

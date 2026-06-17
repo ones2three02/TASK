@@ -1,5 +1,5 @@
 [package]
-name = "dbx"
+name = "task"
 version = "0.5.32"
 description = "Open-source database management tool"
 authors = ["skyler"]

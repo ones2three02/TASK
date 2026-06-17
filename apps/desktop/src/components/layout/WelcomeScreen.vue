@@ -137,7 +137,7 @@ const { t } = useI18n();
 
       <!-- Project Info -->
       <div class="mt-2 flex items-center justify-center gap-3 text-[11px] text-muted-foreground/60">
-        <span>DBX {{ appVersion ? "v" + appVersion : "" }}</span>
+        <span>TASK {{ appVersion ? "v" + appVersion : "" }}</span>
         <span>·</span>
         <a href="#" class="hover:text-foreground transition-colors" @click.prevent="emit('open-github')">GitHub</a>
       </div>

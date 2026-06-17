@@ -63,9 +63,9 @@ fn setup_desktop_tray<R: tauri::Runtime, M: Manager<R>>(
     manager: &M,
     _icon_theme: DesktopIconTheme,
 ) -> tauri::Result<()> {
-    let menu = MenuBuilder::new(manager).text("show", "Show DBX").separator().text("quit", "Quit DBX").build()?;
+    let menu = MenuBuilder::new(manager).text("show", "Show TASK").separator().text("quit", "Quit TASK").build()?;
     let mut tray =
-        TrayIconBuilder::<R>::with_id(DESKTOP_TRAY_ID).tooltip("DBX").menu(&menu).show_menu_on_left_click(false);
+        TrayIconBuilder::<R>::with_id(DESKTOP_TRAY_ID).tooltip("TASK").menu(&menu).show_menu_on_left_click(false);
     #[cfg(target_os = "macos")]
     {
         match _icon_theme {

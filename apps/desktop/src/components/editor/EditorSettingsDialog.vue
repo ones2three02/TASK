@@ -723,7 +723,7 @@ const webdavUsername = ref(localStorage.getItem("dbx-webdav-username") || "");
 const webdavPassword = ref("");
 const webdavRememberPassword = ref(localStorage.getItem("dbx-webdav-remember-password") === "true");
 const webdavHasSavedPassword = ref(false);
-const webdavRemotePath = ref(localStorage.getItem("dbx-webdav-remote-path") || "DBX/sync/snapshot.json");
+const webdavRemotePath = ref(localStorage.getItem("dbx-webdav-remote-path") || "TASK/sync/snapshot.json");
 const webdavSyncSecrets = ref(false);
 const webdavSecretsPassphrase = ref("");
 const webdavBusy = ref<"" | "test" | "upload" | "download">("");
@@ -737,7 +737,7 @@ function currentWebDavConfig(): WebDavConfig {
     endpoint: webdavEndpoint.value.trim(),
     username: webdavUsername.value.trim() || undefined,
     password: webdavPassword.value || undefined,
-    remotePath: webdavRemotePath.value.trim() || "DBX/sync/snapshot.json",
+    remotePath: webdavRemotePath.value.trim() || "TASK/sync/snapshot.json",
   };
 }
 
@@ -749,7 +749,7 @@ function currentWebDavAccountConfig(): WebDavConfig {
 function rememberWebDavFields() {
   localStorage.setItem("dbx-webdav-endpoint", webdavEndpoint.value.trim());
   localStorage.setItem("dbx-webdav-username", webdavUsername.value.trim());
-  localStorage.setItem("dbx-webdav-remote-path", webdavRemotePath.value.trim() || "DBX/sync/snapshot.json");
+  localStorage.setItem("dbx-webdav-remote-path", webdavRemotePath.value.trim() || "TASK/sync/snapshot.json");
 }
 
 function setWebDavResult(message: string, error = false) {
@@ -1528,7 +1528,7 @@ watch(
                 <div class="grid grid-cols-2 gap-2">
                   <Button type="button" variant="outline" class="h-auto justify-start border p-3" :class="editIconTheme === 'default' ? 'border-blue-300 ring-2 ring-blue-300/50' : ''" @click="setIconTheme('default')">
                     <div class="flex items-center gap-3 text-left">
-                      <img src="/logo.png" alt="DBX" class="h-8 w-8 rounded-md" />
+                      <img src="/logo.png" alt="TASK" class="h-8 w-8 rounded-md" />
                       <div>
                         <div class="text-sm font-medium">{{ t("settings.iconThemeDefault") }}</div>
                         <div class="text-xs text-muted-foreground">{{ t("settings.iconThemeDefaultDescription") }}</div>
@@ -1537,7 +1537,7 @@ watch(
                   </Button>
                   <Button type="button" variant="outline" class="h-auto justify-start border p-3" :class="editIconTheme === 'black' ? 'border-blue-300 ring-2 ring-blue-300/50' : ''" @click="setIconTheme('black')">
                     <div class="flex items-center gap-3 text-left">
-                      <img src="/logo-black.png" alt="DBX" class="h-8 w-8 dark:invert" />
+                      <img src="/logo-black.png" alt="TASK" class="h-8 w-8 dark:invert" />
                       <div>
                         <div class="text-sm font-medium">{{ t("settings.iconThemeBlack") }}</div>
                         <div class="text-xs text-muted-foreground">{{ t("settings.iconThemeBlackDescription") }}</div>
@@ -2361,7 +2361,7 @@ watch(
               <div class="rounded-lg border bg-muted/20 p-4">
                 <div class="flex items-start justify-between gap-4">
                   <div class="min-w-0 space-y-1">
-                    <div class="text-lg font-semibold">DBX</div>
+                    <div class="text-lg font-semibold">TASK</div>
                     <p class="text-sm text-muted-foreground">{{ t("settings.aboutDescription") }}</p>
                   </div>
                   <div v-if="displayedAppVersion" class="rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground">
@@ -2414,7 +2414,7 @@ watch(
                   </div>
                   <div class="mt-1 text-sm text-primary">{{ t("settings.wechatGroupInvite") }}</div>
                 </button>
-                <button type="button" class="rounded-lg border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" @click="openExternalUrl('https://github.com/t8y2/dbx')">
+                <button type="button" class="rounded-lg border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" @click="openExternalUrl('https://github.com/ones2three02/TASK')">
                   <div class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     {{ t("settings.project") }}
                   </div>
@@ -2423,9 +2423,9 @@ watch(
                     {{ t("settings.openSource") }}
                     <ExternalLink class="ml-auto h-3.5 w-3.5 text-muted-foreground" />
                   </div>
-                  <div class="mt-1 text-sm text-primary">github.com/t8y2/dbx</div>
+                  <div class="mt-1 text-sm text-primary">github.com/ones2three02/TASK</div>
                 </button>
-                <button type="button" class="rounded-lg border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" @click="openExternalUrl('https://dbxio.com')">
+                <button type="button" class="rounded-lg border p-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" @click="openExternalUrl('https://github.com/ones2three02/TASK')">
                   <div class="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     {{ t("settings.project") }}
                   </div>
@@ -2434,7 +2434,7 @@ watch(
                     {{ t("settings.officialDocs") }}
                     <ExternalLink class="ml-auto h-3.5 w-3.5 text-muted-foreground" />
                   </div>
-                  <div class="mt-1 text-sm text-primary">dbxio.com</div>
+                  <div class="mt-1 text-sm text-primary">github.com/ones2three02/TASK</div>
                 </button>
               </div>
             </section>
@@ -2508,7 +2508,7 @@ watch(
               <RefreshCw v-else class="mr-1 h-3 w-3" />
               {{ t("settings.mcpRefresh") }}
             </Button>
-            <Button variant="outline" @click="openExternalUrl('https://dbxio.com/cn/docs/mcp')">
+            <Button variant="outline" @click="openExternalUrl('https://github.com/ones2three02/TASK')">
               <ExternalLink class="mr-1 h-3 w-3" />
               {{ t("settings.mcpGuide") }}
             </Button>

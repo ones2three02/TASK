@@ -175,7 +175,7 @@ export function buildSystemPrompt(action: AiAction, context: AiContext, mode: Ai
 
 function buildBasePromptLines(isZh: boolean): string[] {
   return [
-    isZh ? "你是 DBX 内置的数据库助手。用中文回复。" : "You are DBX's built-in database assistant. Reply in English.",
+    isZh ? "你是 TASK 内置的数据库助手。用中文回复。" : "You are TASK's built-in database assistant. Reply in English.",
     isZh ? "精确、保守，根据当前数据库方言生成 SQL。" : "Be precise, conservative, and adapt SQL to the active database dialect.",
     isZh ? "严格使用当前数据库方言；标识符引用、分页、日期函数、字符串拼接、LIMIT/TOP/OFFSET 语法必须匹配数据库类型。" : "Strictly use the active database dialect; identifier quoting, pagination, date functions, string concatenation, and LIMIT/TOP/OFFSET syntax must match the database type.",
     isZh

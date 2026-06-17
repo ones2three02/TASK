@@ -22,7 +22,7 @@ export function canRollbackHistoryEntry(entry: Pick<HistoryAiAnalysisEntry, "con
 
 export function buildHistoryAiAnalysisPrompt(entry: HistoryAiAnalysisEntry): string {
   const details = [
-    "请分析这条 DBX 历史记录，重点说明：",
+    "请分析这条 TASK 历史记录，重点说明：",
     "1. 这次操作做了什么，以及可能影响哪些数据或结构。",
     "2. 是否有风险，例如无 WHERE 更新、删除、DDL、锁表、性能或权限问题。",
     "3. 如果有 Rollback SQL，请评估它是否足够安全，执行前还应该确认什么。",
