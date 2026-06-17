@@ -69,7 +69,7 @@
       }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUyNzUyRTgwNkZFRTMyQwpSV1FzNC80RzZGSW5CVTN6YXM5QVVaM0ZtcGdDWnFIUE81N1krT3VyTlNMUTZpVCtaaG9aaGpzego=",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDczNzZBMDVFQUMzRTY5MTEKUldRUmFUNnNYcUIyYy9LOFRJdkV4d1ViZE5tYVBnUFo2bS9yMEw1b1NVK3o4V2lqcnh1UTgzYVgK",
       "endpoints": ["https://github.com/ones2three02/TASK/releases/latest/download/latest.json"]
     }
   }

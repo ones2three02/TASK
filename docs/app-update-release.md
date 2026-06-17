@@ -24,11 +24,10 @@ pnpm tauri signer generate -- -w ~/.tauri/task-updater.key
 src-tauri/tauri.conf.json -> plugins.updater.pubkey
 ```
 
-然后把 private key 以 base64 形式写入 GitHub Secrets：
+然后把 private key 原始内容写入 GitHub Secrets：
 
 ```bash
-KEY_B64="$(base64 < ~/.tauri/task-updater.key | tr -d '\r\n')"
-gh secret set TAURI_SIGNING_PRIVATE_KEY_BASE64 --repo ones2three02/TASK --body "$KEY_B64"
+gh secret set TAURI_SIGNING_PRIVATE_KEY --repo ones2three02/TASK < ~/.tauri/task-updater.key
 ```
 
 如果生成 key 时设置了密码，还需要添加：
@@ -38,6 +37,7 @@ gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --repo ones2three02/TASK --body
 ```
 
 不要提交 private key，不要把 private key 发到聊天或文档里。
+不要在 workflow 中把 private key 解码后写入 `$GITHUB_ENV`，否则第三方 action 打印环境变量时可能绕过 GitHub Secrets 的自动脱敏。
 
 ## 发布一个可应用内更新的版本
 
