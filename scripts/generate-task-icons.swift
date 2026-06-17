@@ -56,61 +56,57 @@ func drawTaskGlyph(style: IconStyle, size: CGFloat) -> NSBitmapImageRep {
   let scale = size / 1024
   context.cgContext.scaleBy(x: scale, y: scale)
 
+  let bgRect = style == .template
+    ? NSRect(x: 180, y: 180, width: 664, height: 664)
+    : NSRect(x: 80, y: 80, width: 864, height: 864)
+  let bgRadius: CGFloat = style == .template ? 150 : 210
+  let bgPath = NSBezierPath(roundedRect: bgRect, xRadius: bgRadius, yRadius: bgRadius)
+  let gradient = style == .template
+    ? NSGradient(colors: [.black, .black])!
+    : NSGradient(colors: [color(0x242424), color(0x070707)])!
+  gradient.draw(in: bgPath, angle: 90)
+
   if style != .template {
-    let bgRect = NSRect(x: 72, y: 72, width: 880, height: 880)
-    let bgPath = NSBezierPath(roundedRect: bgRect, xRadius: 220, yRadius: 220)
-    let gradient = style == .black
-      ? NSGradient(colors: [color(0x181716), color(0x050505)])!
-      : NSGradient(colors: [color(0x706052), color(0x342A22)])!
-    gradient.draw(in: bgPath, angle: 90)
-    strokeRoundedRect(bgRect.insetBy(dx: 8, dy: 8), radius: 212, color: color(0xffffff, 0.24), width: 12)
+    strokeRoundedRect(bgRect.insetBy(dx: 8, dy: 8), radius: bgRadius - 8, color: color(0xffffff, 0.14), width: 10)
   }
 
-  if style == .template {
-    let card = NSRect(x: 232, y: 190, width: 560, height: 644)
-    drawRoundedRect(card, radius: 122, fill: .black)
-    drawChecklistLines(baseColor: .white, accentColor: .white, checkColor: .white)
-  } else {
-    let shadow = NSShadow()
-    shadow.shadowOffset = NSSize(width: 0, height: -18)
-    shadow.shadowBlurRadius = 44
-    shadow.shadowColor = color(0x000000, 0.26)
-    shadow.set()
-    drawRoundedRect(NSRect(x: 242, y: 198, width: 540, height: 628), radius: 118, fill: color(0xffffff))
-    NSShadow().set()
-    strokeRoundedRect(NSRect(x: 242, y: 198, width: 540, height: 628), radius: 118, color: color(0xffffff, 0.72), width: 10)
-    drawChecklistLines(baseColor: color(0x1c2a39), accentColor: color(0x2563eb), checkColor: color(0x14b8a6))
-  }
+  let shadow = NSShadow()
+  shadow.shadowOffset = NSSize(width: 0, height: -10)
+  shadow.shadowBlurRadius = style == .template ? 0 : 18
+  shadow.shadowColor = color(0x000000, style == .template ? 0 : 0.28)
+  shadow.set()
+  drawClipboardGlyph(color: .white, originX: 300, originY: 236, scale: 1.0)
+  NSShadow().set()
 
   NSGraphicsContext.restoreGraphicsState()
   return rep
 }
 
-func drawChecklistLines(baseColor: NSColor, accentColor: NSColor, checkColor: NSColor) {
-  let rows: [(CGFloat, NSColor, CGFloat)] = [
-    (610, accentColor, 188),
-    (500, color(0x64748b), 244),
-    (390, color(0x64748b), 206),
-  ]
-
-  for (index, row) in rows.enumerated() {
-    let y = row.0
-    let lineColor = index == 0 ? row.1 : (baseColor == .white ? .white : row.1)
-    strokeRoundedRect(NSRect(x: 336, y: y - 28, width: 58, height: 58), radius: 18, color: lineColor, width: 18)
-    let line = NSBezierPath(roundedRect: NSRect(x: 440, y: y - 15, width: row.2, height: 30), xRadius: 15, yRadius: 15)
-    lineColor.setFill()
-    line.fill()
+func drawClipboardGlyph(color glyphColor: NSColor, originX: CGFloat, originY: CGFloat, scale: CGFloat) {
+  func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> NSRect {
+    NSRect(x: originX + x * scale, y: originY + y * scale, width: w * scale, height: h * scale)
   }
 
+  strokeRoundedRect(rect(78, 74, 328, 428), radius: 48 * scale, color: glyphColor, width: 38 * scale)
+  strokeRoundedRect(rect(158, 430, 168, 88), radius: 38 * scale, color: glyphColor, width: 38 * scale)
+
+  let hole = NSBezierPath(roundedRect: rect(194, 454, 96, 28), xRadius: 12 * scale, yRadius: 12 * scale)
+  NSColor.black.setFill()
+  hole.fill()
+
   let check = NSBezierPath()
-  check.move(to: NSPoint(x: 350, y: 610))
-  check.line(to: NSPoint(x: 372, y: 588))
-  check.line(to: NSPoint(x: 416, y: 642))
-  checkColor.setStroke()
-  check.lineWidth = 22
+  check.move(to: NSPoint(x: originX + 172 * scale, y: originY + 300 * scale))
+  check.line(to: NSPoint(x: originX + 226 * scale, y: originY + 244 * scale))
+  check.line(to: NSPoint(x: originX + 326 * scale, y: originY + 358 * scale))
+  glyphColor.setStroke()
+  check.lineWidth = 42 * scale
   check.lineCapStyle = .round
   check.lineJoinStyle = .round
   check.stroke()
+
+  let line = NSBezierPath(roundedRect: rect(166, 148, 154, 32), xRadius: 16 * scale, yRadius: 16 * scale)
+  glyphColor.setFill()
+  line.fill()
 }
 
 func writePNG(_ rep: NSBitmapImageRep, to url: URL) throws {
