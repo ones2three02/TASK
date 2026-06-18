@@ -53,15 +53,37 @@ const actionStatus = computed(() => {
 const projectServes = computed(() => store.serves.filter((s) => s.projectId === store.activeProjectId));
 const serveStatus = computed(() => {
   if (projectServes.value.length === 0) {
-    return { state: "pending", label: "待交付", percent: 0, details: "项目交付价值待归纳与部署" };
+    return { state: "pending", label: "待交付", percent: 0, details: "暂无交付计划与验收记录" };
   }
-  const activeServe = projectServes.value[0];
-  const isDelivered = activeServe.status === "delivered" || activeServe.status === "active";
+
+  const totalServes = projectServes.value.length;
+  const acceptedServes = projectServes.value.filter((serve) => serve.status === "accepted" || serve.acceptanceStatus === "accepted").length;
+  const changesRequestedServes = projectServes.value.filter((serve) => serve.status === "changes_requested" || serve.acceptanceStatus === "changes_requested").length;
+  const deliveredServes = projectServes.value.filter((serve) => serve.status === "delivered").length;
+  const activeServes = projectServes.value.filter((serve) => serve.status === "active").length;
+  const checklistTotal = projectServes.value.reduce((acc, serve) => acc + (serve.acceptanceChecklist?.length ?? 0), 0);
+  const checklistDone = projectServes.value.reduce((acc, serve) => acc + (serve.acceptanceChecklist?.filter((item) => item.completed).length ?? 0), 0);
+  const isCompleted = acceptedServes === totalServes;
+  const percent = isCompleted ? 100 : Math.max(25, Math.round((acceptedServes / totalServes) * 100));
+  const checklistDetails = checklistTotal > 0 ? `，验收清单 ${checklistDone}/${checklistTotal}` : "";
+
+  if (isCompleted) {
+    return { state: "completed", label: "验收通过", percent, details: `全部 ${totalServes} 项交付已验收通过${checklistDetails}` };
+  }
+
+  if (changesRequestedServes > 0) {
+    return { state: "in_progress", label: "需返工", percent, details: `${changesRequestedServes} 项交付需返工，已验收 ${acceptedServes}/${totalServes}${checklistDetails}` };
+  }
+
+  if (deliveredServes > 0) {
+    return { state: "in_progress", label: "待验收", percent, details: `${deliveredServes} 项已交付待验收，已验收 ${acceptedServes}/${totalServes}${checklistDetails}` };
+  }
+
   return {
-    state: isDelivered ? "completed" : "in_progress",
-    label: isDelivered ? "已交付" : "草稿中",
-    percent: isDelivered ? 100 : 50,
-    details: isDelivered ? `已成功交付: ${activeServe.deliverable}` : `已起草交付价值: ${activeServe.title}`,
+    state: "in_progress",
+    label: activeServes > 0 ? "交付中" : "规划中",
+    percent,
+    details: activeServes > 0 ? `${activeServes} 项交付推进中，已验收 ${acceptedServes}/${totalServes}${checklistDetails}` : `${totalServes} 项交付计划已建立${checklistDetails}`,
   };
 });
 
@@ -111,7 +133,7 @@ const steps = computed(() => [
   {
     id: "serve" as const,
     letter: "S",
-    title: "SERVE 服务",
+    title: "SERVE 交付",
     icon: ServeIcon,
     status: serveStatus.value,
     color: "from-rose-500 to-pink-600",

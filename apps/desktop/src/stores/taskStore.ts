@@ -1,16 +1,11 @@
 import { defineStore } from "pinia";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { uuid } from "@/lib/utils";
-import { normalizeAction, normalizeKeep, normalizeServe, normalizeTarget, type AcceptanceStatus, type ChecklistItem, type EvidenceItem, type KeepType, type ServeStatus, type TaskProjectSnapshot } from "@/lib/taskPlanning";
+import { normalizeAction, normalizeKeep, normalizeServe, normalizeTarget, type AcceptanceStatus, type ChecklistItem, type EvidenceItem, type KeepType, type ServeStatus, type TaskKeep, type TaskProjectSnapshot } from "@/lib/taskPlanning";
 
 type ChecklistItemInput = { id?: string; title: string; completed: boolean };
 type EvidenceItemInput = Omit<EvidenceItem, "id" | "createdAt"> & { id?: string; createdAt?: string };
-type LegacyServeStatus = Extract<ServeStatus, "draft" | "active" | "delivered">;
-type LegacyKeepType = Extract<KeepType, "document" | "link" | "archive">;
-type LifecycleServe = Serve<ServeStatus>;
-type LifecycleKeep = Keep<KeepType>;
-type UiCompatibleServe = Serve<LegacyServeStatus>;
-type UiCompatibleKeep = Keep<LegacyKeepType>;
+type KeepUiType = Extract<KeepType, "document" | "link" | "archive">;
 
 export interface Project {
   id: string;
@@ -48,14 +43,14 @@ export interface Action {
   evidence?: string;
 }
 
-export interface Serve<TStatus extends ServeStatus = LegacyServeStatus> {
+export interface Serve {
   id: string;
   projectId: string;
   title: string;
   description: string;
   deliverable: string;
   client: string;
-  status: TStatus;
+  status: ServeStatus;
   plannedAt?: string;
   deliveredAt?: string;
   acceptanceStatus: AcceptanceStatus;
@@ -65,15 +60,26 @@ export interface Serve<TStatus extends ServeStatus = LegacyServeStatus> {
   createdAt: string;
 }
 
-export interface Keep<TType extends KeepType = LegacyKeepType> {
+export interface Keep {
   id: string;
   projectId: string;
   name: string;
-  type: TType;
+  type: KeepUiType;
   content: string;
   createdAt: string;
   relatedServeId?: string;
   relatedActionId?: string;
+}
+
+function isKeepUiType(type: KeepType): type is KeepUiType {
+  return type === "document" || type === "link" || type === "archive";
+}
+
+function toKeepUiItem(keep: TaskKeep): Keep {
+  return {
+    ...keep,
+    type: isKeepUiType(keep.type) ? keep.type : "document",
+  };
 }
 
 export const useTaskStore = defineStore("task", () => {
@@ -81,8 +87,9 @@ export const useTaskStore = defineStore("task", () => {
   const activeProjectId = ref<string>("");
   const targets = ref<Target[]>([]);
   const actions = ref<Action[]>([]);
-  const serves = ref<UiCompatibleServe[]>([]);
-  const keeps = ref<UiCompatibleKeep[]>([]);
+  const serves = ref<Serve[]>([]);
+  const keeps = ref<TaskKeep[]>([]);
+  const keepUiItems = computed(() => keeps.value.map(toKeepUiItem));
 
   // Load state from localStorage
   function loadAll() {
@@ -91,8 +98,8 @@ export const useTaskStore = defineStore("task", () => {
       activeProjectId.value = localStorage.getItem("task-active-project-id") || "";
       targets.value = JSON.parse(localStorage.getItem("task-targets") || "[]").map(normalizeTarget);
       actions.value = JSON.parse(localStorage.getItem("task-actions") || "[]").map(normalizeAction);
-      serves.value = JSON.parse(localStorage.getItem("task-serves") || "[]").map(normalizeServe) as UiCompatibleServe[];
-      keeps.value = JSON.parse(localStorage.getItem("task-keeps") || "[]").map(normalizeKeep) as UiCompatibleKeep[];
+      serves.value = JSON.parse(localStorage.getItem("task-serves") || "[]").map(normalizeServe);
+      keeps.value = JSON.parse(localStorage.getItem("task-keeps") || "[]").map(normalizeKeep);
 
       // Initialize a default project if none exists
       if (projects.value.length === 0) {
@@ -182,8 +189,8 @@ export const useTaskStore = defineStore("task", () => {
     projects.value.push(normalizedSnapshot.project);
     targets.value.push(...normalizedSnapshot.targets);
     actions.value.push(...normalizedSnapshot.actions);
-    serves.value.push(...(normalizedSnapshot.serves as UiCompatibleServe[]));
-    keeps.value.push(...(normalizedSnapshot.keeps as UiCompatibleKeep[]));
+    serves.value.push(...normalizedSnapshot.serves);
+    keeps.value.push(...normalizedSnapshot.keeps);
     activeProjectId.value = snapshot.project.id;
 
     saveProjects();
@@ -296,15 +303,15 @@ export const useTaskStore = defineStore("task", () => {
       reworkItems: reworkItems.map((item) => ({ id: item.id || uuid(), title: item.title, completed: item.completed })),
       createdAt: new Date().toISOString(),
     });
-    serves.value.push(serve as UiCompatibleServe);
+    serves.value.push(serve);
     saveServes();
     return serve;
   }
 
-  function updateServe(updated: LifecycleServe) {
+  function updateServe(updated: Serve) {
     const index = serves.value.findIndex((s) => s.id === updated.id);
     if (index !== -1) {
-      serves.value[index] = { ...updated } as UiCompatibleServe;
+      serves.value[index] = { ...updated };
       saveServes();
     }
   }
@@ -326,15 +333,15 @@ export const useTaskStore = defineStore("task", () => {
       relatedServeId,
       relatedActionId,
     });
-    keeps.value.push(keep as UiCompatibleKeep);
+    keeps.value.push(keep);
     saveKeeps();
     return keep;
   }
 
-  function updateKeep(updated: LifecycleKeep) {
+  function updateKeep(updated: Keep) {
     const index = keeps.value.findIndex((k) => k.id === updated.id);
     if (index !== -1) {
-      keeps.value[index] = { ...updated } as UiCompatibleKeep;
+      keeps.value[index] = { ...updated };
       saveKeeps();
     }
   }
@@ -355,7 +362,7 @@ export const useTaskStore = defineStore("task", () => {
     targets,
     actions,
     serves,
-    keeps,
+    keeps: keepUiItems,
     loadAll,
     addProject,
     addProjectSnapshot,
