@@ -1,11 +1,10 @@
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import { uuid } from "@/lib/utils";
-import { normalizeAction, normalizeKeep, normalizeServe, normalizeTarget, type AcceptanceStatus, type ChecklistItem, type EvidenceItem, type KeepType, type ServeStatus, type TaskKeep, type TaskProjectSnapshot } from "@/lib/taskPlanning";
+import { normalizeAction, normalizeKeep, normalizeServe, normalizeTarget, type AcceptanceStatus, type ChecklistItem, type EvidenceItem, type KeepType, type ServeStatus, type TaskProjectSnapshot } from "@/lib/taskPlanning";
 
 type ChecklistItemInput = { id?: string; title: string; completed: boolean };
 type EvidenceItemInput = Omit<EvidenceItem, "id" | "createdAt"> & { id?: string; createdAt?: string };
-type KeepUiType = Extract<KeepType, "document" | "link" | "archive">;
 
 export interface Project {
   id: string;
@@ -64,22 +63,11 @@ export interface Keep {
   id: string;
   projectId: string;
   name: string;
-  type: KeepUiType;
+  type: KeepType;
   content: string;
   createdAt: string;
   relatedServeId?: string;
   relatedActionId?: string;
-}
-
-function isKeepUiType(type: KeepType): type is KeepUiType {
-  return type === "document" || type === "link" || type === "archive";
-}
-
-function toKeepUiItem(keep: TaskKeep): Keep {
-  return {
-    ...keep,
-    type: isKeepUiType(keep.type) ? keep.type : "document",
-  };
 }
 
 export const useTaskStore = defineStore("task", () => {
@@ -88,8 +76,7 @@ export const useTaskStore = defineStore("task", () => {
   const targets = ref<Target[]>([]);
   const actions = ref<Action[]>([]);
   const serves = ref<Serve[]>([]);
-  const keeps = ref<TaskKeep[]>([]);
-  const keepUiItems = computed(() => keeps.value.map(toKeepUiItem));
+  const keeps = ref<Keep[]>([]);
 
   // Load state from localStorage
   function loadAll() {
@@ -362,7 +349,7 @@ export const useTaskStore = defineStore("task", () => {
     targets,
     actions,
     serves,
-    keeps: keepUiItems,
+    keeps,
     loadAll,
     addProject,
     addProjectSnapshot,

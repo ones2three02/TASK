@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTaskStore, type Keep } from "@/stores/taskStore";
-import { buildProjectRetrospective, exportProjectSnapshot, normalizeImportedProjectSnapshot } from "@/lib/taskPlanning";
+import { buildProjectRetrospective, exportProjectSnapshot, normalizeImportedProjectSnapshot, type KeepType } from "@/lib/taskPlanning";
 import { Plus, Archive, Trash2, Edit, FileText, Link, PackageOpen, ExternalLink, X, Download, Upload, ClipboardList } from "@lucide/vue";
 
 const taskStore = useTaskStore();
@@ -11,23 +11,28 @@ const projectKeeps = computed(() => {
   return taskStore.keeps.filter((k) => k.projectId === taskStore.activeProjectId);
 });
 
-// Classify keeps
-const documents = computed(() => projectKeeps.value.filter((k) => k.type === "document"));
-const links = computed(() => projectKeeps.value.filter((k) => k.type === "link"));
-const archives = computed(() => projectKeeps.value.filter((k) => k.type === "archive"));
+const documentAssets = computed(() => projectKeeps.value.filter((k) => k.type === "document" || k.type === "retrospective"));
+const evidenceAssets = computed(() => projectKeeps.value.filter((k) => k.type === "link" || k.type === "evidence"));
+const versionAssets = computed(() => projectKeeps.value.filter((k) => k.type === "archive" || k.type === "version"));
 
 // Dialog state
 const showDialog = ref(false);
 const isEdit = ref(false);
 const editId = ref("");
 const formName = ref("");
-const formType = ref<"document" | "link" | "archive">("document");
+const formType = ref<KeepType>("document");
 const formContent = ref("");
+const formRelatedServeId = ref("");
+const formRelatedActionId = ref("");
 const importInputRef = ref<HTMLInputElement | null>(null);
 
 // Selected keep details (for reading documents)
 const selectedKeepForView = ref<Keep | null>(null);
 const activeProject = computed(() => taskStore.projects.find((p) => p.id === taskStore.activeProjectId));
+const keepTypes: KeepType[] = ["document", "link", "archive", "evidence", "version", "retrospective"];
+const projectKeepsProjectTargets = computed(() => taskStore.targets.filter((t) => t.projectId === taskStore.activeProjectId));
+const projectKeepsProjectActions = computed(() => taskStore.actions.filter((a) => a.projectId === taskStore.activeProjectId));
+const projectKeepsProjectServes = computed(() => taskStore.serves.filter((s) => s.projectId === taskStore.activeProjectId));
 
 function openAddDialog() {
   isEdit.value = false;
@@ -35,6 +40,8 @@ function openAddDialog() {
   formName.value = "";
   formType.value = "document";
   formContent.value = "";
+  formRelatedServeId.value = "";
+  formRelatedActionId.value = "";
   showDialog.value = true;
 }
 
@@ -44,6 +51,8 @@ function openEditDialog(keep: Keep) {
   formName.value = keep.name;
   formType.value = keep.type;
   formContent.value = keep.content;
+  formRelatedServeId.value = keep.relatedServeId || "";
+  formRelatedActionId.value = keep.relatedActionId || "";
   showDialog.value = true;
 }
 
@@ -56,10 +65,12 @@ function submitForm() {
       existing.name = formName.value.trim();
       existing.type = formType.value;
       existing.content = formContent.value.trim();
+      existing.relatedServeId = formRelatedServeId.value || undefined;
+      existing.relatedActionId = formRelatedActionId.value || undefined;
       taskStore.updateKeep(existing);
     }
   } else {
-    taskStore.addKeep(formName.value.trim(), formType.value, formContent.value.trim());
+    taskStore.addKeep(formName.value.trim(), formType.value, formContent.value.trim(), formRelatedServeId.value || undefined, formRelatedActionId.value || undefined);
   }
   showDialog.value = false;
 }
@@ -84,7 +95,7 @@ function visitLink(url: string) {
 function createRetrospective() {
   if (!activeProject.value) return;
   const retrospective = buildProjectRetrospective(activeProject.value, projectKeepsProjectTargets.value, projectKeepsProjectActions.value, projectKeepsProjectServes.value, projectKeeps.value);
-  taskStore.addKeep(`项目复盘 - ${activeProject.value.name}`, "document", retrospective);
+  taskStore.addKeep(`项目复盘 - ${activeProject.value.name}`, "retrospective", retrospective);
 }
 
 function exportCurrentProject() {
@@ -117,33 +128,48 @@ async function importProject(event: Event) {
   }
 }
 
-const projectKeepsProjectTargets = computed(() => taskStore.targets.filter((t) => t.projectId === taskStore.activeProjectId));
-const projectKeepsProjectActions = computed(() => taskStore.actions.filter((a) => a.projectId === taskStore.activeProjectId));
-const projectKeepsProjectServes = computed(() => taskStore.serves.filter((s) => s.projectId === taskStore.activeProjectId));
+function getRelatedServeTitle(id?: string) {
+  if (!id) return "";
+  return projectKeepsProjectServes.value.find((serve) => serve.id === id)?.title || "关联交付项已删除";
+}
 
-function getKeepIcon(type: "document" | "link" | "archive") {
+function getRelatedActionTitle(id?: string) {
+  if (!id) return "";
+  return projectKeepsProjectActions.value.find((action) => action.id === id)?.title || "关联行动已删除";
+}
+
+function getKeepIcon(type: KeepType) {
   switch (type) {
     case "document":
+    case "retrospective":
       return FileText;
     case "link":
+    case "evidence":
       return Link;
     case "archive":
+    case "version":
       return PackageOpen;
   }
 }
 
-function getKeepBadgeClass(type: "document" | "link" | "archive") {
+function getKeepBadgeClass(type: KeepType) {
   switch (type) {
     case "document":
       return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+    case "retrospective":
+      return "bg-cyan-500/10 text-cyan-500 border-cyan-500/20";
     case "link":
       return "bg-purple-500/10 text-purple-500 border-purple-500/20";
+    case "evidence":
+      return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
     case "archive":
       return "bg-indigo-500/10 text-indigo-500 border-indigo-500/20";
+    case "version":
+      return "bg-amber-500/10 text-amber-500 border-amber-500/20";
   }
 }
 
-function getKeepLabel(type: "document" | "link" | "archive") {
+function getKeepLabel(type: KeepType) {
   switch (type) {
     case "document":
       return "知识文档";
@@ -151,6 +177,12 @@ function getKeepLabel(type: "document" | "link" | "archive") {
       return "快捷链接";
     case "archive":
       return "归档版本";
+    case "evidence":
+      return "交付证据";
+    case "version":
+      return "版本记录";
+    case "retrospective":
+      return "项目复盘";
   }
 }
 </script>
@@ -165,7 +197,7 @@ function getKeepLabel(type: "document" | "link" | "archive") {
             <Archive class="h-5 w-5 text-purple-500" />
             K - KEEP 留存与归档
           </h2>
-          <p class="text-xs text-muted-foreground mt-1">项目资产需要积累。沉淀有价值的文档、快捷工具网页、归档包，告别项目碎片化。</p>
+          <p class="text-xs text-muted-foreground mt-1">沉淀文档、链接、交付证据、版本记录和复盘，让项目结果可追溯、可复用。</p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2">
           <button class="inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium hover:bg-muted transition-colors gap-1" @click="createRetrospective">
@@ -196,17 +228,20 @@ function getKeepLabel(type: "document" | "link" | "archive") {
         <div class="flex items-center justify-between border-b pb-2 border-border/40">
           <div class="flex items-center gap-2">
             <FileText class="h-4 w-4 text-blue-500" />
-            <h3 class="font-medium text-sm text-foreground">知识与文档</h3>
+            <h3 class="font-medium text-sm text-foreground">文档与复盘</h3>
             <span class="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
-              {{ documents.length }}
+              {{ documentAssets.length }}
             </span>
           </div>
         </div>
 
         <div class="flex-1 flex flex-col gap-3">
-          <div v-for="keep in documents" :key="keep.id" class="group p-4 rounded-lg border bg-background/50 hover:bg-muted/10 transition-all border-border/80 relative shadow-sm cursor-pointer" @click="selectedKeepForView = keep">
+          <div v-for="keep in documentAssets" :key="keep.id" class="group p-4 rounded-lg border bg-background/50 hover:bg-muted/10 transition-all border-border/80 relative shadow-sm cursor-pointer" @click="selectedKeepForView = keep">
             <div class="flex items-start justify-between gap-2">
-              <h4 class="font-medium text-sm truncate pr-6">{{ keep.name }}</h4>
+              <div class="min-w-0 pr-6">
+                <h4 class="font-medium text-sm truncate">{{ keep.name }}</h4>
+                <span class="mt-1 inline-flex rounded border px-1.5 py-0.5 text-[9px] font-semibold" :class="getKeepBadgeClass(keep.type)">{{ getKeepLabel(keep.type) }}</span>
+              </div>
               <div class="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground" @click.stop="openEditDialog(keep)">
                   <Edit class="h-3 w-3" />
@@ -219,8 +254,12 @@ function getKeepLabel(type: "document" | "link" | "archive") {
             <p class="text-xs text-muted-foreground line-clamp-3 leading-relaxed mt-2">
               {{ keep.content }}
             </p>
+            <div v-if="keep.relatedServeId || keep.relatedActionId" class="mt-2 space-y-1 text-[10px] text-muted-foreground">
+              <div v-if="keep.relatedServeId">S：{{ getRelatedServeTitle(keep.relatedServeId) }}</div>
+              <div v-if="keep.relatedActionId">A：{{ getRelatedActionTitle(keep.relatedActionId) }}</div>
+            </div>
           </div>
-          <div v-if="documents.length === 0" class="py-10 text-center border border-dashed border-border/30 rounded-lg text-muted-foreground/40 text-xs italic">无沉淀文档</div>
+          <div v-if="documentAssets.length === 0" class="py-10 text-center border border-dashed border-border/30 rounded-lg text-muted-foreground/40 text-xs italic">无文档或复盘</div>
         </div>
       </div>
 
@@ -229,22 +268,28 @@ function getKeepLabel(type: "document" | "link" | "archive") {
         <div class="flex items-center justify-between border-b pb-2 border-border/40">
           <div class="flex items-center gap-2">
             <Link class="h-4 w-4 text-purple-500" />
-            <h3 class="font-medium text-sm text-foreground">网址与快捷链接</h3>
+            <h3 class="font-medium text-sm text-foreground">链接与证据</h3>
             <span class="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
-              {{ links.length }}
+              {{ evidenceAssets.length }}
             </span>
           </div>
         </div>
 
         <div class="flex-1 flex flex-col gap-3">
-          <div v-for="keep in links" :key="keep.id" class="group p-4 rounded-lg border bg-background/50 hover:bg-muted/10 transition-all border-border/80 relative shadow-sm">
+          <div v-for="keep in evidenceAssets" :key="keep.id" class="group p-4 rounded-lg border bg-background/50 hover:bg-muted/10 transition-all border-border/80 relative shadow-sm">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
                 <h4 class="font-medium text-sm truncate pr-1">{{ keep.name }}</h4>
-                <button class="text-[10px] text-purple-500 font-medium hover:underline truncate inline-flex items-center gap-0.5 mt-1.5 max-w-full text-left" @click="visitLink(keep.content)">
+                <span class="mt-1 inline-flex rounded border px-1.5 py-0.5 text-[9px] font-semibold" :class="getKeepBadgeClass(keep.type)">{{ getKeepLabel(keep.type) }}</span>
+                <button v-if="keep.type === 'link'" class="block text-[10px] text-purple-500 font-medium hover:underline truncate inline-flex items-center gap-0.5 mt-1.5 max-w-full text-left" @click="visitLink(keep.content)">
                   {{ keep.content }}
                   <ExternalLink class="h-2.5 w-2.5 shrink-0" />
                 </button>
+                <p v-else class="text-xs text-muted-foreground mt-1.5 line-clamp-3">{{ keep.content }}</p>
+                <div v-if="keep.relatedServeId || keep.relatedActionId" class="mt-2 space-y-1 text-[10px] text-muted-foreground">
+                  <div v-if="keep.relatedServeId">S：{{ getRelatedServeTitle(keep.relatedServeId) }}</div>
+                  <div v-if="keep.relatedActionId">A：{{ getRelatedActionTitle(keep.relatedActionId) }}</div>
+                </div>
               </div>
 
               <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-4 right-4">
@@ -257,7 +302,7 @@ function getKeepLabel(type: "document" | "link" | "archive") {
               </div>
             </div>
           </div>
-          <div v-if="links.length === 0" class="py-10 text-center border border-dashed border-border/30 rounded-lg text-muted-foreground/40 text-xs italic">无记录链接</div>
+          <div v-if="evidenceAssets.length === 0" class="py-10 text-center border border-dashed border-border/30 rounded-lg text-muted-foreground/40 text-xs italic">无链接或证据</div>
         </div>
       </div>
 
@@ -266,21 +311,26 @@ function getKeepLabel(type: "document" | "link" | "archive") {
         <div class="flex items-center justify-between border-b pb-2 border-border/40">
           <div class="flex items-center gap-2">
             <PackageOpen class="h-4 w-4 text-indigo-500" />
-            <h3 class="font-medium text-sm text-foreground">归档包与交付版本</h3>
+            <h3 class="font-medium text-sm text-foreground">版本与归档</h3>
             <span class="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
-              {{ archives.length }}
+              {{ versionAssets.length }}
             </span>
           </div>
         </div>
 
         <div class="flex-1 flex flex-col gap-3">
-          <div v-for="keep in archives" :key="keep.id" class="group p-4 rounded-lg border bg-background/50 hover:bg-muted/10 transition-all border-border/80 relative shadow-sm">
+          <div v-for="keep in versionAssets" :key="keep.id" class="group p-4 rounded-lg border bg-background/50 hover:bg-muted/10 transition-all border-border/80 relative shadow-sm">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
                 <h4 class="font-medium text-sm truncate pr-1">{{ keep.name }}</h4>
+                <span class="mt-1 inline-flex rounded border px-1.5 py-0.5 text-[9px] font-semibold" :class="getKeepBadgeClass(keep.type)">{{ getKeepLabel(keep.type) }}</span>
                 <p class="text-xs text-muted-foreground mt-1.5 whitespace-pre-wrap leading-relaxed select-all">
                   {{ keep.content }}
                 </p>
+                <div v-if="keep.relatedServeId || keep.relatedActionId" class="mt-2 space-y-1 text-[10px] text-muted-foreground">
+                  <div v-if="keep.relatedServeId">S：{{ getRelatedServeTitle(keep.relatedServeId) }}</div>
+                  <div v-if="keep.relatedActionId">A：{{ getRelatedActionTitle(keep.relatedActionId) }}</div>
+                </div>
               </div>
 
               <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-4 right-4">
@@ -293,7 +343,7 @@ function getKeepLabel(type: "document" | "link" | "archive") {
               </div>
             </div>
           </div>
-          <div v-if="archives.length === 0" class="py-10 text-center border border-dashed border-border/30 rounded-lg text-muted-foreground/40 text-xs italic">无归档记录</div>
+          <div v-if="versionAssets.length === 0" class="py-10 text-center border border-dashed border-border/30 rounded-lg text-muted-foreground/40 text-xs italic">无版本或归档</div>
         </div>
       </div>
     </div>
@@ -337,9 +387,9 @@ function getKeepLabel(type: "document" | "link" | "archive") {
           <!-- Type -->
           <div class="space-y-1.5">
             <label class="text-xs font-medium text-muted-foreground">存档类别</label>
-            <div class="grid grid-cols-3 gap-2">
+            <div class="grid grid-cols-2 gap-2 md:grid-cols-3">
               <button
-                v-for="t in ['document', 'link', 'archive'] as const"
+                v-for="t in keepTypes"
                 :key="t"
                 type="button"
                 class="h-9 rounded-md border text-xs font-medium flex items-center justify-center transition-colors"
@@ -351,12 +401,34 @@ function getKeepLabel(type: "document" | "link" | "archive") {
             </div>
           </div>
 
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label class="space-y-1.5 text-xs font-medium text-muted-foreground">
+              关联 Serve 交付项（可选）
+              <select v-model="formRelatedServeId" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <option value="">不关联交付项</option>
+                <option v-for="serve in projectKeepsProjectServes" :key="serve.id" :value="serve.id">
+                  {{ serve.title }}
+                </option>
+              </select>
+            </label>
+
+            <label class="space-y-1.5 text-xs font-medium text-muted-foreground">
+              关联 Action 行动（可选）
+              <select v-model="formRelatedActionId" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <option value="">不关联行动</option>
+                <option v-for="action in projectKeepsProjectActions" :key="action.id" :value="action.id">
+                  {{ action.title }}
+                </option>
+              </select>
+            </label>
+          </div>
+
           <!-- Content -->
           <div class="space-y-1.5">
             <label class="text-xs font-medium text-muted-foreground">存档内容</label>
             <textarea
               v-model="formContent"
-              :placeholder="formType === 'link' ? '请输入完整的网址链接，例如: github.com/username/project' : '请输入具体文档备忘详情，或百度网盘/云盘下载下载提取地址...'"
+              :placeholder="formType === 'link' ? '请输入完整的网址链接，例如: github.com/username/project' : formType === 'version' ? '请输入版本号、变更摘要或发布包位置...' : formType === 'evidence' ? '请输入验收证据、截图说明、文档位置或确认记录...' : '请输入具体文档、复盘或归档内容...'"
               rows="4"
               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none font-mono"
             />
