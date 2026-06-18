@@ -660,7 +660,7 @@ async function openData() {
   const traceId = uuid().slice(0, 8);
   const startedAt = performance.now();
   const elapsed = () => `${Math.round(performance.now() - startedAt)}ms`;
-  console.info("[DBX][openData:start]", {
+  console.info("[TASK][openData:start]", {
     traceId,
     type: node.type,
     connectionId: node.connectionId,
@@ -682,7 +682,7 @@ async function openData() {
     }
     return queryStore.createTab(node.connectionId, node.database, node.label, "data", tableSchema);
   })();
-  console.info("[DBX][openData:tab-created]", { traceId, tabId, elapsed: elapsed() });
+  console.info("[TASK][openData:tab-created]", { traceId, tabId, elapsed: elapsed() });
   queryStore.setTableMeta(tabId, {
     schema: tableSchema,
     tableName: node.label,
@@ -692,9 +692,9 @@ async function openData() {
   queryStore.setExecuting(tabId, true);
 
   try {
-    console.info("[DBX][openData:ensure-connected:start]", { traceId, elapsed: elapsed() });
+    console.info("[TASK][openData:ensure-connected:start]", { traceId, elapsed: elapsed() });
     await connectionStore.ensureConnected(node.connectionId);
-    console.info("[DBX][openData:ensure-connected:done]", { traceId, elapsed: elapsed() });
+    console.info("[TASK][openData:ensure-connected:done]", { traceId, elapsed: elapsed() });
     if (!config) throw new Error("Connection config not found");
 
     const querySchema = connectionObjectTreeQuerySchema(config, node.database, tableSchema);
@@ -703,7 +703,7 @@ async function openData() {
     let columns: ColumnInfo[] = [];
     let primaryKeys: string[] = [];
     try {
-      console.info("[DBX][openData:get-columns:start]", {
+      console.info("[TASK][openData:get-columns:start]", {
         traceId,
         database: node.database,
         schema: querySchema,
@@ -712,7 +712,7 @@ async function openData() {
       });
       columns = await api.getColumns(node.connectionId, node.database, querySchema, node.label);
       primaryKeys = editablePrimaryKeys(effectiveDbType, columns);
-      console.info("[DBX][openData:get-columns:done]", {
+      console.info("[TASK][openData:get-columns:done]", {
         traceId,
         columnCount: columns.length,
         primaryKeys,
@@ -725,7 +725,7 @@ async function openData() {
         primaryKeys,
       });
     } catch (error) {
-      console.warn("[DBX][openData:get-columns:error]", { traceId, elapsed: elapsed(), error });
+      console.warn("[TASK][openData:get-columns:error]", { traceId, elapsed: elapsed(), error });
     }
 
     const includeRowId = usesSyntheticRowIdKey(effectiveDbType, primaryKeys);
@@ -740,7 +740,7 @@ async function openData() {
       limit,
       includeRowId,
     });
-    console.info("[DBX][openData:sql-built]", {
+    console.info("[TASK][openData:sql-built]", {
       traceId,
       primaryKeys,
       includeRowId,
@@ -749,11 +749,11 @@ async function openData() {
     });
     queryStore.updateSql(tabId, sql);
 
-    console.info("[DBX][openData:execute:start]", { traceId, tabId, elapsed: elapsed() });
+    console.info("[TASK][openData:execute:start]", { traceId, tabId, elapsed: elapsed() });
     await queryStore.executeTabSql(tabId, sql);
-    console.info("[DBX][openData:execute:done]", { traceId, tabId, elapsed: elapsed() });
+    console.info("[TASK][openData:execute:done]", { traceId, tabId, elapsed: elapsed() });
   } catch (e: any) {
-    console.error("[DBX][openData:error]", { traceId, elapsed: elapsed(), error: e });
+    console.error("[TASK][openData:error]", { traceId, elapsed: elapsed(), error: e });
     queryStore.setErrorResult(tabId, e);
   }
 }

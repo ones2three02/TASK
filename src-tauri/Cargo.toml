@@ -1,7 +1,7 @@
 [package]
 name = "task"
-version = "0.5.35"
-description = "Open-source database management tool"
+version = "0.5.36"
+description = "TASK lifecycle planning desktop app"
 authors = ["skyler"]
 license = "Apache-2.0"
 repository = ""
@@ -9,7 +9,7 @@ edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "dbx_lib"
+name = "task_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]

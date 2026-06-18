@@ -196,7 +196,7 @@ const emit = defineEmits<{
   "update:orderByInput": [value: string];
 }>();
 
-console.info("[DBX][DataGrid:setup]", {
+console.info("[TASK][DataGrid:setup]", {
   traceId: dataGridTraceId,
   cacheKey: props.cacheKey,
   rowCount: props.result.rows.length,
@@ -209,7 +209,7 @@ watch(
   () => props.result,
   (result) => {
     const startedAt = performance.now();
-    console.info("[DBX][DataGrid:result:prop]", {
+    console.info("[TASK][DataGrid:result:prop]", {
       traceId: dataGridTraceId,
       cacheKey: props.cacheKey,
       rowCount: result.rows.length,
@@ -219,14 +219,14 @@ watch(
       elapsedSinceSetup: dataGridElapsed(),
     });
     nextTick(() => {
-      console.info("[DBX][DataGrid:result:nextTick]", {
+      console.info("[TASK][DataGrid:result:nextTick]", {
         traceId: dataGridTraceId,
         cacheKey: props.cacheKey,
         elapsed: `${Math.round(performance.now() - startedAt)}ms`,
         loading: props.loading,
       });
       requestAnimationFrame(() => {
-        console.info("[DBX][DataGrid:result:first-frame]", {
+        console.info("[TASK][DataGrid:result:first-frame]", {
           traceId: dataGridTraceId,
           cacheKey: props.cacheKey,
           elapsed: `${Math.round(performance.now() - startedAt)}ms`,
@@ -2408,7 +2408,7 @@ watch(
   () => displayRowCount.value,
   (length) => {
     const startedAt = performance.now();
-    console.info("[DBX][DataGrid:display-items:ready]", {
+    console.info("[TASK][DataGrid:display-items:ready]", {
       traceId: dataGridTraceId,
       cacheKey: props.cacheKey,
       displayItemCount: length,
@@ -2423,7 +2423,7 @@ watch(
       }
       requestAnimationFrame(() => {
         const renderedRows = gridRef.value?.querySelectorAll(".vue-recycle-scroller__item-view").length;
-        console.info("[DBX][DataGrid:display-items:first-frame]", {
+        console.info("[TASK][DataGrid:display-items:first-frame]", {
           traceId: dataGridTraceId,
           cacheKey: props.cacheKey,
           displayItemCount: length,
@@ -5551,7 +5551,7 @@ watch(
   () => props.loading,
   (isLoading) => {
     stopLoadingElapsedTimer();
-    console.info(isLoading ? "[DBX][DataGrid:loading:start]" : "[DBX][DataGrid:loading:stop]", {
+    console.info(isLoading ? "[TASK][DataGrid:loading:start]" : "[TASK][DataGrid:loading:stop]", {
       traceId: dataGridTraceId,
       cacheKey: props.cacheKey,
       elapsedSinceSetup: dataGridElapsed(),
@@ -5561,7 +5561,7 @@ watch(
     } else {
       nextTick(() => {
         requestAnimationFrame(() => {
-          console.info("[DBX][DataGrid:loading:stop:first-frame]", {
+          console.info("[TASK][DataGrid:loading:stop:first-frame]", {
             traceId: dataGridTraceId,
             cacheKey: props.cacheKey,
             elapsedSinceSetup: dataGridElapsed(),

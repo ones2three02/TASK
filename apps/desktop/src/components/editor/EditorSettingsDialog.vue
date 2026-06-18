@@ -632,10 +632,10 @@ const mcpAllowDangerous = ref(false);
 const mcpEnvEntries = computed(() => {
   const entries: Array<[string, string]> = [];
   if (mcpReadonlyMode.value) {
-    entries.push(["DBX_MCP_ALLOW_WRITES", "0"]);
+    entries.push(["TASK_MCP_ALLOW_WRITES", "0"]);
   }
   if (!mcpReadonlyMode.value && mcpAllowDangerous.value) {
-    entries.push(["DBX_MCP_ALLOW_DANGEROUS_SQL", "1"]);
+    entries.push(["TASK_MCP_ALLOW_DANGEROUS_SQL", "1"]);
   }
   return entries;
 });
@@ -643,23 +643,23 @@ const mcpEnvEntries = computed(() => {
 const mcpClaudeRecommendedConfig = computed(() => {
   const config: Record<string, unknown> = {
     mcpServers: {
-      dbx: {
-        command: "dbx-mcp-server",
+      task: {
+        command: "task-mcp-server",
       } as Record<string, unknown>,
     },
   };
   if (mcpEnvEntries.value.length > 0) {
     const env = Object.fromEntries(mcpEnvEntries.value);
-    ((config.mcpServers as Record<string, any>).dbx as Record<string, unknown>).env = env;
+    ((config.mcpServers as Record<string, any>).task as Record<string, unknown>).env = env;
   }
   return JSON.stringify(config, null, 2);
 });
 
 const mcpCodexRecommendedConfig = computed(() => {
-  const lines = ["[mcp_servers.dbx]", 'command = "dbx-mcp-server"'];
+  const lines = ["[mcp_servers.task]", 'command = "task-mcp-server"'];
   if (mcpEnvEntries.value.length > 0) {
     lines.push("");
-    lines.push("[mcp_servers.dbx.env]");
+    lines.push("[mcp_servers.task.env]");
     for (const [key, value] of mcpEnvEntries.value) {
       lines.push(`${key} = "${value}"`);
     }
@@ -683,7 +683,7 @@ const mcpStatusLabel = computed(() => {
 });
 
 const mcpCommand = computed(() => {
-  if (!mcpStatus.value) return "npm install -g @dbx-app/mcp-server@latest --registry=https://registry.npmjs.org";
+  if (!mcpStatus.value) return "npm install -g @task-app/mcp-server@latest --registry=https://registry.npmjs.org";
   return mcpStatus.value.installed ? mcpStatus.value.update_command : mcpStatus.value.install_command;
 });
 
@@ -718,12 +718,12 @@ async function copyMcpText(kind: "install" | "claude-config" | "codex-config", v
 }
 
 // ---------- WebDAV Sync ----------
-const webdavEndpoint = ref(localStorage.getItem("dbx-webdav-endpoint") || "");
-const webdavUsername = ref(localStorage.getItem("dbx-webdav-username") || "");
+const webdavEndpoint = ref(localStorage.getItem("task-webdav-endpoint") || localStorage.getItem("dbx-webdav-endpoint") || "");
+const webdavUsername = ref(localStorage.getItem("task-webdav-username") || localStorage.getItem("dbx-webdav-username") || "");
 const webdavPassword = ref("");
-const webdavRememberPassword = ref(localStorage.getItem("dbx-webdav-remember-password") === "true");
+const webdavRememberPassword = ref((localStorage.getItem("task-webdav-remember-password") || localStorage.getItem("dbx-webdav-remember-password")) === "true");
 const webdavHasSavedPassword = ref(false);
-const webdavRemotePath = ref(localStorage.getItem("dbx-webdav-remote-path") || "TASK/sync/snapshot.json");
+const webdavRemotePath = ref(localStorage.getItem("task-webdav-remote-path") || localStorage.getItem("dbx-webdav-remote-path") || "TASK/sync/snapshot.json");
 const webdavSyncSecrets = ref(false);
 const webdavSecretsPassphrase = ref("");
 const webdavBusy = ref<"" | "test" | "upload" | "download">("");
@@ -747,9 +747,9 @@ function currentWebDavAccountConfig(): WebDavConfig {
 }
 
 function rememberWebDavFields() {
-  localStorage.setItem("dbx-webdav-endpoint", webdavEndpoint.value.trim());
-  localStorage.setItem("dbx-webdav-username", webdavUsername.value.trim());
-  localStorage.setItem("dbx-webdav-remote-path", webdavRemotePath.value.trim() || "TASK/sync/snapshot.json");
+  localStorage.setItem("task-webdav-endpoint", webdavEndpoint.value.trim());
+  localStorage.setItem("task-webdav-username", webdavUsername.value.trim());
+  localStorage.setItem("task-webdav-remote-path", webdavRemotePath.value.trim() || "TASK/sync/snapshot.json");
 }
 
 function setWebDavResult(message: string, error = false) {
@@ -871,7 +871,7 @@ watch([webdavEndpoint, webdavUsername], () => {
   void refreshWebDavPasswordStatus();
 });
 watch(webdavRememberPassword, (val) => {
-  localStorage.setItem("dbx-webdav-remember-password", String(val));
+  localStorage.setItem("task-webdav-remember-password", String(val));
 });
 
 watch(activeSettingsTab, (tab) => {

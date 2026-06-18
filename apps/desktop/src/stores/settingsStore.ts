@@ -10,6 +10,7 @@ import type { SidebarActivation } from "@/lib/treeNodeClick";
 import type { SqlSnippet } from "@/types/database";
 import { DEFAULT_SQL_SNIPPETS } from "@/lib/sqlCompletion";
 import { setDebugLoggingEnabled } from "@/lib/debugLog";
+import { safeLocalStorageGetWithLegacy, safeLocalStorageSet } from "@/lib/safeStorage";
 
 export type AiProvider = "claude" | "openai" | "gemini" | "deepseek" | "qwen" | "ollama" | "openai-compatible" | "custom";
 export type AiApiStyle = "completions" | "responses";
@@ -390,8 +391,11 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   toolbarItems: { ...DEFAULT_TOOLBAR_ITEMS },
 };
 
-export const STORAGE_KEY = "dbx-editor-settings";
+export const STORAGE_KEY = "task-editor-settings";
+const LEGACY_STORAGE_KEY = "dbx-editor-settings";
 const OLD_FONT_SIZE_KEY = "dbx-query-editor-font-size";
+const AI_CONFIG_STORAGE_KEY = "task-ai-config";
+const LEGACY_AI_CONFIG_STORAGE_KEY = "dbx-ai-config";
 const MIN_UI_SCALE = 0.75;
 const MAX_UI_SCALE = 2;
 
@@ -555,9 +559,8 @@ export function normalizeEditorSettings(settings: Partial<EditorSettings>, exist
 }
 
 function loadEditorSettings(): EditorSettings {
-  // Try new format first
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = safeLocalStorageGetWithLegacy(STORAGE_KEY, LEGACY_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<EditorSettings>;
       return normalizeEditorSettings(parsed);
@@ -586,7 +589,7 @@ function loadEditorSettings(): EditorSettings {
 }
 
 function saveEditorSettings(settings: EditorSettings) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  safeLocalStorageSet(STORAGE_KEY, JSON.stringify(settings));
 }
 
 export const useSettingsStore = defineStore("settings", () => {
@@ -623,7 +626,7 @@ export const useSettingsStore = defineStore("settings", () => {
 
   async function initAiConfig() {
     if (isAiConfigLoaded.value) return;
-    const local = localStorage.getItem("dbx-ai-config");
+    const local = safeLocalStorageGetWithLegacy(AI_CONFIG_STORAGE_KEY, LEGACY_AI_CONFIG_STORAGE_KEY);
     if (local) {
       try {
         aiConfig.value = normalizeAiConfig(JSON.parse(local));
@@ -646,7 +649,7 @@ export const useSettingsStore = defineStore("settings", () => {
       Object.assign(aiConfig.value, defaultConfigs[config.provider]);
     }
     Object.assign(aiConfig.value, config);
-    localStorage.setItem("dbx-ai-config", JSON.stringify(aiConfig.value));
+    safeLocalStorageSet(AI_CONFIG_STORAGE_KEY, JSON.stringify(aiConfig.value));
     api.saveAiConfig(aiConfig.value).catch(() => {});
   }
 

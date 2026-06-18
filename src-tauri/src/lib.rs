@@ -6,6 +6,7 @@ mod window_state_guard;
 
 use commands::connection::AppState;
 use dbx_core::storage::{DesktopIconTheme, DesktopSettings, Storage};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 #[cfg(target_os = "macos")]
@@ -22,6 +23,15 @@ const DESKTOP_TRAY_ID: &str = "main-tray";
 #[cfg(target_os = "macos")]
 const MACOS_TRAY_ICON: tauri::image::Image<'_> = tauri::include_image!("icons/tray-macos-template.png");
 const BLACK_APP_ICON: tauri::image::Image<'_> = tauri::include_image!("icons/icon-black.png");
+
+fn task_storage_db_path(data_dir: &Path) -> PathBuf {
+    let db_path = data_dir.join("task.db");
+    let legacy_db_path = data_dir.join("dbx.db");
+    if !db_path.exists() && legacy_db_path.is_file() {
+        std::fs::rename(&legacy_db_path, &db_path).expect("Failed to migrate legacy storage database");
+    }
+    db_path
+}
 
 pub(crate) fn apply_debug_log_level(debug_logging_enabled: bool) {
     log::set_max_level(if debug_logging_enabled { log::LevelFilter::Debug } else { log::LevelFilter::Off });
@@ -245,7 +255,7 @@ pub fn run() {
                 app.path().app_data_dir().map_err(|e| e.to_string()).expect("Failed to resolve app data dir");
             let data_dir = data_dir::resolve_data_dir(default_data_dir);
             std::fs::create_dir_all(&data_dir).expect("Failed to create data dir");
-            let db_path = data_dir.join("dbx.db");
+            let db_path = task_storage_db_path(&data_dir);
 
             let t = Instant::now();
             let storage = tauri::async_runtime::block_on(async {

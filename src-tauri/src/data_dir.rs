@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 
 #[cfg(target_os = "windows")]
-const PORTABLE_MARKER: &str = "portable.dbx";
+const PORTABLE_MARKERS: [&str; 2] = ["portable.task", "portable.dbx"];
 
 pub fn resolve_data_dir(default_app_data_dir: PathBuf) -> PathBuf {
-    if let Some(env_dir) = std::env::var_os("DBX_DATA_DIR").filter(|value| !value.is_empty()) {
+    if let Some(env_dir) =
+        std::env::var_os("TASK_DATA_DIR").or_else(|| std::env::var_os("DBX_DATA_DIR")).filter(|value| !value.is_empty())
+    {
         return PathBuf::from(env_dir);
     }
 
@@ -19,7 +21,11 @@ pub fn resolve_data_dir(default_app_data_dir: PathBuf) -> PathBuf {
 }
 
 pub fn uses_custom_data_dir() -> bool {
-    std::env::var_os("DBX_DATA_DIR").filter(|value| !value.is_empty()).is_some() || is_portable_mode()
+    std::env::var_os("TASK_DATA_DIR")
+        .or_else(|| std::env::var_os("DBX_DATA_DIR"))
+        .filter(|value| !value.is_empty())
+        .is_some()
+        || is_portable_mode()
 }
 
 #[cfg(target_os = "windows")]
@@ -39,7 +45,7 @@ fn current_exe_dir() -> Option<PathBuf> {
 
 #[cfg(target_os = "windows")]
 fn portable_marker_exists(exe_dir: &std::path::Path) -> bool {
-    exe_dir.join(PORTABLE_MARKER).is_file()
+    PORTABLE_MARKERS.iter().any(|marker| exe_dir.join(marker).is_file())
 }
 
 #[cfg(test)]
@@ -81,8 +87,8 @@ mod tests {
 
     #[test]
     fn uses_portable_data_dir_when_marker_exists() {
-        let default_dir = PathBuf::from(r"C:\Users\Administrator\AppData\Roaming\com.dbx.app");
-        let exe_dir = PathBuf::from(r"D:\Apps\DBX");
+        let default_dir = PathBuf::from(r"C:\Users\Administrator\AppData\Roaming\com.ones2three.task");
+        let exe_dir = PathBuf::from(r"D:\Apps\TASK");
 
         let data_dir = resolve_data_dir_from_inputs(default_dir, Some(exe_dir.clone()), true, None);
 
@@ -91,17 +97,17 @@ mod tests {
 
     #[test]
     fn detects_portable_mode_only_when_marker_exists_next_to_exe() {
-        let exe_dir = PathBuf::from(r"D:\Apps\DBX");
+        let exe_dir = PathBuf::from(r"D:\Apps\TASK");
 
         assert!(is_portable_mode_from_inputs(Some(exe_dir), true));
-        assert!(!is_portable_mode_from_inputs(Some(PathBuf::from(r"D:\Apps\DBX")), false));
+        assert!(!is_portable_mode_from_inputs(Some(PathBuf::from(r"D:\Apps\TASK")), false));
         assert!(!is_portable_mode_from_inputs(None, true));
     }
 
     #[test]
     fn custom_data_dir_is_used_for_env_override_or_portable_mode() {
-        assert!(uses_custom_data_dir_from_inputs(Some(PathBuf::from(r"D:\DBXData")), None, false));
-        assert!(uses_custom_data_dir_from_inputs(None, Some(PathBuf::from(r"D:\Apps\DBX")), true));
-        assert!(!uses_custom_data_dir_from_inputs(None, Some(PathBuf::from(r"D:\Apps\DBX")), false));
+        assert!(uses_custom_data_dir_from_inputs(Some(PathBuf::from(r"D:\TASKData")), None, false));
+        assert!(uses_custom_data_dir_from_inputs(None, Some(PathBuf::from(r"D:\Apps\TASK")), true));
+        assert!(!uses_custom_data_dir_from_inputs(None, Some(PathBuf::from(r"D:\Apps\TASK")), false));
     }
 }

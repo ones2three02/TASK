@@ -699,7 +699,7 @@ async function recordStructureHistory(sql: string, start: number, success: boole
       affected_rows: success ? result?.affected_rows : undefined,
     });
   } catch (e) {
-    console.warn("[DBX][structure-history:save-failed]", e);
+    console.warn("[TASK][structure-history:save-failed]", e);
   }
 }
 

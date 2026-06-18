@@ -68,7 +68,7 @@ import { supportsSqlFileExecution } from "@/lib/databaseCapabilities";
 import { classifyAiSqlExecution } from "@/lib/aiSqlExecutionPolicy";
 import { buildHistoryAiAnalysisPrompt } from "@/lib/historyAiAnalysis";
 import { countAvailableAgentDriverUpdates, type AgentDriverUpdateBadgeState } from "@/lib/agentDriverUpdateBadge";
-import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/safeStorage";
+import { safeLocalStorageGetWithLegacy, safeLocalStorageSet } from "@/lib/safeStorage";
 import { rankSavedSqlHistory } from "@/lib/savedSqlHistory";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -113,9 +113,9 @@ const showSettingsDialog = ref(false);
 const showDriverStore = ref(false);
 const agentDriverUpdateCount = ref(0);
 const showHistory = ref(false);
-const showAiPanel = ref(safeLocalStorageGet("dbx-ai-panel-open") === "true");
-const showSqlLibraryPanel = ref(safeLocalStorageGet("dbx-sql-library-open") === "true");
-const sidebarOpen = ref(safeLocalStorageGet("dbx-sidebar-open") !== "false");
+const showAiPanel = ref(safeLocalStorageGetWithLegacy("task-ai-panel-open", "dbx-ai-panel-open") === "true");
+const showSqlLibraryPanel = ref(safeLocalStorageGetWithLegacy("task-sql-library-open", "dbx-sql-library-open") === "true");
+const sidebarOpen = ref(safeLocalStorageGetWithLegacy("task-sidebar-open", "dbx-sidebar-open") !== "false");
 const aiPanelReady = ref(false);
 const { sidebarWidth, aiPanelWidth, historyWidth, sqlLibraryWidth, startSidebarResize, startAiPanelResize, startHistoryResize, startSqlLibraryResize } = usePanelResize();
 const aiAssistantRef = ref<AiAssistantHandle | null>(null);
@@ -342,18 +342,18 @@ watch(
 
 function toggleAiPanel() {
   showAiPanel.value = !showAiPanel.value;
-  safeLocalStorageSet("dbx-ai-panel-open", String(showAiPanel.value));
+  safeLocalStorageSet("task-ai-panel-open", String(showAiPanel.value));
 }
 
 function toggleSqlLibrary() {
   showSqlLibraryPanel.value = !showSqlLibraryPanel.value;
-  safeLocalStorageSet("dbx-sql-library-open", String(showSqlLibraryPanel.value));
+  safeLocalStorageSet("task-sql-library-open", String(showSqlLibraryPanel.value));
 }
 
 function fixWithAi(errorMessage: string) {
   if (!showAiPanel.value) {
     showAiPanel.value = true;
-    safeLocalStorageSet("dbx-ai-panel-open", "true");
+    safeLocalStorageSet("task-ai-panel-open", "true");
   }
   nextTick(() => aiAssistantRef.value?.triggerAction("fix", errorMessage));
 }
@@ -361,7 +361,7 @@ function fixWithAi(errorMessage: string) {
 function openAiPanel() {
   if (!showAiPanel.value) {
     showAiPanel.value = true;
-    safeLocalStorageSet("dbx-ai-panel-open", "true");
+    safeLocalStorageSet("task-ai-panel-open", "true");
   }
 }
 
@@ -787,7 +787,7 @@ function openMcpGuide() {
 
 function setSidebarOpen(open: boolean) {
   sidebarOpen.value = open;
-  safeLocalStorageSet("dbx-sidebar-open", open ? "true" : "false");
+  safeLocalStorageSet("task-sidebar-open", open ? "true" : "false");
 }
 
 function ensureQueryTab(): string {

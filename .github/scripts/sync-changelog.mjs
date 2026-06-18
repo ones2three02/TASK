@@ -5,12 +5,12 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const REPO = "t8y2/dbx";
+const REPO = "ones2three02/TASK";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || "";
 const OUT_CN = "releases-cn.json";
 const OUT_EN = "releases-en.json";
-const EN_CACHE_URL = process.env.CHANGELOG_EN_CACHE_URL || "https://dl.dbxio.com/changelog/releases-en.json";
+const EN_CACHE_URL = process.env.CHANGELOG_EN_CACHE_URL || "";
 
 const SECTION_MAP = {
   新功能: "added",

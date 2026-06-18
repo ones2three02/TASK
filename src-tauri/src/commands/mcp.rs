@@ -5,10 +5,11 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-const MCP_PACKAGE_NAME: &str = "@dbx-app/mcp-server";
-const MCP_LATEST_URL: &str = "https://registry.npmjs.org/@dbx-app%2fmcp-server/latest";
-const MCP_INSTALL_COMMAND: &str = "npm install -g @dbx-app/mcp-server@latest --registry=https://registry.npmjs.org";
-const SHELL_COMMAND_MARKER: &str = "__DBX_MCP_COMMAND_OUTPUT_START__";
+const MCP_PACKAGE_NAME: &str = "@task-app/mcp-server";
+const MCP_LATEST_URL: &str = "https://registry.npmjs.org/@task-app%2fmcp-server/latest";
+const MCP_INSTALL_COMMAND: &str = "npm install -g @task-app/mcp-server@latest --registry=https://registry.npmjs.org";
+const MCP_BIN_NAME: &str = "task-mcp-server";
+const SHELL_COMMAND_MARKER: &str = "__TASK_MCP_COMMAND_OUTPUT_START__";
 
 #[derive(Debug, Serialize)]
 pub struct McpServerStatus {
@@ -63,7 +64,7 @@ pub async fn check_mcp_server_status() -> Result<McpServerStatus, String> {
 }
 
 async fn fetch_latest_mcp_version() -> Result<String, String> {
-    let mut builder = reqwest::Client::builder().timeout(Duration::from_secs(10)).user_agent("dbx-mcp-status-checker");
+    let mut builder = reqwest::Client::builder().timeout(Duration::from_secs(10)).user_agent("task-mcp-status-checker");
     let proxy_url =
         tauri::async_runtime::spawn_blocking(dbx_core::update::system_proxy_url).await.map_err(|e| e.to_string())?;
     if let Some(proxy_url) = proxy_url {
@@ -94,11 +95,11 @@ fn installed_mcp_version() -> Option<String> {
 fn locate_mcp_bin() -> Option<String> {
     #[cfg(windows)]
     {
-        return locate_windows_command("dbx-mcp-server");
+        return locate_windows_command(MCP_BIN_NAME);
     }
     #[cfg(not(windows))]
     {
-        command_stdout("which", &["dbx-mcp-server"]).ok().and_then(first_non_empty_line)
+        command_stdout("which", &[MCP_BIN_NAME]).ok().and_then(first_non_empty_line)
     }
 }
 
@@ -232,9 +233,9 @@ fn user_shell_invocation_args(script: &str) -> (String, Vec<String>) {
 #[cfg(not(windows))]
 fn bash_login_script(script: &str) -> String {
     format!(
-        "for dbx_profile in ~/.bash_profile ~/.bash_login ~/.profile ~/.bashrc; do \
-         [ -r \"$dbx_profile\" ] && . \"$dbx_profile\"; \
-         done; unset dbx_profile; {script}"
+        "for task_profile in ~/.bash_profile ~/.bash_login ~/.profile ~/.bashrc; do \
+         [ -r \"$task_profile\" ] && . \"$task_profile\"; \
+         done; unset task_profile; {script}"
     )
 }
 
@@ -283,10 +284,10 @@ mod tests {
 
     #[test]
     fn shell_command_script_marks_command_output_after_startup_noise() {
-        let script = shell_command_script("npm", &["list", "-g", "@dbx-app/mcp-server", "--json"]);
+        let script = shell_command_script("npm", &["list", "-g", "@task-app/mcp-server", "--json"]);
 
         assert!(script.contains(SHELL_COMMAND_MARKER));
-        assert!(script.contains("'@dbx-app/mcp-server'"));
+        assert!(script.contains("'@task-app/mcp-server'"));
     }
 
     #[test]

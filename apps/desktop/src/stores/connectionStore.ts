@@ -2175,7 +2175,7 @@ export const useConnectionStore = defineStore("connection", () => {
       const { writeTextFile } = await import("@tauri-apps/plugin-fs");
       const path = await save({
         filters: [{ name: "JSON", extensions: ["json"] }],
-        defaultPath: "dbx-connections.json",
+        defaultPath: "task-connections.json",
       });
       if (!path) return;
       await writeTextFile(path, content);
@@ -2184,7 +2184,7 @@ export const useConnectionStore = defineStore("connection", () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "dbx-connections.json";
+      a.download = "task-connections.json";
       a.click();
       URL.revokeObjectURL(url);
     }
@@ -2316,7 +2316,7 @@ export const useConnectionStore = defineStore("connection", () => {
       const { open } = await import("@tauri-apps/plugin-dialog");
       const { readTextFile } = await import("@tauri-apps/plugin-fs");
       const path = await open({
-        filters: source === "navicat" ? [{ name: "Navicat Connection Export", extensions: ["ncx", "xml"] }] : [{ name: "DBX JSON", extensions: ["json"] }],
+        filters: source === "navicat" ? [{ name: "Navicat Connection Export", extensions: ["ncx", "xml"] }] : [{ name: "TASK JSON", extensions: ["json"] }],
         multiple: false,
       });
       if (!path) return null;
@@ -2375,7 +2375,7 @@ export const useConnectionStore = defineStore("connection", () => {
 
         if (Array.isArray(parsed)) {
           imported = parsed;
-        } else if (parsed.format === "dbx-config" && Array.isArray(parsed.connections)) {
+        } else if ((parsed.format === "task-config" || parsed.format === "dbx-config") && Array.isArray(parsed.connections)) {
           imported = parsed.connections;
         } else if (parsed.connections && Array.isArray(parsed.connections)) {
           imported = parsed.connections;

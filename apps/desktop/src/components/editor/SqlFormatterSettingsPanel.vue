@@ -292,7 +292,7 @@ function exportConfig() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "dbx-sql-formatter.json";
+  link.download = "task-sql-formatter.json";
   document.body.appendChild(link);
   link.click();
   link.remove();

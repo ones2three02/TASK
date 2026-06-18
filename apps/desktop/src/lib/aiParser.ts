@@ -100,6 +100,8 @@ const JSON_REPAIR_PROMPT = `你是 JSON 修复器。用户会提供一个模型�
 修复后的结构必须包含 targets、actions、serves、keeps 四个数组，并符合 TASK 四层规划结构。`;
 
 const MAX_PREVIEW_LENGTH = 500;
+const REQUIREMENT_PARSE_MAX_TOKENS = 8192;
+const SERVE_KEEP_SUGGESTION_MAX_TOKENS = 4096;
 const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
 const VALID_KEEP_TYPES = new Set(["document", "link", "archive", "evidence", "version", "retrospective"]);
 
@@ -108,6 +110,7 @@ export async function parseRequirementWithAi(config: AiConfig, requirementText: 
     config,
     systemPrompt: SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildRequirementPrompt(requirementText, referenceDocuments) }],
+    maxTokens: REQUIREMENT_PARSE_MAX_TOKENS,
     temperature: 0.1,
   });
 
@@ -123,6 +126,7 @@ export async function parseRequirementWithAi(config: AiConfig, requirementText: 
           content: `请修复以下 JSON，并保持 TASK 四层规划结构：\n\n${textContent}`,
         },
       ],
+      maxTokens: REQUIREMENT_PARSE_MAX_TOKENS,
       temperature: 0,
     });
 
@@ -160,7 +164,10 @@ export function cleanAndParseRequirementJson(rawText: string): ParsedRequirement
   } catch (error) {
     console.error("AI response failed to parse as JSON. Raw text:", rawText);
     const preview = cleaned.slice(0, MAX_PREVIEW_LENGTH);
-    throw new Error(`解析 AI 响应失败：返回数据不是合法的 JSON。错误原因: ${error instanceof Error ? error.message : String(error)}。响应片段: ${preview}`);
+    const reason = error instanceof Error ? error.message : String(error);
+    const maybeTruncated = !cleaned.trimEnd().endsWith("}") || /unexpected eof|unterminated|string literal|end of json input/i.test(reason);
+    const truncatedHint = maybeTruncated ? "响应疑似被模型截断；已提高输出长度，请减少参考文档长度或换用更大输出上限的模型后重试。" : "请重试，或换用更稳定的 JSON 输出模型。";
+    throw new Error(`解析 AI 响应失败：返回数据不是合法的 JSON。错误原因: ${reason}。${truncatedHint} 响应片段: ${preview}`);
   }
 }
 
@@ -351,17 +358,9 @@ ${completedActions.map((a, i) => `${i + 1}. ${a.title} - ${a.description || ""}`
     config,
     systemPrompt: "你是一个专业的敏捷收口专家，必须严格按要求返回 JSON 结构。",
     messages: [{ role: "user", content: autoPrompt }],
+    maxTokens: SERVE_KEEP_SUGGESTION_MAX_TOKENS,
     temperature: 0.1,
   });
 
-  let cleaned = textContent.trim();
-  // Remove think/thinking tags and their contents
-  cleaned = cleaned.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, "").trim();
-
-  if (cleaned.startsWith("```json")) cleaned = cleaned.substring(7);
-  else if (cleaned.startsWith("```")) cleaned = cleaned.substring(3);
-  if (cleaned.endsWith("```")) cleaned = cleaned.substring(0, cleaned.length - 3);
-  cleaned = cleaned.trim();
-
-  return JSON.parse(cleaned);
+  return JSON.parse(extractJsonCandidate(textContent));
 }

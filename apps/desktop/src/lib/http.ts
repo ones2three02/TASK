@@ -1431,8 +1431,8 @@ export async function checkMcpServerStatus(): Promise<import("./tauri").McpServe
     latest_version: null,
     update_available: false,
     bin_path: null,
-    install_command: "npm install -g @dbx-app/mcp-server@latest --registry=https://registry.npmjs.org",
-    update_command: "npm install -g @dbx-app/mcp-server@latest --registry=https://registry.npmjs.org",
+    install_command: "npm install -g @task-app/mcp-server@latest --registry=https://registry.npmjs.org",
+    update_command: "npm install -g @task-app/mcp-server@latest --registry=https://registry.npmjs.org",
     error: "MCP Server status is only available in the desktop app.",
   };
 }

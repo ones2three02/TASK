@@ -1,11 +1,11 @@
 import { ref, type Ref } from "vue";
-import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/safeStorage";
+import { safeLocalStorageGetWithLegacy, safeLocalStorageSet } from "@/lib/safeStorage";
 
 export function usePanelResize() {
-  const sidebarWidth = ref(Number(safeLocalStorageGet("dbx-sidebar-width")) || 260);
-  const aiPanelWidth = ref(Number(safeLocalStorageGet("dbx-ai-panel-width")) || 360);
-  const historyWidth = ref(Number(safeLocalStorageGet("dbx-history-width")) || 288);
-  const sqlLibraryWidth = ref(Number(safeLocalStorageGet("dbx-sql-library-width")) || 288);
+  const sidebarWidth = ref(Number(safeLocalStorageGetWithLegacy("task-sidebar-width", "dbx-sidebar-width")) || 260);
+  const aiPanelWidth = ref(Number(safeLocalStorageGetWithLegacy("task-ai-panel-width", "dbx-ai-panel-width")) || 360);
+  const historyWidth = ref(Number(safeLocalStorageGetWithLegacy("task-history-width", "dbx-history-width")) || 288);
+  const sqlLibraryWidth = ref(Number(safeLocalStorageGetWithLegacy("task-sql-library-width", "dbx-sql-library-width")) || 288);
 
   function startPanelResize(widthRef: Ref<number>, storageKey: string, direction: "left" | "right") {
     return (e: MouseEvent) => {
@@ -29,10 +29,10 @@ export function usePanelResize() {
     };
   }
 
-  const startSidebarResize = startPanelResize(sidebarWidth, "dbx-sidebar-width", "right");
-  const startAiPanelResize = startPanelResize(aiPanelWidth, "dbx-ai-panel-width", "left");
-  const startHistoryResize = startPanelResize(historyWidth, "dbx-history-width", "left");
-  const startSqlLibraryResize = startPanelResize(sqlLibraryWidth, "dbx-sql-library-width", "left");
+  const startSidebarResize = startPanelResize(sidebarWidth, "task-sidebar-width", "right");
+  const startAiPanelResize = startPanelResize(aiPanelWidth, "task-ai-panel-width", "left");
+  const startHistoryResize = startPanelResize(historyWidth, "task-history-width", "left");
+  const startSqlLibraryResize = startPanelResize(sqlLibraryWidth, "task-sql-library-width", "left");
 
   return {
     sidebarWidth,

@@ -694,7 +694,7 @@ export function useDataGridEditor(options: UseDataGridEditorOptions) {
         error: message,
       });
     } catch (historyError) {
-      console.warn("[DBX] failed to record data grid history", historyError);
+      console.warn("[TASK] failed to record data grid history", historyError);
     }
     return message;
   }
@@ -758,7 +758,7 @@ export function useDataGridEditor(options: UseDataGridEditorOptions) {
     const rollbackStmts = preparedSave?.rollbackStatements ?? [];
     const start = Date.now();
     let apiResult: { affected_rows?: number } | undefined;
-    console.info("[DBX][dataGrid:save-statements]", {
+    console.info("[TASK][dataGrid:save-statements]", {
       databaseType: databaseType.value,
       table: tableMeta.value ? [tableMeta.value.schema, tableMeta.value.tableName].filter(Boolean).join(".") : undefined,
       statements: stmts,
@@ -795,7 +795,7 @@ export function useDataGridEditor(options: UseDataGridEditorOptions) {
     try {
       await recordDataGridHistory(stmts, rollbackStmts, Date.now() - start, apiResult);
     } catch (e) {
-      console.warn("[DBX] failed to record data grid history", e);
+      console.warn("[TASK] failed to record data grid history", e);
     }
     for (const [sourceIndex, changes] of dirtyRows.value) {
       const row = result.value.rows[sourceIndex];
