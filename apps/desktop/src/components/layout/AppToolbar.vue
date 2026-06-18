@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { ClipboardCheck, Moon, Sun, SunMoon, Bot, Settings, FolderPlus, HelpCircle } from "@lucide/vue";
+import { ClipboardCheck, Moon, Sun, SunMoon, Bot, Settings, CloudDownload, LoaderCircle } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import LightDropdown from "@/components/ui/LightDropdown.vue";
@@ -13,12 +13,16 @@ const props = defineProps<{
   isDark: boolean;
   themeMode: AppThemeMode;
   showAiPanel: boolean;
+  appVersion?: string;
+  checkingUpdates?: boolean;
+  hasUpdateAvailable?: boolean;
 }>();
 
 const emit = defineEmits<{
   "new-project": [];
   "set-theme-mode": [mode: AppThemeMode];
   "toggle-ai": [];
+  "check-updates": [];
   "open-settings": [];
   "open-about": [];
 }>();
@@ -37,6 +41,13 @@ const themeTriggerIcon = computed(() => {
   return props.isDark ? Moon : Sun;
 });
 
+const displayVersion = computed(() => `v${props.appVersion || "1.0.0"}`);
+const updateTooltip = computed(() => {
+  if (props.checkingUpdates) return t("updates.checking") || "正在检查更新...";
+  if (props.hasUpdateAvailable) return t("updates.availableTitle") || "发现新版本";
+  return t("updates.check") || "检查更新";
+});
+
 function onToolbarDblClick() {
   if (isDesktop) return;
   toggleMaximize();
@@ -51,7 +62,7 @@ function onToolbarDblClick() {
         <ClipboardCheck class="h-4 w-4" />
       </div>
       <span class="text-sm font-bold tracking-wider text-foreground">TASK</span>
-      <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border/40 select-none">v1.0.0</span>
+      <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border/40 select-none">{{ displayVersion }}</span>
     </div>
 
     <!-- Central spacer -->
@@ -59,6 +70,18 @@ function onToolbarDblClick() {
 
     <!-- Action Toolbar Controls -->
     <div class="flex items-center gap-1.5">
+      <!-- Update Checker -->
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button variant="ghost" size="icon" class="relative h-8 w-8 rounded-md" :class="{ 'bg-primary/10 text-primary hover:bg-primary/20': hasUpdateAvailable }" :disabled="checkingUpdates" :aria-label="updateTooltip" @click="emit('check-updates')">
+            <LoaderCircle v-if="checkingUpdates" class="h-4 w-4 animate-spin" />
+            <CloudDownload v-else class="h-4 w-4" />
+            <span v-if="hasUpdateAvailable" class="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{{ updateTooltip }}</TooltipContent>
+      </Tooltip>
+
       <!-- AI Assistant Button -->
       <Tooltip>
         <TooltipTrigger as-child>

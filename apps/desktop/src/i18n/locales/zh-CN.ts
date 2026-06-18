@@ -50,6 +50,7 @@
   updates: {
     title: "更新",
     check: "检查更新",
+    checking: "正在检查更新...",
     availableTitle: "发现新版本",
     availableMessage: "TASK {latest} 已发布，当前版本为 {current}。",
     upToDate: "TASK 已是最新版本 ({version})。",

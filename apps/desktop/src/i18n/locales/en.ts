@@ -50,6 +50,7 @@
   updates: {
     title: "Updates",
     check: "Check for updates",
+    checking: "Checking for updates...",
     availableTitle: "Update available",
     availableMessage: "TASK {latest} is available. You are using {current}.",
     upToDate: "TASK is up to date ({version}).",

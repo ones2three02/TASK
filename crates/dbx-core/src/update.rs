@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-const LATEST_JSON_PATH: &str = "https://github.com/t8y2/dbx/releases/latest/download/latest.json";
-const LATEST_JSON_R2_PATH: &str = "releases/latest/latest.json";
-const GITHUB_RELEASE_API_PREFIX: &str = "https://api.github.com/repos/t8y2/dbx/releases/tags/v";
-const RELEASE_URL_PREFIX: &str = "https://github.com/t8y2/dbx/releases/tag/v";
+const LATEST_JSON_PATH: &str = "https://github.com/ones2three02/TASK/releases/latest/download/latest.json";
+const GITHUB_RELEASE_API_PREFIX: &str = "https://api.github.com/repos/ones2three02/TASK/releases/tags/v";
+const RELEASE_URL_PREFIX: &str = "https://github.com/ones2three02/TASK/releases/tag/v";
+const UPDATE_CHECK_USER_AGENT: &str = "task-update-checker";
 
 #[derive(Debug, Deserialize)]
 pub struct TauriRelease {
@@ -44,8 +44,12 @@ pub struct UpdateInfo {
 pub async fn fetch_latest_release() -> Result<TauriRelease, String> {
     let client = build_update_http_client()?;
 
-    let resp = crate::race_download(&client, LATEST_JSON_PATH, LATEST_JSON_R2_PATH, "dbx-update-checker")
+    let resp = client
+        .get(LATEST_JSON_PATH)
+        .header(reqwest::header::USER_AGENT, UPDATE_CHECK_USER_AGENT)
+        .send()
         .await
+        .and_then(|r| r.error_for_status())
         .map_err(|e| format!("Failed to check updates: {e}"))?;
 
     let mut release = resp.json::<TauriRelease>().await.map_err(|e| format!("Failed to parse update response: {e}"))?;
@@ -57,7 +61,7 @@ pub async fn fetch_latest_release() -> Result<TauriRelease, String> {
 
 fn build_update_http_client() -> Result<reqwest::Client, String> {
     let mut builder =
-        reqwest::Client::builder().timeout(std::time::Duration::from_secs(10)).user_agent("dbx-update-checker");
+        reqwest::Client::builder().timeout(std::time::Duration::from_secs(10)).user_agent(UPDATE_CHECK_USER_AGENT);
 
     if let Some(proxy_url) = system_proxy_url() {
         let proxy = reqwest::Proxy::all(&proxy_url).map_err(|e| format!("Invalid system proxy URL: {e}"))?;
@@ -199,7 +203,7 @@ async fn fetch_github_release_metadata(
     let url = format!("{GITHUB_RELEASE_API_PREFIX}{}", normalize_version(version));
     client
         .get(url)
-        .header(reqwest::header::USER_AGENT, "dbx-update-checker")
+        .header(reqwest::header::USER_AGENT, UPDATE_CHECK_USER_AGENT)
         .send()
         .await
         .and_then(|r| r.error_for_status())
@@ -220,7 +224,7 @@ pub fn build_update_info(release: TauriRelease, current_version: &str) -> Update
     let release_name = github
         .and_then(|metadata| non_empty(metadata.name.as_deref()))
         .map(ToOwned::to_owned)
-        .unwrap_or_else(|| format!("DBX v{latest_version}"));
+        .unwrap_or_else(|| format!("TASK v{latest_version}"));
     let release_url = github
         .and_then(|metadata| non_empty(metadata.html_url.as_deref()))
         .map(ToOwned::to_owned)
@@ -382,16 +386,16 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
             notes: Some("See the assets below to download and install.".to_string()),
             jdbc_plugin: None,
             github: Some(GithubReleaseMetadata {
-                name: Some("DBX v0.5.3".to_string()),
-                html_url: Some("https://github.com/t8y2/dbx/releases/tag/v0.5.3".to_string()),
+                name: Some("TASK v0.5.3".to_string()),
+                html_url: Some("https://github.com/ones2three02/TASK/releases/tag/v0.5.3".to_string()),
                 body: Some("### 新功能\n\n真实发布说明".to_string()),
             }),
         };
 
         let info = build_update_info(release, "0.5.2");
 
-        assert_eq!(info.release_name, "DBX v0.5.3");
-        assert_eq!(info.release_url, "https://github.com/t8y2/dbx/releases/tag/v0.5.3");
+        assert_eq!(info.release_name, "TASK v0.5.3");
+        assert_eq!(info.release_url, "https://github.com/ones2three02/TASK/releases/tag/v0.5.3");
         assert_eq!(info.release_notes, "### 新功能\n\n真实发布说明");
         assert!(!info.portable_mode);
     }

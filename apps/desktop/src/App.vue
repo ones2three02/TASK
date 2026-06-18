@@ -223,7 +223,7 @@ const appVersion = ref("");
 const isClassicLayout = computed(() => settingsStore.editorSettings.appLayout === "classic");
 const updateNotificationsEnabled = computed(() => settingsStore.editorSettings.updateNotificationsEnabled);
 const toolbarAgentDriverUpdateCount = computed(() => (updateNotificationsEnabled.value ? agentDriverUpdateCount.value : 0));
-const toolbarHasUpdateAvailable = computed(() => updateNotificationsEnabled.value && hasUpdateAvailable.value);
+const toolbarHasUpdateAvailable = computed(() => hasUpdateAvailable.value);
 const hasSqlFileConnections = computed(() => connectionStore.connections.some((c) => supportsSqlFileExecution(c.db_type)));
 const connectionStats = computed(() => ({
   total: connectionStore.connections.length,
@@ -1048,7 +1048,18 @@ onUnmounted(() => {
   <div v-show="!setupRequired && (!needsAuth || authenticated)" class="fixed inset-0 h-screen w-screen overflow-hidden">
     <TooltipProvider :delay-duration="300">
       <div class="h-screen w-screen max-w-full min-w-[760px] min-h-[600px] flex flex-col bg-background text-foreground overflow-hidden">
-        <AppToolbar :is-dark="isDark" :theme-mode="themeMode" :show-ai-panel="showAiPanel" @set-theme-mode="setThemeMode" @toggle-ai="toggleAiPanel" @open-settings="showSettingsDialog = true" />
+        <AppToolbar
+          :is-dark="isDark"
+          :theme-mode="themeMode"
+          :show-ai-panel="showAiPanel"
+          :app-version="appVersion"
+          :checking-updates="checkingUpdates"
+          :has-update-available="toolbarHasUpdateAvailable"
+          @set-theme-mode="setThemeMode"
+          @toggle-ai="toggleAiPanel"
+          @check-updates="checkUpdates({ silent: false })"
+          @open-settings="showSettingsDialog = true"
+        />
 
         <div :class="isClassicLayout ? 'app-layout-classic flex-1 flex min-h-0' : 'app-panel-gutter flex-1 flex min-h-0 gap-1 p-1'">
           <AppSidebar v-show="sidebarOpen" ref="appSidebarRef" :sidebar-width="sidebarWidth" :active-module="activeModule" :classic-layout="isClassicLayout" @select-module="(mod) => (activeModule = mod)" @start-resize="startSidebarResize" />
