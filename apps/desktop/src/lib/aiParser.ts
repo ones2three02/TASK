@@ -14,6 +14,11 @@ export interface ParsedRequirementResult {
   }[];
 }
 
+export interface RequirementReferenceDocument {
+  name: string;
+  content: string;
+}
+
 const SYSTEM_PROMPT = `你是一个专业的软件工程架构师和敏捷项目管理专家。
 你的任务是将用户的“项目需求文档”或“想法描述”，分解为适合项目启动的核心“目标 (T - Targets)”和具体的“行动 (A - Actions)”。
 
@@ -37,49 +42,183 @@ const SYSTEM_PROMPT = `你是一个专业的软件工程架构师和敏捷项目
       "priority": "high" | "medium" | "low"
     }
   ]
-}`;
+}
 
-export async function parseRequirementWithAi(config: AiConfig, requirementText: string): Promise<ParsedRequirementResult> {
+硬性要求：
+- JSON 属性名和字符串值必须使用英文双引号。
+- 字符串内部不能出现未转义的换行、制表符或控制字符。
+- 不要输出注释、Markdown、自然语言解释或多余字段。`;
+
+const JSON_REPAIR_PROMPT = `你是 JSON 修复器。用户会提供一个模型返回的错误 JSON 文本。
+请只返回修复后的严格 JSON 对象，不要输出 Markdown、解释或额外文字。
+修复后的结构必须包含 targets 和 actions 两个数组，并符合原始 TASK 需求拆解结构。`;
+
+const MAX_PREVIEW_LENGTH = 500;
+const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
+
+export async function parseRequirementWithAi(config: AiConfig, requirementText: string, referenceDocuments: RequirementReferenceDocument[] = []): Promise<ParsedRequirementResult> {
   const textContent = await aiComplete({
     config,
     systemPrompt: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: `这是需求文档内容，请开始进行目标与任务拆解:\n${requirementText}` }],
+    messages: [{ role: "user", content: buildRequirementPrompt(requirementText, referenceDocuments) }],
     temperature: 0.1,
   });
 
-  return cleanAndParseJson(textContent);
+  try {
+    return cleanAndParseRequirementJson(textContent);
+  } catch (error) {
+    const repairedContent = await aiComplete({
+      config,
+      systemPrompt: JSON_REPAIR_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `请修复以下 JSON，并保持 TASK 需求拆解结构：\n\n${textContent}`,
+        },
+      ],
+      temperature: 0,
+    });
+
+    try {
+      return cleanAndParseRequirementJson(repairedContent);
+    } catch {
+      throw error;
+    }
+  }
 }
 
-// Cleans JSON markdown syntax wrapped by LLMs (e.g. ```json ... ```)
-function cleanAndParseJson(rawText: string): ParsedRequirementResult {
-  let cleaned = rawText.trim();
+export function buildRequirementPrompt(requirementText: string, referenceDocuments: RequirementReferenceDocument[] = []): string {
+  const references = referenceDocuments
+    .filter((document) => document.content.trim())
+    .map((document, index) => `【参考文档 ${index + 1}：${document.name}】\n${document.content.trim()}`)
+    .join("\n\n");
 
+  if (!references) {
+    return `这是需求文档内容，请开始进行目标与任务拆解:\n${requirementText}`;
+  }
+
+  return `请先理解以下参考资料，再结合用户需求进行目标与任务拆解。
+
+${references}
+
+【用户需求】
+${requirementText}`;
+}
+
+export function cleanAndParseRequirementJson(rawText: string): ParsedRequirementResult {
+  const cleaned = extractJsonCandidate(rawText);
+
+  try {
+    return normalizeParsedRequirement(JSON.parse(cleaned));
+  } catch (error) {
+    console.error("AI response failed to parse as JSON. Raw text:", rawText);
+    const preview = cleaned.slice(0, MAX_PREVIEW_LENGTH);
+    throw new Error(`解析 AI 响应失败：返回数据不是合法的 JSON。错误原因: ${error instanceof Error ? error.message : String(error)}。响应片段: ${preview}`);
+  }
+}
+
+function extractJsonCandidate(rawText: string): string {
+  let cleaned = rawText.trim();
   // Remove think/thinking tags and their contents
   cleaned = cleaned.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, "").trim();
 
-  // Remove markdown code blocks if present
-  if (cleaned.startsWith("```json")) {
-    cleaned = cleaned.substring(7);
-  } else if (cleaned.startsWith("```")) {
-    cleaned = cleaned.substring(3);
+  const fencedJson = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fencedJson?.[1]) {
+    cleaned = fencedJson[1].trim();
   }
 
-  if (cleaned.endsWith("```")) {
-    cleaned = cleaned.substring(0, cleaned.length - 3);
+  if (cleaned.startsWith("{") && cleaned.endsWith("}")) {
+    return cleaned;
   }
 
-  cleaned = cleaned.trim();
+  const extracted = extractFirstBalancedJsonObject(cleaned);
+  return extracted ?? cleaned;
+}
 
-  try {
-    const parsed = JSON.parse(cleaned);
-    if (!parsed.targets || !parsed.actions) {
-      throw new Error("Parsed JSON structure does not match target/actions scheme.");
+function extractFirstBalancedJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index++) {
+    const char = text[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
     }
-    return parsed as ParsedRequirementResult;
-  } catch (error) {
-    console.error("AI response failed to parse as JSON. Raw text:", rawText);
-    throw new Error(`解析 AI 响应失败：返回数据不是合法的 JSON。错误原因: ${error}`);
+
+    if (char === '"') {
+      inString = true;
+    } else if (char === "{") {
+      depth++;
+    } else if (char === "}") {
+      depth--;
+      if (depth === 0) {
+        return text.slice(start, index + 1);
+      }
+    }
   }
+
+  return null;
+}
+
+function normalizeParsedRequirement(value: unknown): ParsedRequirementResult {
+  if (!isRecord(value) || !Array.isArray(value.targets) || !Array.isArray(value.actions)) {
+    throw new Error("JSON 结构不符合要求，必须包含 targets 和 actions 数组。");
+  }
+
+  return {
+    targets: value.targets.map((target, index) => normalizeTarget(target, index)),
+    actions: value.actions.map((action, index) => normalizeAction(action, index)),
+  };
+}
+
+function normalizeTarget(target: unknown, index: number): ParsedRequirementResult["targets"][number] {
+  if (!isRecord(target)) {
+    throw new Error(`第 ${index + 1} 个 target 不是对象。`);
+  }
+
+  return {
+    title: readRequiredString(target, "title", `第 ${index + 1} 个 target`),
+    description: readRequiredString(target, "description", `第 ${index + 1} 个 target`),
+    milestones: Array.isArray(target.milestones) ? target.milestones.map((milestone) => String(milestone)).filter(Boolean) : [],
+  };
+}
+
+function normalizeAction(action: unknown, index: number): ParsedRequirementResult["actions"][number] {
+  if (!isRecord(action)) {
+    throw new Error(`第 ${index + 1} 个 action 不是对象。`);
+  }
+
+  const priority = typeof action.priority === "string" && VALID_PRIORITIES.has(action.priority) ? action.priority : "medium";
+
+  return {
+    title: readRequiredString(action, "title", `第 ${index + 1} 个 action`),
+    description: readRequiredString(action, "description", `第 ${index + 1} 个 action`),
+    priority: priority as "high" | "medium" | "low",
+  };
+}
+
+function readRequiredString(record: Record<string, unknown>, key: string, scope: string): string {
+  const value = record[key];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${scope} 缺少 ${key} 字符串。`);
+  }
+  return value.trim();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // AI auto-suggestion helper to generate Serve and Keep summaries

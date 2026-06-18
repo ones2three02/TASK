@@ -2,9 +2,9 @@
 import { ref, computed, onMounted } from "vue";
 import { useSettingsStore, AI_PROVIDER_PRESETS } from "@/stores/settingsStore";
 import { useTaskStore } from "@/stores/taskStore";
-import { parseRequirementWithAi, type ParsedRequirementResult } from "@/lib/aiParser";
+import { parseRequirementWithAi, type ParsedRequirementResult, type RequirementReferenceDocument } from "@/lib/aiParser";
 import { useToast } from "@/composables/useToast";
-import { X, Sparkles, Loader2, CheckCircle, Circle, Target, ListTodo, AlertTriangle, ChevronRight, Settings } from "@lucide/vue";
+import { X, Sparkles, Loader2, CheckCircle, Circle, Target, ListTodo, AlertTriangle, ChevronRight, Upload, FileText, Trash2 } from "@lucide/vue";
 
 const props = defineProps<{
   open: boolean;
@@ -23,6 +23,20 @@ const step = ref<"input" | "preview">("input");
 const requirementText = ref("");
 const loading = ref(false);
 const errorMsg = ref("");
+const referenceInputRef = ref<HTMLInputElement | null>(null);
+const referenceErrorMsg = ref("");
+
+interface ReferenceDocumentEntry extends RequirementReferenceDocument {
+  id: string;
+  size: number;
+  truncated: boolean;
+}
+
+const MAX_REFERENCE_CHARS = 30_000;
+const SUPPORTED_REFERENCE_EXTENSIONS = [".txt", ".md", ".markdown", ".json", ".csv"];
+const referenceDocuments = ref<ReferenceDocumentEntry[]>([]);
+const totalReferenceChars = computed(() => referenceDocuments.value.reduce((total, document) => total + document.content.length, 0));
+const hasParseInput = computed(() => !!requirementText.value.trim() || referenceDocuments.value.length > 0);
 
 // Input-stage quick API Key setup (so users don't have to navigate to settings first)
 const quickApiKey = ref("");
@@ -44,7 +58,7 @@ onMounted(() => {
 });
 
 async function startAiParse() {
-  if (!requirementText.value.trim()) return;
+  if (!hasParseInput.value) return;
 
   loading.value = true;
   errorMsg.value = "";
@@ -55,7 +69,14 @@ async function startAiParse() {
       settingsStore.updateAiConfig({ apiKey: quickApiKey.value });
     }
 
-    const result = await parseRequirementWithAi(settingsStore.aiConfig, requirementText.value);
+    const result = await parseRequirementWithAi(
+      settingsStore.aiConfig,
+      requirementText.value,
+      referenceDocuments.value.map((document) => ({
+        name: document.name,
+        content: document.content,
+      })),
+    );
     parsedResult.value = result;
 
     // Default all items to checked
@@ -111,7 +132,71 @@ function handleImport() {
   // Reset
   step.value = "input";
   requirementText.value = "";
+  referenceDocuments.value = [];
+  referenceErrorMsg.value = "";
   parsedResult.value = null;
+}
+
+async function handleReferenceFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files ?? []);
+  if (!files.length) return;
+
+  referenceErrorMsg.value = "";
+
+  for (const file of files) {
+    if (!isSupportedReferenceFile(file.name)) {
+      referenceErrorMsg.value = `已跳过 ${file.name}：当前仅支持 ${SUPPORTED_REFERENCE_EXTENSIONS.join("、")} 文本类文件。`;
+      continue;
+    }
+
+    try {
+      const text = await file.text();
+      const normalizedText = text.trim();
+      if (!normalizedText) {
+        referenceErrorMsg.value = `已跳过 ${file.name}：文件内容为空。`;
+        continue;
+      }
+
+      const remainingChars = MAX_REFERENCE_CHARS - totalReferenceChars.value;
+      if (remainingChars <= 0) {
+        referenceErrorMsg.value = `参考资料已达到 ${MAX_REFERENCE_CHARS.toLocaleString()} 字符上限，请删除部分文档后再上传。`;
+        break;
+      }
+
+      const content = normalizedText.slice(0, remainingChars);
+      referenceDocuments.value.push({
+        id: `${file.name}-${file.size}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: file.name,
+        size: file.size,
+        content,
+        truncated: normalizedText.length > remainingChars,
+      });
+
+      if (normalizedText.length > remainingChars) {
+        referenceErrorMsg.value = `${file.name} 内容较长，已按剩余字符额度截断。`;
+      }
+    } catch (error) {
+      referenceErrorMsg.value = `读取 ${file.name} 失败：${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  input.value = "";
+}
+
+function removeReferenceDocument(id: string) {
+  referenceDocuments.value = referenceDocuments.value.filter((document) => document.id !== id);
+}
+
+function isSupportedReferenceFile(fileName: string) {
+  const lowerName = fileName.toLowerCase();
+  return SUPPORTED_REFERENCE_EXTENSIONS.some((extension) => lowerName.endsWith(extension));
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function getPriorityColor(priority: string) {
@@ -154,10 +239,51 @@ function getPriorityColor(priority: string) {
           <label class="text-xs font-semibold text-muted-foreground">需求书文本 / 灵感想法</label>
           <textarea
             v-model="requirementText"
-            placeholder="请在此粘贴您的需求内容，或者简述您想完成什么项目...&#10;例如：&#10;“我想做一个个人记账小程序。系统核心包含记账（可选择收入/支出、选择分类和输入备注），包含分类管理，包含按月份统计支出的可视化柱状图。系统需要极简暗黑风格，部署在手机网页端...”"
+            placeholder="请在此粘贴您的需求内容，或者简述您想完成什么项目...&#10;例如：&#10;“基于上面的手册，我需要把内部系统同步到飞书多维表格，同步人员信息和工资信息。”"
             class="flex-1 w-full rounded-lg border border-input bg-background/50 px-4 py-3 text-sm leading-relaxed shadow-inner placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none font-sans"
             :disabled="loading"
           />
+        </div>
+
+        <!-- Reference documents -->
+        <div class="rounded-lg border border-border/60 bg-muted/10 p-3.5 space-y-3">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="space-y-1">
+              <div class="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <FileText class="h-3.5 w-3.5 text-indigo-500" />
+                指导文档 / 参考资料
+              </div>
+              <p class="text-[11px] text-muted-foreground">支持上传 txt、md、json、csv，AI 会结合这些资料拆解项目。文件在本地读取，解析时文本会发送给当前 AI 服务。</p>
+            </div>
+            <button class="h-8 inline-flex items-center justify-center rounded-lg border bg-background px-3 text-xs font-medium hover:bg-muted transition-colors gap-1.5 shrink-0" type="button" :disabled="loading" @click="referenceInputRef?.click()">
+              <Upload class="h-3.5 w-3.5" />
+              上传文档
+            </button>
+            <input ref="referenceInputRef" type="file" class="hidden" multiple accept=".txt,.md,.markdown,.json,.csv,text/plain,text/markdown,application/json,text/csv" @change="handleReferenceFileChange" />
+          </div>
+
+          <div v-if="referenceDocuments.length" class="space-y-2">
+            <div class="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>已添加 {{ referenceDocuments.length }} 个参考文档</span>
+              <span>{{ totalReferenceChars.toLocaleString() }} / {{ MAX_REFERENCE_CHARS.toLocaleString() }} 字符</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div v-for="document in referenceDocuments" :key="document.id" class="rounded-lg border bg-background/70 px-3 py-2 flex items-center gap-2 min-w-0">
+                <FileText class="h-4 w-4 text-indigo-500 shrink-0" />
+                <div class="min-w-0 flex-1">
+                  <div class="text-xs font-medium truncate">{{ document.name }}</div>
+                  <div class="text-[10px] text-muted-foreground">{{ formatFileSize(document.size) }} · {{ document.content.length.toLocaleString() }} 字符<span v-if="document.truncated"> · 已截断</span></div>
+                </div>
+                <button class="h-7 w-7 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10" type="button" :disabled="loading" @click="removeReferenceDocument(document.id)">
+                  <Trash2 class="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="referenceErrorMsg" class="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-600">
+            {{ referenceErrorMsg }}
+          </div>
         </div>
 
         <!-- Key check Warning and Quick config -->
@@ -192,7 +318,7 @@ function getPriorityColor(priority: string) {
         <!-- Trigger buttons -->
         <div class="flex justify-end gap-2 border-t pt-4 border-border/40 shrink-0">
           <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted transition-colors" @click="emit('close')" :disabled="loading">取消</button>
-          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-indigo-500 hover:bg-indigo-500/90 text-white px-5 text-sm font-medium transition-all shadow-md gap-1.5" :disabled="!requirementText.trim() || loading || (!isAiConfigured && !quickApiKey)" @click="startAiParse">
+          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-indigo-500 hover:bg-indigo-500/90 text-white px-5 text-sm font-medium transition-all shadow-md gap-1.5" :disabled="!hasParseInput || loading || (!isAiConfigured && !quickApiKey)" @click="startAiParse">
             <Loader2 v-if="loading" class="h-4 w-4 animate-spin" />
             <Sparkles v-else class="h-4 w-4" />
             {{ loading ? "AI 正在全力拆解中..." : "开始 AI 拆解项目" }}
