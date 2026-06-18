@@ -1,6 +1,6 @@
 {
   "name": "task",
-  "version": "0.5.33",
+  "version": "0.5.34",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -107,5 +107,8 @@
       "esbuild",
       "keytar"
     ]
+  },
+  "volta": {
+    "node": "22.19.0"
   }
 }
