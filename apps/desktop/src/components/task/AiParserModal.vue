@@ -139,7 +139,17 @@ function handleImport() {
   // 2. Import selected serves first so actions and keeps can link to them.
   parsedResult.value.serves.forEach((s, idx) => {
     if (selectedServes.value[idx]) {
-      const serve = taskStore.addServe(s.title, s.description, s.deliverable, s.client, "draft", undefined, "pending", s.plannedAt, s.acceptanceChecklist.map((item) => ({ title: item, completed: false })));
+      const serve = taskStore.addServe(
+        s.title,
+        s.description,
+        s.deliverable,
+        s.client,
+        "draft",
+        undefined,
+        "pending",
+        s.plannedAt,
+        s.acceptanceChecklist.map((item) => ({ title: item, completed: false })),
+      );
       serveIdByTitle.set(s.title, serve.id);
       servesImported++;
     }
