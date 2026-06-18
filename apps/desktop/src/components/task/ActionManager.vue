@@ -11,16 +11,24 @@ const today = new Date().toISOString().slice(0, 10);
 const statusFilter = ref<"all" | "todo" | "in_progress" | "done">("all");
 const priorityFilter = ref<"all" | "low" | "medium" | "high">("all");
 const dateFilter = ref<"all" | "overdue" | "next7" | "none">("all");
+const lifecycleFilter = ref<"all" | "unlinked" | "blocked" | "withEvidence">("all");
 
 // Filter actions for active project
 const projectActions = computed(() => {
   return taskStore.actions.filter((a) => a.projectId === taskStore.activeProjectId);
 });
 
+const projectServes = computed(() => {
+  return taskStore.serves.filter((serve) => serve.projectId === taskStore.activeProjectId);
+});
+
 const filteredProjectActions = computed(() => {
   return projectActions.value.filter((action) => {
     if (statusFilter.value !== "all" && action.status !== statusFilter.value) return false;
     if (priorityFilter.value !== "all" && action.priority !== priorityFilter.value) return false;
+    if (lifecycleFilter.value === "unlinked" && action.serveId) return false;
+    if (lifecycleFilter.value === "blocked" && !action.blocked) return false;
+    if (lifecycleFilter.value === "withEvidence" && !hasActionEvidence(action)) return false;
     if (dateFilter.value === "none") return !action.dueDate;
     if (dateFilter.value === "overdue") return isActionOverdue(action);
     if (dateFilter.value === "next7") {
@@ -106,6 +114,10 @@ const formDescription = ref("");
 const formPriority = ref<"low" | "medium" | "high">("medium");
 const formDueDate = ref("");
 const formStatus = ref<"todo" | "in_progress" | "done">("todo");
+const formServeId = ref("");
+const formBlocked = ref(false);
+const formBlockerReason = ref("");
+const formEvidence = ref("");
 
 function openAddDialog(status: "todo" | "in_progress" | "done" = "todo") {
   isEdit.value = false;
@@ -115,6 +127,10 @@ function openAddDialog(status: "todo" | "in_progress" | "done" = "todo") {
   formPriority.value = "medium";
   formDueDate.value = "";
   formStatus.value = status;
+  formServeId.value = "";
+  formBlocked.value = false;
+  formBlockerReason.value = "";
+  formEvidence.value = "";
   showDialog.value = true;
 }
 
@@ -126,11 +142,19 @@ function openEditDialog(action: Action) {
   formPriority.value = action.priority;
   formDueDate.value = action.dueDate || "";
   formStatus.value = action.status;
+  formServeId.value = action.serveId || "";
+  formBlocked.value = action.blocked || false;
+  formBlockerReason.value = action.blockerReason || "";
+  formEvidence.value = action.evidence || "";
   showDialog.value = true;
 }
 
 function submitForm() {
   if (!formTitle.value.trim()) return;
+
+  const serveId = formServeId.value || undefined;
+  const blockerReason = formBlocked.value ? formBlockerReason.value.trim() : "";
+  const evidence = formEvidence.value.trim();
 
   if (isEdit.value) {
     const existing = taskStore.actions.find((a) => a.id === editId.value);
@@ -140,10 +164,14 @@ function submitForm() {
       existing.priority = formPriority.value;
       existing.dueDate = formDueDate.value || undefined;
       existing.status = formStatus.value;
+      existing.serveId = serveId;
+      existing.blocked = formBlocked.value;
+      existing.blockerReason = blockerReason;
+      existing.evidence = evidence;
       taskStore.updateAction(existing);
     }
   } else {
-    taskStore.addAction(formTitle.value.trim(), formDescription.value.trim(), formPriority.value, formDueDate.value || undefined, formStatus.value);
+    taskStore.addAction(formTitle.value.trim(), formDescription.value.trim(), formPriority.value, formDueDate.value || undefined, formStatus.value, serveId, formBlocked.value, blockerReason, evidence);
   }
   showDialog.value = false;
 }
@@ -192,6 +220,20 @@ function getPriorityLabel(priority: "low" | "medium" | "high") {
 function isActionOverdue(action: Action) {
   return action.status !== "done" && !!action.dueDate && action.dueDate < today;
 }
+
+function getActionServeTitle(action: Action) {
+  if (!action.serveId) return "";
+  return taskStore.serves.find((serve) => serve.id === action.serveId)?.title || "关联交付项已删除";
+}
+
+function hasActionEvidence(action: Action) {
+  return !!action.evidence?.trim();
+}
+
+function getSummary(text?: string) {
+  const trimmed = text?.trim() || "";
+  return trimmed.length > 44 ? `${trimmed.slice(0, 44)}...` : trimmed;
+}
 </script>
 
 <template>
@@ -202,9 +244,9 @@ function isActionOverdue(action: Action) {
         <div>
           <h2 class="text-xl font-semibold flex items-center gap-2">
             <ListTodo class="h-5 w-5 text-indigo-500" />
-            A - ACTION 行动看板
+            A - ACTION 执行控制
           </h2>
-          <p class="text-xs text-muted-foreground mt-1">做项目需要行动。使用看板追踪行动执行状态，敏捷推进任务交付。</p>
+          <p class="text-xs text-muted-foreground mt-1">行动围绕 S 交付项推进，可按需关联交付项、管理阻塞与记录完成证据。</p>
         </div>
         <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1" @click="openAddDialog('todo')">
           <Plus class="h-4 w-4" />
@@ -212,7 +254,7 @@ function isActionOverdue(action: Action) {
         </button>
       </div>
 
-      <div class="grid grid-cols-1 gap-3 border-t border-border/40 pt-4 md:grid-cols-3">
+      <div class="grid grid-cols-1 gap-3 border-t border-border/40 pt-4 md:grid-cols-4">
         <label class="space-y-1.5 text-xs font-medium text-muted-foreground">
           状态筛选
           <select v-model="statusFilter" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
@@ -240,6 +282,16 @@ function isActionOverdue(action: Action) {
             <option value="overdue">已逾期</option>
             <option value="next7">7 天内</option>
             <option value="none">无截止日期</option>
+          </select>
+        </label>
+
+        <label class="space-y-1.5 text-xs font-medium text-muted-foreground">
+          执行筛选
+          <select v-model="lifecycleFilter" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+            <option value="all">全部执行状态</option>
+            <option value="unlinked">未关联交付项</option>
+            <option value="blocked">阻塞中</option>
+            <option value="withEvidence">有完成证据</option>
           </select>
         </label>
       </div>
@@ -279,6 +331,18 @@ function isActionOverdue(action: Action) {
               <p class="text-xs text-muted-foreground line-clamp-2 leading-relaxed" v-if="action.description">
                 {{ action.description }}
               </p>
+              <div v-if="getActionServeTitle(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                <Handshake class="h-3 w-3 shrink-0" />
+                <span class="truncate">{{ getActionServeTitle(action) }}</span>
+              </div>
+              <div v-if="action.blocked" class="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-600">
+                <div class="font-semibold">阻塞中</div>
+                <p v-if="action.blockerReason" class="mt-0.5 line-clamp-2 text-[11px] leading-relaxed">{{ getSummary(action.blockerReason) }}</p>
+              </div>
+              <div v-if="hasActionEvidence(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                <CheckCircle2 class="h-3 w-3 shrink-0" />
+                <span class="truncate">已记录证据：{{ getSummary(action.evidence) }}</span>
+              </div>
 
               <!-- Card actions -->
               <div class="flex items-center justify-between border-t pt-2.5 mt-1 border-border/30">
@@ -334,6 +398,18 @@ function isActionOverdue(action: Action) {
               <p class="text-xs text-muted-foreground line-clamp-2 leading-relaxed" v-if="action.description">
                 {{ action.description }}
               </p>
+              <div v-if="getActionServeTitle(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                <Handshake class="h-3 w-3 shrink-0" />
+                <span class="truncate">{{ getActionServeTitle(action) }}</span>
+              </div>
+              <div v-if="action.blocked" class="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-600">
+                <div class="font-semibold">阻塞中</div>
+                <p v-if="action.blockerReason" class="mt-0.5 line-clamp-2 text-[11px] leading-relaxed">{{ getSummary(action.blockerReason) }}</p>
+              </div>
+              <div v-if="hasActionEvidence(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                <CheckCircle2 class="h-3 w-3 shrink-0" />
+                <span class="truncate">已记录证据：{{ getSummary(action.evidence) }}</span>
+              </div>
 
               <!-- Card actions -->
               <div class="flex items-center justify-between border-t pt-2.5 mt-1 border-border/30">
@@ -391,6 +467,18 @@ function isActionOverdue(action: Action) {
               <p class="text-xs text-muted-foreground/60 line-clamp-2 leading-relaxed" v-if="action.description">
                 {{ action.description }}
               </p>
+              <div v-if="getActionServeTitle(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                <Handshake class="h-3 w-3 shrink-0" />
+                <span class="truncate">{{ getActionServeTitle(action) }}</span>
+              </div>
+              <div v-if="action.blocked" class="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-600">
+                <div class="font-semibold">阻塞中</div>
+                <p v-if="action.blockerReason" class="mt-0.5 line-clamp-2 text-[11px] leading-relaxed">{{ getSummary(action.blockerReason) }}</p>
+              </div>
+              <div v-if="hasActionEvidence(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                <CheckCircle2 class="h-3 w-3 shrink-0" />
+                <span class="truncate">已记录证据：{{ getSummary(action.evidence) }}</span>
+              </div>
 
               <!-- Card actions -->
               <div class="flex items-center justify-between border-t pt-2.5 mt-1 border-border/20">
@@ -417,7 +505,7 @@ function isActionOverdue(action: Action) {
 
     <!-- Dialog Modal -->
     <div v-if="showDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div class="w-full max-w-[480px] rounded-xl border bg-background p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
+      <div class="w-full max-w-[520px] max-h-[90vh] overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
         <button class="absolute top-4 right-4 h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground" @click="showDialog = false">
           <X class="h-4 w-4" />
         </button>
@@ -445,6 +533,15 @@ function isActionOverdue(action: Action) {
               rows="3"
               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
             />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">关联 S 交付项（可选）</label>
+            <select v-model="formServeId" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              <option value="">不关联交付项</option>
+              <option v-for="serve in projectServes" :key="serve.id" :value="serve.id">{{ serve.title }}</option>
+            </select>
+            <p v-if="projectServes.length === 0" class="text-[11px] text-muted-foreground">当前项目暂无 S 交付项，可先保持不关联。</p>
           </div>
 
           <!-- Priority -->
@@ -484,6 +581,30 @@ function isActionOverdue(action: Action) {
                 {{ s === "todo" ? "准备发起" : s === "in_progress" ? "进行中" : "已完成" }}
               </button>
             </div>
+          </div>
+
+          <div class="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
+            <label class="flex items-center gap-2 text-xs font-medium text-foreground">
+              <input v-model="formBlocked" type="checkbox" class="h-4 w-4 rounded border-input accent-primary" />
+              标记为阻塞中
+            </label>
+            <textarea
+              v-model="formBlockerReason"
+              :disabled="!formBlocked"
+              placeholder="说明阻塞原因、等待对象或解除条件..."
+              rows="2"
+              class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">完成证据（可选）</label>
+            <textarea
+              v-model="formEvidence"
+              placeholder="记录验收链接、截图说明、交付文档或关键结果..."
+              rows="2"
+              class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+            />
           </div>
         </div>
 
