@@ -2,9 +2,33 @@ import { uuid } from "@/lib/utils";
 
 export type TaskActionStatus = "todo" | "in_progress" | "done";
 export type TaskPriority = "low" | "medium" | "high";
-export type ServeStatus = "draft" | "delivered" | "active";
+export type ServeStatus = "draft" | "active" | "delivered" | "accepted" | "changes_requested";
 export type AcceptanceStatus = "pending" | "accepted" | "changes_requested";
-export type KeepType = "document" | "link" | "archive";
+export type KeepType = "document" | "link" | "archive" | "evidence" | "version" | "retrospective";
+export type TaskQualityGateSeverity = "info" | "warning" | "danger";
+
+export interface ChecklistItem {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
+export interface EvidenceItem {
+  id: string;
+  title: string;
+  content?: string;
+  url?: string;
+  createdAt?: string;
+}
+
+export interface TaskQualityGate {
+  id: string;
+  severity: TaskQualityGateSeverity;
+  title: string;
+  message: string;
+  count: number;
+  relatedIds: string[];
+}
 
 export interface TaskProject {
   id: string;
@@ -21,6 +45,10 @@ export interface TaskTarget {
   status: "pending" | "completed";
   createdAt: string;
   milestones: { id: string; title: string; completed: boolean }[];
+  scope?: string;
+  outOfScope?: string;
+  successCriteria?: ChecklistItem[];
+  risks?: string[];
 }
 
 export interface TaskAction {
@@ -32,6 +60,10 @@ export interface TaskAction {
   priority: TaskPriority;
   dueDate?: string;
   createdAt: string;
+  serveId?: string;
+  blocked?: boolean;
+  blockerReason?: string;
+  evidence?: EvidenceItem[];
 }
 
 export interface TaskServe {
@@ -42,8 +74,12 @@ export interface TaskServe {
   deliverable: string;
   client: string;
   status: ServeStatus;
+  plannedAt?: string;
   deliveredAt?: string;
   acceptanceStatus: AcceptanceStatus;
+  acceptanceChecklist?: ChecklistItem[];
+  evidence?: EvidenceItem[];
+  reworkItems?: ChecklistItem[];
   createdAt: string;
 }
 
@@ -54,16 +90,117 @@ export interface TaskKeep {
   type: KeepType;
   content: string;
   createdAt: string;
+  relatedServeId?: string;
+  relatedActionId?: string;
 }
 
+type TaskSnapshotServe = Omit<TaskServe, "status"> & { status: "draft" | "active" | "delivered" };
+type TaskSnapshotKeep = Omit<TaskKeep, "type"> & { type: "document" | "link" | "archive" };
+
 export interface TaskProjectSnapshot {
-  version: 1;
+  version: 1 | 2;
   exportedAt: string;
   project: TaskProject;
   targets: TaskTarget[];
   actions: TaskAction[];
-  serves: TaskServe[];
-  keeps: TaskKeep[];
+  serves: TaskSnapshotServe[];
+  keeps: TaskSnapshotKeep[];
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function normalizeChecklistItems(value: unknown, idFactory?: () => string): ChecklistItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    if (typeof item === "string") {
+      return { id: idFactory?.() ?? uuid(), title: item, completed: false };
+    }
+
+    const checklistItem = item && typeof item === "object" ? (item as Partial<ChecklistItem>) : {};
+    return {
+      id: idFactory?.() ?? normalizeOptionalString(checklistItem.id) ?? uuid(),
+      title: normalizeOptionalString(checklistItem.title) ?? "未命名检查项",
+      completed: checklistItem.completed === true,
+    };
+  });
+}
+
+function normalizeEvidenceItems(value: unknown, idFactory?: () => string): EvidenceItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    if (typeof item === "string") {
+      return { id: idFactory?.() ?? uuid(), title: item };
+    }
+
+    const evidenceItem = item && typeof item === "object" ? (item as Partial<EvidenceItem>) : {};
+    return {
+      id: idFactory?.() ?? normalizeOptionalString(evidenceItem.id) ?? uuid(),
+      title: normalizeOptionalString(evidenceItem.title) ?? "未命名证据",
+      content: normalizeOptionalString(evidenceItem.content),
+      url: normalizeOptionalString(evidenceItem.url),
+      createdAt: normalizeOptionalString(evidenceItem.createdAt),
+    };
+  });
+}
+
+function normalizeMilestones(value: unknown, idFactory?: () => string) {
+  if (!Array.isArray(value)) return [];
+  return value.map((milestone) => {
+    const normalizedMilestone = milestone && typeof milestone === "object" ? (milestone as { id?: unknown; title?: unknown; completed?: unknown }) : {};
+    return {
+      id: idFactory?.() ?? normalizeOptionalString(normalizedMilestone.id) ?? uuid(),
+      title: normalizeOptionalString(normalizedMilestone.title) ?? "未命名里程碑",
+      completed: normalizedMilestone.completed === true,
+    };
+  });
+}
+
+export function normalizeTarget(target: TaskTarget): TaskTarget {
+  return {
+    ...target,
+    milestones: normalizeMilestones(target.milestones),
+    scope: normalizeOptionalString(target.scope),
+    outOfScope: normalizeOptionalString(target.outOfScope),
+    successCriteria: normalizeChecklistItems(target.successCriteria),
+    risks: normalizeStringList(target.risks),
+  };
+}
+
+export function normalizeAction(action: TaskAction): TaskAction {
+  return {
+    ...action,
+    serveId: normalizeOptionalString(action.serveId),
+    blocked: action.blocked === true,
+    blockerReason: normalizeOptionalString(action.blockerReason),
+    evidence: normalizeEvidenceItems(action.evidence),
+  };
+}
+
+export function normalizeServe(serve: TaskServe): TaskServe {
+  return {
+    ...serve,
+    plannedAt: normalizeOptionalString(serve.plannedAt),
+    deliveredAt: normalizeOptionalString(serve.deliveredAt),
+    acceptanceStatus: serve.acceptanceStatus ?? "pending",
+    acceptanceChecklist: normalizeChecklistItems(serve.acceptanceChecklist),
+    evidence: normalizeEvidenceItems(serve.evidence),
+    reworkItems: normalizeChecklistItems(serve.reworkItems),
+  };
+}
+
+export function normalizeKeep(keep: TaskKeep): TaskKeep {
+  return {
+    ...keep,
+    relatedServeId: normalizeOptionalString(keep.relatedServeId),
+    relatedActionId: normalizeOptionalString(keep.relatedActionId),
+  };
 }
 
 export function calculateTargetProgress(targets: TaskTarget[]) {
@@ -107,8 +244,9 @@ export function calculateActionStats(actions: TaskAction[], today = new Date().t
 }
 
 export function calculateServeStats(serves: TaskServe[]) {
-  const delivered = serves.filter((serve) => serve.status === "delivered" || serve.status === "active").length;
-  const accepted = serves.filter((serve) => serve.acceptanceStatus === "accepted").length;
+  const deliveredStatuses: ServeStatus[] = ["active", "delivered", "accepted", "changes_requested"];
+  const delivered = serves.filter((serve) => deliveredStatuses.includes(serve.status) || serve.acceptanceStatus === "accepted").length;
+  const accepted = serves.filter((serve) => serve.status === "accepted" || serve.acceptanceStatus === "accepted").length;
 
   return {
     total: serves.length,
@@ -126,8 +264,110 @@ export function calculateKeepStats(keeps: TaskKeep[]) {
     documents: keeps.filter((keep) => keep.type === "document").length,
     links: keeps.filter((keep) => keep.type === "link").length,
     archives: keeps.filter((keep) => keep.type === "archive").length,
+    evidence: keeps.filter((keep) => keep.type === "evidence").length,
+    versions: keeps.filter((keep) => keep.type === "version").length,
+    retrospectives: keeps.filter((keep) => keep.type === "retrospective").length,
     percent: keeps.length > 0 ? 100 : 0,
   };
+}
+
+function createQualityGate(id: string, severity: TaskQualityGateSeverity, title: string, message: string, relatedIds: string[]): TaskQualityGate {
+  return {
+    id,
+    severity,
+    title,
+    message,
+    count: relatedIds.length,
+    relatedIds,
+  };
+}
+
+export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction[], serves: TaskServe[], keeps: TaskKeep[]): TaskQualityGate[] {
+  const normalizedTargets = targets.map(normalizeTarget);
+  const normalizedActions = actions.map(normalizeAction);
+  const normalizedServes = serves.map(normalizeServe);
+  const normalizedKeeps = keeps.map(normalizeKeep);
+  const gates: TaskQualityGate[] = [];
+
+  const targetsMissingSuccessCriteria = normalizedTargets.filter((target) => (target.successCriteria?.length ?? 0) === 0);
+  if (targetsMissingSuccessCriteria.length > 0) {
+    gates.push(
+      createQualityGate(
+        "target-success-criteria",
+        "warning",
+        "目标缺少成功标准",
+        "建议为 Target 补充可验收的成功标准，避免目标完成口径不一致。",
+        targetsMissingSuccessCriteria.map((target) => target.id),
+      ),
+    );
+  }
+
+  const unlinkedActions = normalizedServes.length > 0 ? normalizedActions.filter((action) => !action.serveId) : [];
+  if (unlinkedActions.length > 0) {
+    gates.push(
+      createQualityGate(
+        "action-unlinked-serve",
+        "info",
+        "行动未关联交付项",
+        "已有 Serve 时，建议将相关 Action 关联到交付项，便于追踪执行到验收的链路。",
+        unlinkedActions.map((action) => action.id),
+      ),
+    );
+  }
+
+  const blockedActions = normalizedActions.filter((action) => action.blocked);
+  if (blockedActions.length > 0) {
+    gates.push(
+      createQualityGate(
+        "action-blocked",
+        "danger",
+        "行动存在阻塞",
+        "存在被标记为阻塞的 Action，建议优先处理阻塞原因。",
+        blockedActions.map((action) => action.id),
+      ),
+    );
+  }
+
+  const servesMissingChecklist = normalizedServes.filter((serve) => (serve.acceptanceChecklist?.length ?? 0) === 0);
+  if (servesMissingChecklist.length > 0) {
+    gates.push(
+      createQualityGate(
+        "serve-acceptance-checklist",
+        "warning",
+        "交付项缺少验收清单",
+        "建议为 Serve 补充验收清单，明确交付是否可被接受。",
+        servesMissingChecklist.map((serve) => serve.id),
+      ),
+    );
+  }
+
+  const pendingAcceptanceServes = normalizedServes.filter((serve) => serve.status === "delivered" && serve.acceptanceStatus !== "accepted");
+  if (pendingAcceptanceServes.length > 0) {
+    gates.push(
+      createQualityGate(
+        "serve-pending-acceptance",
+        "warning",
+        "交付项待验收",
+        "存在已交付但尚未验收通过的 Serve，建议推进验收或记录返工项。",
+        pendingAcceptanceServes.map((serve) => serve.id),
+      ),
+    );
+  }
+
+  const acceptedServes = normalizedServes.filter((serve) => serve.status === "accepted" || serve.acceptanceStatus === "accepted");
+  if (acceptedServes.length > 0 && normalizedKeeps.length === 0) {
+    gates.push(
+      createQualityGate(
+        "keep-missing-after-serve",
+        "info",
+        "验收后缺少沉淀",
+        "已有验收通过的 Serve，但尚未沉淀 Keep，建议补充证据、版本或复盘资产。",
+        acceptedServes.map((serve) => serve.id),
+      ),
+    );
+  }
+
+  return gates;
 }
 
 export function calculateProjectOverview(project: TaskProject, targets: TaskTarget[], actions: TaskAction[], serves: TaskServe[], keeps: TaskKeep[], today?: string) {
@@ -135,6 +375,7 @@ export function calculateProjectOverview(project: TaskProject, targets: TaskTarg
   const actionStats = calculateActionStats(actions, today);
   const serveStats = calculateServeStats(serves);
   const keepStats = calculateKeepStats(keeps);
+  const qualityGates = calculateQualityGates(targets, actions, serves, keeps);
   const overallPercent = Math.round(targetProgress.percent * 0.3 + actionStats.percent * 0.35 + serveStats.percent * 0.2 + keepStats.percent * 0.15);
 
   const overview = {
@@ -143,6 +384,7 @@ export function calculateProjectOverview(project: TaskProject, targets: TaskTarg
     actionStats,
     serveStats,
     keepStats,
+    qualityGates,
     overallPercent,
     recommendation: {
       stage: "target" as "dashboard" | "target" | "action" | "serve" | "keep",
@@ -214,13 +456,13 @@ export function buildProjectRetrospective(project: TaskProject, targets: TaskTar
 
 export function exportProjectSnapshot(project: TaskProject, targets: TaskTarget[], actions: TaskAction[], serves: TaskServe[], keeps: TaskKeep[]): TaskProjectSnapshot {
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     project,
-    targets,
-    actions,
-    serves,
-    keeps,
+    targets: targets.map(normalizeTarget),
+    actions: actions.map(normalizeAction),
+    serves: serves.map(normalizeServe) as TaskProjectSnapshot["serves"],
+    keeps: keeps.map(normalizeKeep) as TaskProjectSnapshot["keeps"],
   };
 }
 
@@ -230,7 +472,6 @@ export function normalizeImportedProjectSnapshot(snapshot: unknown, idFactory: (
   }
 
   const projectId = idFactory();
-  const targetIdByOldId = new Map<string, string>();
 
   const normalizedProject: TaskProject = {
     ...snapshot.project,
@@ -241,28 +482,40 @@ export function normalizeImportedProjectSnapshot(snapshot: unknown, idFactory: (
 
   const normalizedTargets = snapshot.targets.map((target) => {
     const targetId = idFactory();
-    targetIdByOldId.set(target.id, targetId);
-    return {
+    return normalizeTarget({
       ...target,
       id: targetId,
       projectId,
-      milestones: target.milestones.map((milestone) => ({ ...milestone, id: idFactory() })),
-    };
+      milestones: normalizeMilestones(target.milestones, idFactory),
+      successCriteria: normalizeChecklistItems(target.successCriteria, idFactory),
+    });
   });
 
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     project: normalizedProject,
     targets: normalizedTargets,
-    actions: snapshot.actions.map((action) => ({ ...action, id: idFactory(), projectId })),
-    serves: snapshot.serves.map((serve) => ({
-      ...serve,
-      id: idFactory(),
-      projectId,
-      acceptanceStatus: serve.acceptanceStatus ?? "pending",
-    })),
-    keeps: snapshot.keeps.map((keep) => ({ ...keep, id: idFactory(), projectId })),
+    actions: snapshot.actions.map((action) =>
+      normalizeAction({
+        ...action,
+        id: idFactory(),
+        projectId,
+        evidence: normalizeEvidenceItems(action.evidence, idFactory),
+      }),
+    ),
+    serves: snapshot.serves.map((serve) =>
+      normalizeServe({
+        ...serve,
+        id: idFactory(),
+        projectId,
+        acceptanceStatus: serve.acceptanceStatus ?? "pending",
+        acceptanceChecklist: normalizeChecklistItems(serve.acceptanceChecklist, idFactory),
+        evidence: normalizeEvidenceItems(serve.evidence, idFactory),
+        reworkItems: normalizeChecklistItems(serve.reworkItems, idFactory),
+      }),
+    ) as TaskProjectSnapshot["serves"],
+    keeps: snapshot.keeps.map((keep) => normalizeKeep({ ...keep, id: idFactory(), projectId })) as TaskProjectSnapshot["keeps"],
   };
 }
 

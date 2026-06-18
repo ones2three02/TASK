@@ -142,12 +142,66 @@ test("exports and normalizes project snapshots without reusing imported ids", ()
   const ids = ["new-project", "new-target", "new-m1", "new-m2", "new-target-2", "new-action", "new-action-2", "new-action-3", "new-serve", "new-keep"];
   const normalized = normalizeImportedProjectSnapshot(snapshot, () => ids.shift() ?? "fallback-id");
 
+  assert.equal(snapshot.version, 2);
+  assert.equal(normalized.version, 2);
   assert.equal(normalized.project.id, "new-project");
   assert.notEqual(normalized.project.id, project.id);
   assert.equal(normalized.targets[0].projectId, "new-project");
   assert.equal(normalized.targets[0].id, "new-target");
   assert.equal(normalized.targets[0].milestones[0].id, "new-m1");
+  assert.deepEqual(normalized.targets[0].successCriteria, []);
+  assert.deepEqual(normalized.targets[0].risks, []);
   assert.equal(normalized.actions[0].projectId, "new-project");
+  assert.equal(normalized.actions[0].serveId, undefined);
+  assert.equal(normalized.actions[0].blocked, false);
   assert.equal(normalized.serves[0].acceptanceStatus, "accepted");
+  assert.deepEqual(normalized.serves[0].acceptanceChecklist, []);
+  assert.deepEqual(normalized.serves[0].evidence, []);
+  assert.deepEqual(normalized.serves[0].reworkItems, []);
   assert.equal(normalized.keeps[0].projectId, "new-project");
+  assert.equal(normalized.keeps[0].relatedServeId, undefined);
+});
+
+test("calculates lifecycle quality gates for TASK v2", () => {
+  const overview = calculateProjectOverview(
+    project,
+    [
+      {
+        ...targets[0],
+        successCriteria: [],
+      },
+    ],
+    [
+      {
+        ...actions[0],
+        blocked: true,
+        blockerReason: "等待验收标准确认",
+      },
+    ],
+    [
+      {
+        ...serves[0],
+        status: "delivered" as const,
+        acceptanceStatus: "pending" as const,
+        acceptanceChecklist: [],
+      },
+      {
+        ...serves[0],
+        id: "serve-accepted-without-keep",
+        status: "accepted" as const,
+        acceptanceStatus: "accepted" as const,
+        acceptanceChecklist: [{ id: "check-1", title: "验收通过", completed: true }],
+      },
+    ],
+    [],
+    "2026-06-16",
+  );
+
+  const gateIds = overview.qualityGates.map((gate) => gate.id);
+
+  assert.ok(gateIds.includes("target-success-criteria"));
+  assert.ok(gateIds.includes("action-unlinked-serve"));
+  assert.ok(gateIds.includes("action-blocked"));
+  assert.ok(gateIds.includes("serve-pending-acceptance"));
+  assert.ok(gateIds.includes("keep-missing-after-serve"));
 });
