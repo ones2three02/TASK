@@ -7,6 +7,7 @@ import AiParserModal from "@/components/task/AiParserModal.vue";
 const showAiModal = ref(false);
 
 const taskStore = useTaskStore();
+type ChecklistDraft = { id?: string; title: string; completed: boolean };
 
 // Filter targets for active project
 const projectTargets = computed(() => {
@@ -43,15 +44,50 @@ const isEdit = ref(false);
 const editId = ref("");
 const formTitle = ref("");
 const formDescription = ref("");
-const formMilestones = ref<{ title: string; completed: boolean }[]>([]);
+const formScope = ref("");
+const formOutOfScope = ref("");
+const formMilestones = ref<ChecklistDraft[]>([]);
+const formSuccessCriteria = ref<ChecklistDraft[]>([]);
+const formRisks = ref<ChecklistDraft[]>([]);
 const newMilestoneText = ref("");
+const newSuccessCriterionText = ref("");
+const newRiskText = ref("");
+
+function makeItemId() {
+  return Math.random().toString(36).substring(2, 9);
+}
+
+function cloneChecklist(items: ChecklistDraft[] = []) {
+  return items.map((item) => ({
+    id: item.id || makeItemId(),
+    title: item.title,
+    completed: item.completed,
+  }));
+}
+
+function normalizeChecklist(items: ChecklistDraft[]) {
+  return items
+    .map((item) => ({
+      id: item.id || makeItemId(),
+      title: item.title.trim(),
+      completed: item.completed,
+    }))
+    .filter((item) => item.title.length > 0);
+}
 
 function openAddDialog() {
   isEdit.value = false;
   editId.value = "";
   formTitle.value = "";
   formDescription.value = "";
+  formScope.value = "";
+  formOutOfScope.value = "";
   formMilestones.value = [];
+  formSuccessCriteria.value = [];
+  formRisks.value = [];
+  newMilestoneText.value = "";
+  newSuccessCriterionText.value = "";
+  newRiskText.value = "";
   showDialog.value = true;
 }
 
@@ -60,7 +96,14 @@ function openEditDialog(target: Target) {
   editId.value = target.id;
   formTitle.value = target.title;
   formDescription.value = target.description;
-  formMilestones.value = target.milestones.map((m) => ({ ...m }));
+  formScope.value = target.scope || "";
+  formOutOfScope.value = target.outOfScope || "";
+  formMilestones.value = cloneChecklist(target.milestones);
+  formSuccessCriteria.value = cloneChecklist(target.successCriteria);
+  formRisks.value = cloneChecklist(target.risks);
+  newMilestoneText.value = "";
+  newSuccessCriterionText.value = "";
+  newRiskText.value = "";
   showDialog.value = true;
 }
 
@@ -75,29 +118,52 @@ function removeMilestone(index: number) {
   formMilestones.value.splice(index, 1);
 }
 
+function addSuccessCriterion() {
+  if (newSuccessCriterionText.value.trim()) {
+    formSuccessCriteria.value.push({ id: makeItemId(), title: newSuccessCriterionText.value.trim(), completed: false });
+    newSuccessCriterionText.value = "";
+  }
+}
+
+function removeSuccessCriterion(index: number) {
+  formSuccessCriteria.value.splice(index, 1);
+}
+
+function addRisk() {
+  if (newRiskText.value.trim()) {
+    formRisks.value.push({ id: makeItemId(), title: newRiskText.value.trim(), completed: false });
+    newRiskText.value = "";
+  }
+}
+
+function removeRisk(index: number) {
+  formRisks.value.splice(index, 1);
+}
+
 function submitForm() {
   if (!formTitle.value.trim()) return;
+
+  const milestones = normalizeChecklist(formMilestones.value);
+  const successCriteria = normalizeChecklist(formSuccessCriteria.value);
+  const risks = normalizeChecklist(formRisks.value);
 
   if (isEdit.value) {
     const existing = taskStore.targets.find((t) => t.id === editId.value);
     if (existing) {
       existing.title = formTitle.value.trim();
       existing.description = formDescription.value.trim();
-      existing.milestones = formMilestones.value.map((m) => {
-        const anyM = m as any;
-        return {
-          id: anyM.id || Math.random().toString(36).substring(2, 9),
-          title: m.title,
-          completed: m.completed,
-        };
-      });
+      existing.scope = formScope.value.trim();
+      existing.outOfScope = formOutOfScope.value.trim();
+      existing.milestones = milestones;
+      existing.successCriteria = successCriteria;
+      existing.risks = risks;
       // Auto compute status
       const allDone = existing.milestones.length > 0 && existing.milestones.every((m) => m.completed);
       existing.status = allDone ? "completed" : "pending";
       taskStore.updateTarget(existing);
     }
   } else {
-    taskStore.addTarget(formTitle.value.trim(), formDescription.value.trim(), formMilestones.value);
+    taskStore.addTarget(formTitle.value.trim(), formDescription.value.trim(), milestones, formScope.value.trim(), formOutOfScope.value.trim(), successCriteria, risks);
   }
 
   showDialog.value = false;
@@ -142,6 +208,11 @@ function getTargetProgress(target: Target) {
   const completed = target.milestones.filter((m) => m.completed).length;
   return Math.round((completed / target.milestones.length) * 100);
 }
+
+function getChecklistProgress(items: ChecklistDraft[] = []) {
+  if (items.length === 0) return "未定义";
+  return `${items.filter((item) => item.completed).length}/${items.length}`;
+}
 </script>
 
 <template>
@@ -152,9 +223,9 @@ function getTargetProgress(target: Target) {
         <div>
           <h2 class="text-xl font-semibold flex items-center gap-2">
             <TargetIcon class="h-5 w-5 text-emerald-500" />
-            T - TARGET 目标规划
+            T - TARGET 项目章程
           </h2>
-          <p class="text-xs text-muted-foreground mt-1">清晰定义项目的核心目标和里程碑，统筹项目成功路线图。</p>
+          <p class="text-xs text-muted-foreground mt-1">先明确目标、边界、成功标准和风险假设，再拆解里程碑与行动。</p>
         </div>
         <div class="flex items-center gap-2">
           <button class="inline-flex h-9 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-500 px-4 text-sm font-medium transition-all shadow-sm gap-1.5" @click="showAiModal = true">
@@ -163,7 +234,7 @@ function getTargetProgress(target: Target) {
           </button>
           <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1" @click="openAddDialog">
             <Plus class="h-4 w-4" />
-            设定目标
+            建立章程
           </button>
         </div>
       </div>
@@ -203,6 +274,30 @@ function getTargetProgress(target: Target) {
             <button class="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500" @click="deleteTarget(target.id)">
               <Trash2 class="h-3.5 w-3.5" />
             </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-2 rounded-lg border border-border/40 bg-muted/10 p-3 text-xs">
+          <div class="grid gap-2 sm:grid-cols-2">
+            <div class="rounded-md bg-background/50 p-2">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">项目范围</div>
+              <p class="mt-1 line-clamp-2 text-muted-foreground">{{ target.scope || "未定义范围" }}</p>
+            </div>
+            <div class="rounded-md bg-background/50 p-2">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">非范围</div>
+              <p class="mt-1 line-clamp-2 text-muted-foreground">{{ target.outOfScope || "未定义非范围" }}</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span class="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-500">成功标准 {{ getChecklistProgress(target.successCriteria) }}</span>
+            <span class="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-500">风险假设 {{ target.risks?.length ?? 0 }} 项</span>
+          </div>
+          <div v-if="target.successCriteria?.length" class="grid gap-1">
+            <div v-for="criterion in target.successCriteria.slice(0, 2)" :key="criterion.id" class="flex items-center gap-2 text-muted-foreground">
+              <CheckCircle2 v-if="criterion.completed" class="h-3.5 w-3.5 text-emerald-500" />
+              <Circle v-else class="h-3.5 w-3.5" />
+              <span class="truncate">{{ criterion.title }}</span>
+            </div>
           </div>
         </div>
 
@@ -248,28 +343,28 @@ function getTargetProgress(target: Target) {
         <TargetIcon class="h-6 w-6" />
       </div>
       <div>
-        <h3 class="font-medium text-sm">暂未设定项目目标</h3>
-        <p class="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">T - TARGET 是达成项目的北极星。点击“设定目标”添加第一项核心目标和执行里程碑。</p>
+        <h3 class="font-medium text-sm">暂未建立项目章程</h3>
+        <p class="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">T - TARGET 是项目的章程入口。先明确目标、边界、成功标准和风险假设，再进入执行。</p>
       </div>
       <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1 mt-2" @click="openAddDialog">
         <Plus class="h-4 w-4" />
-        设定第一个目标
+        建立第一个章程
       </button>
     </div>
 
     <!-- Dialog Modal -->
     <div v-if="showDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div class="w-full max-w-[500px] rounded-xl border bg-background p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
+      <div class="w-full max-w-[680px] rounded-xl border bg-background p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
         <button class="absolute top-4 right-4 h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground" @click="showDialog = false">
           <X class="h-4 w-4" />
         </button>
 
-        <h3 class="text-base font-semibold">{{ isEdit ? "编辑目标" : "设定新目标" }}</h3>
+        <h3 class="text-base font-semibold">{{ isEdit ? "编辑项目章程" : "建立项目章程" }}</h3>
 
         <div class="flex flex-col gap-4 overflow-y-auto max-h-[60vh] pr-1">
           <!-- Title -->
           <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">目标名称</label>
+            <label class="text-xs font-medium text-muted-foreground">目标名称 / 项目结果</label>
             <input
               v-model="formTitle"
               type="text"
@@ -280,13 +375,35 @@ function getTargetProgress(target: Target) {
 
           <!-- Description -->
           <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">描述</label>
+            <label class="text-xs font-medium text-muted-foreground">背景说明</label>
             <textarea
               v-model="formDescription"
-              placeholder="描述此目标的具体达成效果、验收标准等..."
+              placeholder="说明为什么要做、要解决什么问题、预期产生什么结果..."
               rows="3"
               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
             />
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="space-y-1.5">
+              <label class="text-xs font-medium text-muted-foreground">范围说明</label>
+              <textarea
+                v-model="formScope"
+                placeholder="本项目包含哪些工作、对象、模块或交付边界..."
+                rows="3"
+                class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-xs font-medium text-muted-foreground">非范围说明</label>
+              <textarea
+                v-model="formOutOfScope"
+                placeholder="明确本轮不做什么，避免需求边界持续扩大..."
+                rows="3"
+                class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+              />
+            </div>
           </div>
 
           <!-- Milestones Builder -->
@@ -322,11 +439,73 @@ function getTargetProgress(target: Target) {
               <div v-if="formMilestones.length === 0" class="text-center text-xs text-muted-foreground/60 py-2 italic">没有设置子里程碑，达成目标更易失焦，建议添加。</div>
             </div>
           </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">成功标准（做到什么算成功）</label>
+            <div class="flex gap-2">
+              <input
+                v-model="newSuccessCriterionText"
+                type="text"
+                placeholder="例如：关键用户流程可稳定完成并通过验收..."
+                class="flex-1 h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                @keydown.enter.prevent="addSuccessCriterion"
+              />
+              <button class="h-9 inline-flex items-center justify-center rounded-lg bg-muted px-3 text-xs font-medium hover:bg-muted/80 shrink-0" @click="addSuccessCriterion">添加</button>
+            </div>
+            <div class="space-y-1.5 mt-2 bg-emerald-500/5 p-2.5 rounded-lg border border-emerald-500/20">
+              <div v-for="(item, idx) in formSuccessCriteria" :key="item.id || idx" class="flex items-center justify-between py-1 px-2 rounded hover:bg-muted/30 text-xs">
+                <div class="flex items-center gap-2 truncate">
+                  <button type="button" @click="item.completed = !item.completed" class="text-muted-foreground hover:text-emerald-500">
+                    <CheckCircle2 v-if="item.completed" class="h-4 w-4 text-emerald-500" />
+                    <Circle v-else class="h-4 w-4" />
+                  </button>
+                  <span :class="{ 'line-through text-muted-foreground': item.completed }" class="truncate">
+                    {{ item.title }}
+                  </span>
+                </div>
+                <button type="button" class="text-muted-foreground hover:text-red-500" @click="removeSuccessCriterion(idx)">
+                  <X class="h-3 w-3" />
+                </button>
+              </div>
+              <div v-if="formSuccessCriteria.length === 0" class="text-center text-xs text-muted-foreground/60 py-2 italic">未定义成功标准，后续验收口径容易不一致。</div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">风险假设</label>
+            <div class="flex gap-2">
+              <input
+                v-model="newRiskText"
+                type="text"
+                placeholder="例如：外部接口权限审批可能影响交付时间..."
+                class="flex-1 h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                @keydown.enter.prevent="addRisk"
+              />
+              <button class="h-9 inline-flex items-center justify-center rounded-lg bg-muted px-3 text-xs font-medium hover:bg-muted/80 shrink-0" @click="addRisk">添加</button>
+            </div>
+            <div class="space-y-1.5 mt-2 bg-amber-500/5 p-2.5 rounded-lg border border-amber-500/20">
+              <div v-for="(item, idx) in formRisks" :key="item.id || idx" class="flex items-center justify-between py-1 px-2 rounded hover:bg-muted/30 text-xs">
+                <div class="flex items-center gap-2 truncate">
+                  <button type="button" @click="item.completed = !item.completed" class="text-muted-foreground hover:text-amber-500">
+                    <CheckCircle2 v-if="item.completed" class="h-4 w-4 text-amber-500" />
+                    <AlertCircle v-else class="h-4 w-4" />
+                  </button>
+                  <span :class="{ 'line-through text-muted-foreground': item.completed }" class="truncate">
+                    {{ item.title }}
+                  </span>
+                </div>
+                <button type="button" class="text-muted-foreground hover:text-red-500" @click="removeRisk(idx)">
+                  <X class="h-3 w-3" />
+                </button>
+              </div>
+              <div v-if="formRisks.length === 0" class="text-center text-xs text-muted-foreground/60 py-2 italic">暂无风险假设。</div>
+            </div>
+          </div>
         </div>
 
         <div class="flex justify-end gap-2 border-t pt-3 border-border/40">
           <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted transition-colors" @click="showDialog = false">取消</button>
-          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md" :disabled="!formTitle.trim()" @click="submitForm">保存目标</button>
+          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md" :disabled="!formTitle.trim()" @click="submitForm">保存章程</button>
         </div>
       </div>
     </div>
