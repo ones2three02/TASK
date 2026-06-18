@@ -1,13 +1,6 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import {
-  buildProjectRetrospective,
-  calculateActionStats,
-  calculateProjectOverview,
-  calculateTargetProgress,
-  exportProjectSnapshot,
-  normalizeImportedProjectSnapshot,
-} from "../../apps/desktop/src/lib/taskPlanning.ts";
+import { buildProjectRetrospective, calculateActionStats, calculateProjectOverview, calculateTargetProgress, exportProjectSnapshot, normalizeAction, normalizeKeep, normalizeServe, normalizeTarget, normalizeImportedProjectSnapshot } from "../../apps/desktop/src/lib/taskPlanning.ts";
 
 const project = {
   id: "project-1",
@@ -163,6 +156,105 @@ test("exports and normalizes project snapshots without reusing imported ids", ()
   assert.equal(normalized.keeps[0].relatedServeId, undefined);
 });
 
+test("normalizers fill TASK v2 lifecycle defaults for legacy records", () => {
+  const target = normalizeTarget({
+    ...targets[0],
+  });
+  const action = normalizeAction({
+    ...actions[0],
+  });
+  const serve = normalizeServe({
+    ...serves[0],
+  });
+  const keep = normalizeKeep({
+    ...keeps[0],
+  });
+
+  assert.equal(target.scope, undefined);
+  assert.equal(target.outOfScope, undefined);
+  assert.deepEqual(target.successCriteria, []);
+  assert.deepEqual(target.risks, []);
+  assert.equal(action.blocked, false);
+  assert.equal(action.blockerReason, undefined);
+  assert.equal(action.evidence, "");
+  assert.deepEqual(serve.acceptanceChecklist, []);
+  assert.deepEqual(serve.evidence, []);
+  assert.deepEqual(serve.reworkItems, []);
+  assert.equal(keep.relatedServeId, undefined);
+  assert.equal(keep.relatedActionId, undefined);
+});
+
+test("normalizes real TASK v1 snapshots into v2 lifecycle contract", () => {
+  const legacySnapshot = {
+    version: 1,
+    exportedAt: "2026-06-17T00:00:00.000Z",
+    project,
+    targets: [
+      {
+        id: "legacy-target",
+        projectId: "project-1",
+        title: "旧目标",
+        description: "旧 v1 目标结构",
+        status: "pending" as const,
+        createdAt: "2026-06-01T00:00:00.000Z",
+        milestones: [],
+      },
+    ],
+    actions: [
+      {
+        id: "legacy-action",
+        projectId: "project-1",
+        title: "旧行动",
+        description: "旧 v1 行动结构",
+        status: "todo" as const,
+        priority: "medium" as const,
+        createdAt: "2026-06-01T00:00:00.000Z",
+      },
+    ],
+    serves: [
+      {
+        id: "legacy-serve",
+        projectId: "project-1",
+        title: "旧交付",
+        description: "旧 v1 交付结构",
+        deliverable: "旧交付物",
+        client: "旧客户",
+        status: "delivered" as const,
+        deliveredAt: "2026-06-15",
+        acceptanceStatus: "pending" as const,
+        createdAt: "2026-06-01T00:00:00.000Z",
+      },
+    ],
+    keeps: [
+      {
+        id: "legacy-keep",
+        projectId: "project-1",
+        name: "旧文档",
+        type: "document" as const,
+        content: "旧沉淀内容",
+        createdAt: "2026-06-16T00:00:00.000Z",
+      },
+    ],
+  };
+  const ids = ["new-project", "new-target", "new-action", "new-serve", "new-keep"];
+  const normalized = normalizeImportedProjectSnapshot(legacySnapshot, () => ids.shift() ?? "fallback-id");
+
+  assert.equal(normalized.version, 2);
+  assert.equal(normalized.targets[0].projectId, "new-project");
+  assert.deepEqual(normalized.targets[0].successCriteria, []);
+  assert.deepEqual(normalized.targets[0].risks, []);
+  assert.equal(normalized.actions[0].blocked, false);
+  assert.equal(normalized.actions[0].evidence, "");
+  assert.equal(normalized.serves[0].status, "delivered");
+  assert.equal(normalized.serves[0].acceptanceStatus, "pending");
+  assert.deepEqual(normalized.serves[0].acceptanceChecklist, []);
+  assert.deepEqual(normalized.serves[0].evidence, []);
+  assert.deepEqual(normalized.serves[0].reworkItems, []);
+  assert.equal(normalized.keeps[0].type, "document");
+  assert.equal(normalized.keeps[0].relatedServeId, undefined);
+  assert.equal(normalized.keeps[0].relatedActionId, undefined);
+});
+
 test("calculates lifecycle quality gates for TASK v2", () => {
   const overview = calculateProjectOverview(
     project,
@@ -205,8 +297,21 @@ test("calculates lifecycle quality gates for TASK v2", () => {
   assert.ok(gateIds.includes("action-blocked"));
   assert.ok(gateIds.includes("serve-pending-acceptance"));
   assert.ok(gateIds.includes("keep-missing-after-serve"));
-  assert.equal(overview.qualityGates.find((gate) => gate.id === "target-success-criteria")?.stage, "target");
-  assert.equal(overview.qualityGates.find((gate) => gate.id === "action-blocked")?.stage, "action");
-  assert.equal(overview.qualityGates.find((gate) => gate.id === "serve-pending-acceptance")?.stage, "serve");
-  assert.equal(overview.qualityGates.find((gate) => gate.id === "keep-missing-after-serve")?.stage, "keep");
+  const targetGate = overview.qualityGates.find((gate) => gate.id === "target-success-criteria");
+  const blockedGate = overview.qualityGates.find((gate) => gate.id === "action-blocked");
+  const pendingAcceptanceGate = overview.qualityGates.find((gate) => gate.id === "serve-pending-acceptance");
+  const missingKeepGate = overview.qualityGates.find((gate) => gate.id === "keep-missing-after-serve");
+
+  assert.equal(targetGate?.stage, "target");
+  assert.equal(targetGate?.severity, "warning");
+  assert.equal(targetGate?.count, 1);
+  assert.equal(blockedGate?.stage, "action");
+  assert.equal(blockedGate?.severity, "danger");
+  assert.equal(blockedGate?.count, 1);
+  assert.equal(pendingAcceptanceGate?.stage, "serve");
+  assert.equal(pendingAcceptanceGate?.severity, "warning");
+  assert.equal(pendingAcceptanceGate?.count, 1);
+  assert.equal(missingKeepGate?.stage, "keep");
+  assert.equal(missingKeepGate?.severity, "info");
+  assert.equal(missingKeepGate?.count, 1);
 });
