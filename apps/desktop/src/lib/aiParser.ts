@@ -6,11 +6,31 @@ export interface ParsedRequirementResult {
     title: string;
     description: string;
     milestones: string[];
+    scope: string;
+    outOfScope: string;
+    successCriteria: string[];
+    risks: string[];
   }[];
   actions: {
     title: string;
     description: string;
     priority: "high" | "medium" | "low";
+    serveTitle: string;
+    dueDate: string;
+  }[];
+  serves: {
+    title: string;
+    description: string;
+    deliverable: string;
+    client: string;
+    plannedAt: string;
+    acceptanceChecklist: string[];
+  }[];
+  keeps: {
+    name: string;
+    type: "document" | "link" | "archive" | "evidence" | "version" | "retrospective";
+    content: string;
+    relatedServeTitle: string;
   }[];
 }
 
@@ -20,18 +40,24 @@ export interface RequirementReferenceDocument {
 }
 
 const SYSTEM_PROMPT = `你是一个专业的软件工程架构师和敏捷项目管理专家。
-你的任务是将用户的“项目需求文档”或“想法描述”，分解为适合项目启动的核心“目标 (T - Targets)”和具体的“行动 (A - Actions)”。
+你的任务是将用户的“项目需求文档”或“想法描述”，分解为适合项目启动的完整 TASK 四层规划：目标章程 (T - Targets)、执行行动 (A - Actions)、交付计划 (S - Serves)、沉淀资产 (K - Keeps)。
 
 请严格遵循以下规则输出：
 1. 必须输出且仅输出一个合法的 JSON 对象，不要有任何 Markdown 包裹 (不要使用 \`\`\`json 标记)，不要有任何前言、后记或解释。
-2. 目标 (Targets) 指明了项目的核心方向（北极星指标），每个目标必须包含它的 title (目标名称)、description (目标背景说明) 以及 2-3 个核心里程碑 milestones (字符串数组，表明实现该目标的具体关键步骤或指标)。
-3. 行动 (Actions) 是具体的待办任务或具体行动计划，每个行动必须包含它的 title (任务名称)、description (具体任务细节) 以及优先级 priority (必须是 "high"、"medium"、"low" 之一)。
-4. JSON 的格式必须严格为：
+2. 目标 (Targets) 是项目章程，每个目标必须包含 title、description、scope、outOfScope、successCriteria、risks 和 2-3 个 milestones。
+3. 行动 (Actions) 是执行控制卡片，每个行动必须包含 title、description、priority，可用 serveTitle 关联某个 Serve 的 title。
+4. 交付 (Serves) 是交付计划与验收中心，每个交付必须包含 title、description、deliverable、client、plannedAt、acceptanceChecklist。
+5. 沉淀 (Keeps) 是建议归档资产，每项必须包含 name、type、content，可用 relatedServeTitle 关联某个 Serve 的 title；type 必须是 "document"、"link"、"archive"、"evidence"、"version"、"retrospective" 之一。
+6. JSON 的格式必须严格为：
 {
   "targets": [
     {
       "title": "目标名称",
       "description": "目标描述",
+      "scope": "范围说明",
+      "outOfScope": "非范围说明",
+      "successCriteria": ["成功标准A", "成功标准B"],
+      "risks": ["风险假设A"],
       "milestones": ["里程碑A", "里程碑B"]
     }
   ],
@@ -39,7 +65,27 @@ const SYSTEM_PROMPT = `你是一个专业的软件工程架构师和敏捷项目
     {
       "title": "行动名称",
       "description": "行动细节描述",
-      "priority": "high" | "medium" | "low"
+      "priority": "high" | "medium" | "low",
+      "serveTitle": "关联的交付计划名称",
+      "dueDate": "YYYY-MM-DD 或空字符串"
+    }
+  ],
+  "serves": [
+    {
+      "title": "交付计划名称",
+      "description": "交付说明",
+      "deliverable": "交付物",
+      "client": "服务对象/需求方",
+      "plannedAt": "YYYY-MM-DD 或空字符串",
+      "acceptanceChecklist": ["验收项A", "验收项B"]
+    }
+  ],
+  "keeps": [
+    {
+      "name": "资产名称",
+      "type": "document",
+      "content": "资产内容或链接",
+      "relatedServeTitle": "关联的交付计划名称"
     }
   ]
 }
@@ -51,10 +97,11 @@ const SYSTEM_PROMPT = `你是一个专业的软件工程架构师和敏捷项目
 
 const JSON_REPAIR_PROMPT = `你是 JSON 修复器。用户会提供一个模型返回的错误 JSON 文本。
 请只返回修复后的严格 JSON 对象，不要输出 Markdown、解释或额外文字。
-修复后的结构必须包含 targets 和 actions 两个数组，并符合原始 TASK 需求拆解结构。`;
+修复后的结构必须包含 targets、actions、serves、keeps 四个数组，并符合 TASK 四层规划结构。`;
 
 const MAX_PREVIEW_LENGTH = 500;
 const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
+const VALID_KEEP_TYPES = new Set(["document", "link", "archive", "evidence", "version", "retrospective"]);
 
 export async function parseRequirementWithAi(config: AiConfig, requirementText: string, referenceDocuments: RequirementReferenceDocument[] = []): Promise<ParsedRequirementResult> {
   const textContent = await aiComplete({
@@ -73,7 +120,7 @@ export async function parseRequirementWithAi(config: AiConfig, requirementText: 
       messages: [
         {
           role: "user",
-          content: `请修复以下 JSON，并保持 TASK 需求拆解结构：\n\n${textContent}`,
+          content: `请修复以下 JSON，并保持 TASK 四层规划结构：\n\n${textContent}`,
         },
       ],
       temperature: 0,
@@ -94,10 +141,10 @@ export function buildRequirementPrompt(requirementText: string, referenceDocumen
     .join("\n\n");
 
   if (!references) {
-    return `这是需求文档内容，请开始进行目标与任务拆解:\n${requirementText}`;
+    return `这是需求文档内容，请开始进行 TASK 四层规划，覆盖目标、行动、交付和沉淀:\n${requirementText}`;
   }
 
-  return `请先理解以下参考资料，再结合用户需求进行目标与任务拆解。
+  return `请先理解以下参考资料，再结合用户需求进行 TASK 四层规划，覆盖目标、行动、交付和沉淀。
 
 ${references}
 
@@ -180,6 +227,8 @@ function normalizeParsedRequirement(value: unknown): ParsedRequirementResult {
   return {
     targets: value.targets.map((target, index) => normalizeTarget(target, index)),
     actions: value.actions.map((action, index) => normalizeAction(action, index)),
+    serves: Array.isArray(value.serves) ? value.serves.map((serve, index) => normalizeServe(serve, index)) : [],
+    keeps: Array.isArray(value.keeps) ? value.keeps.map((keep, index) => normalizeKeep(keep, index)) : [],
   };
 }
 
@@ -191,6 +240,10 @@ function normalizeTarget(target: unknown, index: number): ParsedRequirementResul
   return {
     title: readRequiredString(target, "title", `第 ${index + 1} 个 target`),
     description: readRequiredString(target, "description", `第 ${index + 1} 个 target`),
+    scope: readOptionalString(target, "scope"),
+    outOfScope: readOptionalString(target, "outOfScope"),
+    successCriteria: readStringArray(target.successCriteria),
+    risks: readStringArray(target.risks),
     milestones: Array.isArray(target.milestones) ? target.milestones.map((milestone) => String(milestone)).filter(Boolean) : [],
   };
 }
@@ -206,6 +259,38 @@ function normalizeAction(action: unknown, index: number): ParsedRequirementResul
     title: readRequiredString(action, "title", `第 ${index + 1} 个 action`),
     description: readRequiredString(action, "description", `第 ${index + 1} 个 action`),
     priority: priority as "high" | "medium" | "low",
+    serveTitle: readOptionalString(action, "serveTitle"),
+    dueDate: readOptionalString(action, "dueDate"),
+  };
+}
+
+function normalizeServe(serve: unknown, index: number): ParsedRequirementResult["serves"][number] {
+  if (!isRecord(serve)) {
+    throw new Error(`第 ${index + 1} 个 serve 不是对象。`);
+  }
+
+  return {
+    title: readRequiredString(serve, "title", `第 ${index + 1} 个 serve`),
+    description: readOptionalString(serve, "description"),
+    deliverable: readOptionalString(serve, "deliverable"),
+    client: readOptionalString(serve, "client"),
+    plannedAt: readOptionalString(serve, "plannedAt"),
+    acceptanceChecklist: readStringArray(serve.acceptanceChecklist),
+  };
+}
+
+function normalizeKeep(keep: unknown, index: number): ParsedRequirementResult["keeps"][number] {
+  if (!isRecord(keep)) {
+    throw new Error(`第 ${index + 1} 个 keep 不是对象。`);
+  }
+
+  const type = typeof keep.type === "string" && VALID_KEEP_TYPES.has(keep.type) ? keep.type : "document";
+
+  return {
+    name: readRequiredString(keep, "name", `第 ${index + 1} 个 keep`),
+    type: type as ParsedRequirementResult["keeps"][number]["type"],
+    content: readOptionalString(keep, "content"),
+    relatedServeTitle: readOptionalString(keep, "relatedServeTitle"),
   };
 }
 
@@ -215,6 +300,15 @@ function readRequiredString(record: Record<string, unknown>, key: string, scope:
     throw new Error(`${scope} 缺少 ${key} 字符串。`);
   }
   return value.trim();
+}
+
+function readOptionalString(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
