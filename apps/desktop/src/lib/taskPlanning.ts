@@ -6,6 +6,8 @@ export type ServeStatus = "draft" | "active" | "delivered" | "accepted" | "chang
 export type AcceptanceStatus = "pending" | "accepted" | "changes_requested";
 export type KeepType = "document" | "link" | "archive" | "evidence" | "version" | "retrospective";
 export type TaskQualityGateSeverity = "info" | "warning" | "danger";
+export type TaskQualityGateStage = "target" | "action" | "serve" | "keep";
+export type EvidenceType = "text" | "link" | "version";
 
 export interface ChecklistItem {
   id: string;
@@ -16,13 +18,14 @@ export interface ChecklistItem {
 export interface EvidenceItem {
   id: string;
   title: string;
-  content?: string;
-  url?: string;
-  createdAt?: string;
+  content: string;
+  type: EvidenceType;
+  createdAt: string;
 }
 
 export interface TaskQualityGate {
   id: string;
+  stage: TaskQualityGateStage;
   severity: TaskQualityGateSeverity;
   title: string;
   message: string;
@@ -48,7 +51,7 @@ export interface TaskTarget {
   scope?: string;
   outOfScope?: string;
   successCriteria?: ChecklistItem[];
-  risks?: string[];
+  risks?: ChecklistItem[];
 }
 
 export interface TaskAction {
@@ -63,7 +66,7 @@ export interface TaskAction {
   serveId?: string;
   blocked?: boolean;
   blockerReason?: string;
-  evidence?: EvidenceItem[];
+  evidence?: string;
 }
 
 export interface TaskServe {
@@ -94,8 +97,10 @@ export interface TaskKeep {
   relatedActionId?: string;
 }
 
-type TaskSnapshotServe = Omit<TaskServe, "status"> & { status: "draft" | "active" | "delivered" };
-type TaskSnapshotKeep = Omit<TaskKeep, "type"> & { type: "document" | "link" | "archive" };
+type LegacyStoreServe = Omit<TaskServe, "status"> & { status: "draft" | "active" | "delivered" };
+type LegacyStoreKeep = Omit<TaskKeep, "type"> & { type: "document" | "link" | "archive" };
+type TaskSnapshotServes = TaskServe[] & Iterable<LegacyStoreServe>;
+type TaskSnapshotKeeps = TaskKeep[] & Iterable<LegacyStoreKeep>;
 
 export interface TaskProjectSnapshot {
   version: 1 | 2;
@@ -103,17 +108,16 @@ export interface TaskProjectSnapshot {
   project: TaskProject;
   targets: TaskTarget[];
   actions: TaskAction[];
-  serves: TaskSnapshotServe[];
-  keeps: TaskSnapshotKeep[];
+  serves: TaskSnapshotServes;
+  keeps: TaskSnapshotKeeps;
 }
 
 function normalizeOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value : undefined;
 }
 
-function normalizeStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+function normalizeEvidenceType(value: unknown, fallback: EvidenceType = "text"): EvidenceType {
+  return value === "text" || value === "link" || value === "version" ? value : fallback;
 }
 
 function normalizeChecklistItems(value: unknown, idFactory?: () => string): ChecklistItem[] {
@@ -135,19 +139,31 @@ function normalizeChecklistItems(value: unknown, idFactory?: () => string): Chec
 function normalizeEvidenceItems(value: unknown, idFactory?: () => string): EvidenceItem[] {
   if (!Array.isArray(value)) return [];
   return value.map((item) => {
+    const createdAt = new Date().toISOString();
     if (typeof item === "string") {
-      return { id: idFactory?.() ?? uuid(), title: item };
+      return { id: idFactory?.() ?? uuid(), title: item, content: item, type: "text", createdAt };
     }
 
-    const evidenceItem = item && typeof item === "object" ? (item as Partial<EvidenceItem>) : {};
+    const evidenceItem = item && typeof item === "object" ? (item as Partial<EvidenceItem> & { url?: unknown }) : {};
+    const legacyUrl = normalizeOptionalString(evidenceItem.url);
+    const content = normalizeOptionalString(evidenceItem.content) ?? legacyUrl ?? "";
     return {
       id: idFactory?.() ?? normalizeOptionalString(evidenceItem.id) ?? uuid(),
-      title: normalizeOptionalString(evidenceItem.title) ?? "未命名证据",
-      content: normalizeOptionalString(evidenceItem.content),
-      url: normalizeOptionalString(evidenceItem.url),
-      createdAt: normalizeOptionalString(evidenceItem.createdAt),
+      title: normalizeOptionalString(evidenceItem.title) ?? (content || "未命名证据"),
+      content,
+      type: normalizeEvidenceType(evidenceItem.type, legacyUrl ? "link" : "text"),
+      createdAt: normalizeOptionalString(evidenceItem.createdAt) ?? createdAt,
     };
   });
+}
+
+function normalizeActionEvidence(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (!Array.isArray(value)) return "";
+  return normalizeEvidenceItems(value)
+    .map((item) => item.content || item.title)
+    .filter((item) => item.trim().length > 0)
+    .join("\n");
 }
 
 function normalizeMilestones(value: unknown, idFactory?: () => string) {
@@ -169,7 +185,7 @@ export function normalizeTarget(target: TaskTarget): TaskTarget {
     scope: normalizeOptionalString(target.scope),
     outOfScope: normalizeOptionalString(target.outOfScope),
     successCriteria: normalizeChecklistItems(target.successCriteria),
-    risks: normalizeStringList(target.risks),
+    risks: normalizeChecklistItems(target.risks),
   };
 }
 
@@ -179,7 +195,7 @@ export function normalizeAction(action: TaskAction): TaskAction {
     serveId: normalizeOptionalString(action.serveId),
     blocked: action.blocked === true,
     blockerReason: normalizeOptionalString(action.blockerReason),
-    evidence: normalizeEvidenceItems(action.evidence),
+    evidence: normalizeActionEvidence(action.evidence),
   };
 }
 
@@ -271,9 +287,10 @@ export function calculateKeepStats(keeps: TaskKeep[]) {
   };
 }
 
-function createQualityGate(id: string, severity: TaskQualityGateSeverity, title: string, message: string, relatedIds: string[]): TaskQualityGate {
+function createQualityGate(id: string, stage: TaskQualityGateStage, severity: TaskQualityGateSeverity, title: string, message: string, relatedIds: string[]): TaskQualityGate {
   return {
     id,
+    stage,
     severity,
     title,
     message,
@@ -294,6 +311,7 @@ export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction
     gates.push(
       createQualityGate(
         "target-success-criteria",
+        "target",
         "warning",
         "目标缺少成功标准",
         "建议为 Target 补充可验收的成功标准，避免目标完成口径不一致。",
@@ -307,6 +325,7 @@ export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction
     gates.push(
       createQualityGate(
         "action-unlinked-serve",
+        "action",
         "info",
         "行动未关联交付项",
         "已有 Serve 时，建议将相关 Action 关联到交付项，便于追踪执行到验收的链路。",
@@ -320,6 +339,7 @@ export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction
     gates.push(
       createQualityGate(
         "action-blocked",
+        "action",
         "danger",
         "行动存在阻塞",
         "存在被标记为阻塞的 Action，建议优先处理阻塞原因。",
@@ -333,6 +353,7 @@ export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction
     gates.push(
       createQualityGate(
         "serve-acceptance-checklist",
+        "serve",
         "warning",
         "交付项缺少验收清单",
         "建议为 Serve 补充验收清单，明确交付是否可被接受。",
@@ -346,6 +367,7 @@ export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction
     gates.push(
       createQualityGate(
         "serve-pending-acceptance",
+        "serve",
         "warning",
         "交付项待验收",
         "存在已交付但尚未验收通过的 Serve，建议推进验收或记录返工项。",
@@ -359,6 +381,7 @@ export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction
     gates.push(
       createQualityGate(
         "keep-missing-after-serve",
+        "keep",
         "info",
         "验收后缺少沉淀",
         "已有验收通过的 Serve，但尚未沉淀 Keep，建议补充证据、版本或复盘资产。",
@@ -488,6 +511,7 @@ export function normalizeImportedProjectSnapshot(snapshot: unknown, idFactory: (
       projectId,
       milestones: normalizeMilestones(target.milestones, idFactory),
       successCriteria: normalizeChecklistItems(target.successCriteria, idFactory),
+      risks: normalizeChecklistItems(target.risks, idFactory),
     });
   });
 
@@ -501,7 +525,7 @@ export function normalizeImportedProjectSnapshot(snapshot: unknown, idFactory: (
         ...action,
         id: idFactory(),
         projectId,
-        evidence: normalizeEvidenceItems(action.evidence, idFactory),
+        evidence: normalizeActionEvidence(action.evidence),
       }),
     ),
     serves: snapshot.serves.map((serve) =>

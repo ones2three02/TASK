@@ -154,6 +154,7 @@ test("exports and normalizes project snapshots without reusing imported ids", ()
   assert.equal(normalized.actions[0].projectId, "new-project");
   assert.equal(normalized.actions[0].serveId, undefined);
   assert.equal(normalized.actions[0].blocked, false);
+  assert.equal(normalized.actions[0].evidence, "");
   assert.equal(normalized.serves[0].acceptanceStatus, "accepted");
   assert.deepEqual(normalized.serves[0].acceptanceChecklist, []);
   assert.deepEqual(normalized.serves[0].evidence, []);
@@ -204,4 +205,8 @@ test("calculates lifecycle quality gates for TASK v2", () => {
   assert.ok(gateIds.includes("action-blocked"));
   assert.ok(gateIds.includes("serve-pending-acceptance"));
   assert.ok(gateIds.includes("keep-missing-after-serve"));
+  assert.equal(overview.qualityGates.find((gate) => gate.id === "target-success-criteria")?.stage, "target");
+  assert.equal(overview.qualityGates.find((gate) => gate.id === "action-blocked")?.stage, "action");
+  assert.equal(overview.qualityGates.find((gate) => gate.id === "serve-pending-acceptance")?.stage, "serve");
+  assert.equal(overview.qualityGates.find((gate) => gate.id === "keep-missing-after-serve")?.stage, "keep");
 });
