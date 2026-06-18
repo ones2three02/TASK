@@ -66,6 +66,27 @@ const stageCards = computed(() => {
     },
   ];
 });
+
+const qualityGateCards = computed(() => {
+  if (!overview.value) return [];
+  const severityOrder = { danger: 0, warning: 1, info: 2 };
+  return [...overview.value.qualityGates].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+});
+
+function getQualityGateClass(severity: "info" | "warning" | "danger") {
+  switch (severity) {
+    case "danger":
+      return "border-red-500/30 bg-red-500/5 text-red-500";
+    case "warning":
+      return "border-amber-500/30 bg-amber-500/5 text-amber-500";
+    case "info":
+      return "border-blue-500/30 bg-blue-500/5 text-blue-500";
+  }
+}
+
+function getQualityGateTarget(stage: "target" | "action" | "serve" | "keep") {
+  return stage;
+}
 </script>
 
 <template>
@@ -120,6 +141,31 @@ const stageCards = computed(() => {
             <div class="h-full rounded-full transition-all" :class="stage.bar" :style="{ width: `${stage.percent}%` }" />
           </div>
         </button>
+      </section>
+
+      <section v-if="qualityGateCards.length" class="rounded-xl border bg-background/50 p-5">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-semibold flex items-center gap-2">
+              <AlertTriangle class="h-4 w-4 text-amber-500" />
+              生命周期质量门提醒
+            </h3>
+            <p class="mt-1 text-xs text-muted-foreground">这些提醒不会阻断流程，但建议逐项补齐，以达到个人企业级交付标准。</p>
+          </div>
+          <span class="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">{{ qualityGateCards.length }} 项</span>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <button v-for="gate in qualityGateCards" :key="gate.id" class="rounded-lg border p-3 text-left transition-colors hover:bg-muted/20" :class="getQualityGateClass(gate.severity)" @click="emit('selectModule', getQualityGateTarget(gate.stage))">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-sm font-semibold text-foreground">{{ gate.title }}</div>
+                <p class="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{{ gate.message }}</p>
+              </div>
+              <span class="rounded-full bg-background/70 px-2 py-0.5 text-xs font-semibold tabular-nums">{{ gate.count }}</span>
+            </div>
+          </button>
+        </div>
       </section>
 
       <section class="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
