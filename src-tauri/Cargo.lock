@@ -1587,7 +1587,7 @@ dependencies = [
 
 [[package]]
 name = "task"
-version = "0.5.38"
+version = "0.5.39"
 dependencies = [
  "anyhow",
  "calamine",
