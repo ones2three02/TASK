@@ -12,7 +12,7 @@ const cliSource = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 test("prints version when invoked through an npm-style symlink", async () => {
   const bin = await symlinkedCli();
   try {
-    const result = runDbx(bin, ["--version"]);
+    const result = runTask(bin, ["--version"]);
 
     assert.equal(result.status, 0);
     assert.match(result.stdout, /^\d+\.\d+\.\d+\n$/);
@@ -25,7 +25,7 @@ test("prints version when invoked through an npm-style symlink", async () => {
 test("prints capabilities when invoked through an npm-style symlink", async () => {
   const bin = await symlinkedCli();
   try {
-    const result = runDbx(bin, ["capabilities", "--json"]);
+    const result = runTask(bin, ["capabilities", "--json"]);
 
     assert.equal(result.status, 0);
     assert.equal(result.stderr, "");
@@ -39,13 +39,13 @@ test("prints capabilities when invoked through an npm-style symlink", async () =
 });
 
 async function symlinkedCli() {
-  const dir = await mkdtemp(join(tmpdir(), "dbx-cli-bin-"));
-  const path = join(dir, "dbx");
+  const dir = await mkdtemp(join(tmpdir(), "task-cli-bin-"));
+  const path = join(dir, "task");
   await symlink(cliSource, path);
   return { dir, path };
 }
 
-function runDbx(bin: { path: string }, args: string[]) {
+function runTask(bin: { path: string }, args: string[]) {
   return spawnSync(process.execPath, ["--import", "tsx", bin.path, ...args], {
     cwd: packageDir,
     encoding: "utf-8",

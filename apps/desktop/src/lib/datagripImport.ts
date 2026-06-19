@@ -30,7 +30,7 @@ type DriverProfile = {
   user: string;
 };
 
-// driver-ref prefix → dbx profile
+// driver-ref prefix → task profile
 const driverRefMap: Record<string, DriverProfile> = {
   mysql: { dbType: "mysql", profile: "mysql", label: "MySQL", port: 3306, user: "root" },
   mariadb: { dbType: "mysql", profile: "mariadb", label: "MariaDB", port: 3306, user: "root" },
@@ -56,7 +56,7 @@ const driverRefMap: Record<string, DriverProfile> = {
   snowflake: { dbType: "snowflake", profile: "snowflake", label: "Snowflake", port: 443, user: "" },
 };
 
-// product name from <database-info product="..."> → dbx profile
+// product name from <database-info product="..."> → task profile
 const productMap: Record<string, DriverProfile> = {
   mysql: { dbType: "mysql", profile: "mysql", label: "MySQL", port: 3306, user: "root" },
   mariadb: { dbType: "mysql", profile: "mariadb", label: "MariaDB", port: 3306, user: "root" },
@@ -76,7 +76,7 @@ const productMap: Record<string, DriverProfile> = {
   snowflake: { dbType: "snowflake", profile: "snowflake", label: "Snowflake", port: 443, user: "" },
 };
 
-// JDBC subprotocol → dbx profile (fallback when driver-ref and product are unknown)
+// JDBC subprotocol → task profile (fallback when driver-ref and product are unknown)
 const subprotocolMap: Record<string, DriverProfile> = {
   mysql: { dbType: "mysql", profile: "mysql", label: "MySQL", port: 3306, user: "root" },
   mariadb: { dbType: "mysql", profile: "mariadb", label: "MariaDB", port: 3306, user: "root" },

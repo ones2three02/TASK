@@ -207,7 +207,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@dbx-app/node-core':
+      '@task-app/node-core':
         specifier: workspace:^
         version: link:../node-core
     devDependencies:
@@ -223,12 +223,12 @@ importers:
 
   packages/mcp-server:
     dependencies:
-      '@dbx-app/node-core':
-        specifier: workspace:^
-        version: link:../node-core
       '@modelcontextprotocol/sdk':
         specifier: ^1.12.1
         version: 1.29.0(zod@3.25.76)
+      '@task-app/node-core':
+        specifier: workspace:^
+        version: link:../node-core
       zod:
         specifier: ^3.25.20
         version: 3.25.76

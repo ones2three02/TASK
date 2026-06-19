@@ -8,7 +8,7 @@ test("translateToEnglish reuses cached release translations when source hash is 
     [
       {
         tag_name: "v1.1.0",
-        name: "DBX v1.1.0",
+        name: "TASK v1.1.0",
         published_at: "2026-05-18T00:00:00Z",
         body: "### 新功能\n- **新增导出** — 支持导出表数据",
         draft: false,
@@ -16,7 +16,7 @@ test("translateToEnglish reuses cached release translations when source hash is 
       },
       {
         tag_name: "v1.0.0",
-        name: "DBX v1.0.0",
+        name: "TASK v1.0.0",
         published_at: "2026-05-17T00:00:00Z",
         body: "### 修复\n- **修复连接** — 避免重复连接",
         draft: false,

@@ -1,6 +1,6 @@
 [package]
 name = "task"
-version = "0.5.37"
+version = "0.5.38"
 description = "TASK lifecycle planning desktop app"
 authors = ["skyler"]
 license = "Apache-2.0"
@@ -14,7 +14,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 default = ["duckdb-bundled"]
-duckdb-bundled = ["duckdb", "dbx-core/duckdb-bundled"]
+duckdb-bundled = ["duckdb", "task-core/duckdb-bundled"]
 
 [build-dependencies]
 tauri-build = { version = "2.5.6", features = [] }
@@ -55,6 +55,6 @@ russh = "0.60"
 csv = "1.4.0"
 calamine = "0.30.1"
 zip = "4.6.1"
-dbx-core = { path = "../crates/dbx-core", default-features = false }
+task-core = { path = "../crates/task-core", default-features = false }
 font-kit = "0.14.3"
 tauri-plugin-clipboard-manager = "2.3.2"

@@ -20,11 +20,11 @@ import {
   type Backend,
   type ConnectionConfig,
   type QueryResult,
-} from "@dbx-app/node-core";
+} from "@task-app/node-core";
 
 const require = createRequire(import.meta.url);
 const packageJson = require("../package.json") as { version?: string };
-export const DBX_MCP_PACKAGE_VERSION = packageJson.version ?? "0.0.0";
+export const TASK_MCP_PACKAGE_VERSION = packageJson.version ?? "0.0.0";
 
 function text(s: string) {
   return { content: [{ type: "text" as const, text: s }] };
@@ -45,29 +45,29 @@ function formatQueryToolResult(result: QueryResult, title?: string) {
   return text(`${prefix}${mdTable(result.columns, rows)}\n\n${result.row_count} row(s)`);
 }
 
-export const DBX_CONNECTION_TYPE_DESCRIPTION =
+export const TASK_CONNECTION_TYPE_DESCRIPTION =
   "Database type: postgres, mysql, sqlite, rqlite, redis, duckdb, clickhouse, sqlserver, mongodb, oracle, elasticsearch, etcd, doris, starrocks, redshift, dameng, kingbase, highgo, vastbase, goldendb, databend, gaussdb, kwdb, yashandb, databricks, saphana, teradata, vertica, firebird, exasol, opengauss, oceanbase-oracle, gbase, h2, snowflake, trino, hive, db2, informix, influxdb, iris, neo4j, cassandra, bigquery, kylin, sundb, tdengine, iotdb, xugu, jdbc, access";
 const FILE_CAPABLE_CONNECTION_TYPES = new Set(["sqlite", "duckdb", "access", "h2"]);
 
-export function createDbxMcpServer(backend: Backend, options: { isWebMode?: boolean } = {}): McpServer {
-  const isWebMode = options.isWebMode ?? !!process.env.DBX_WEB_URL;
+export function createTaskMcpServer(backend: Backend, options: { isWebMode?: boolean } = {}): McpServer {
+  const isWebMode = options.isWebMode ?? !!process.env.TASK_WEB_URL;
   const server = new McpServer({
-    name: "dbx",
-    version: DBX_MCP_PACKAGE_VERSION,
+    name: "task",
+    version: TASK_MCP_PACKAGE_VERSION,
   });
 
-  server.tool("dbx_list_connections", "List all database connections configured in DBX", {}, async () => {
+  server.tool("task_list_connections", "List all database connections configured in TASK", {}, async () => {
     const connections = await backend.loadConnections();
-    if (connections.length === 0) return text("No connections configured in DBX.");
+    if (connections.length === 0) return text("No connections configured in TASK.");
     const rows = connections.map((c) => [c.name, c.db_type, c.host, String(c.port), c.database || ""]);
     return text(mdTable(["Name", "Type", "Host", "Port", "Database"], rows));
   });
 
   server.tool(
-    "dbx_list_tables",
+    "task_list_tables",
     "List tables and views for a database connection",
     {
-      connection_name: z.string().describe("Name of the DBX connection"),
+      connection_name: z.string().describe("Name of the TASK connection"),
       database: z.string().optional().describe("Database name"),
       schema: z.string().optional().describe("Schema name (default: public for PostgreSQL)"),
     },
@@ -82,10 +82,10 @@ export function createDbxMcpServer(backend: Backend, options: { isWebMode?: bool
   );
 
   server.tool(
-    "dbx_describe_table",
+    "task_describe_table",
     "Get column definitions for a table",
     {
-      connection_name: z.string().describe("Name of the DBX connection"),
+      connection_name: z.string().describe("Name of the TASK connection"),
       table: z.string().describe("Table name"),
       database: z.string().optional().describe("Database name"),
       schema: z.string().optional().describe("Schema name (default: public for PostgreSQL)"),
@@ -101,10 +101,10 @@ export function createDbxMcpServer(backend: Backend, options: { isWebMode?: bool
   );
 
   server.tool(
-    "dbx_execute_query",
+    "task_execute_query",
     "Execute a SQL query on a database connection (max 100 rows returned)",
     {
-      connection_name: z.string().describe("Name of the DBX connection"),
+      connection_name: z.string().describe("Name of the TASK connection"),
       database: z.string().optional().describe("Database name"),
       sql: z.string().describe("SQL query to execute"),
     },
@@ -133,10 +133,10 @@ export function createDbxMcpServer(backend: Backend, options: { isWebMode?: bool
   );
 
   server.tool(
-    "dbx_get_schema_context",
+    "task_get_schema_context",
     "Get compact table and column context for writing SQL",
     {
-      connection_name: z.string().describe("Name of the DBX connection"),
+      connection_name: z.string().describe("Name of the TASK connection"),
       database: z.string().optional().describe("Database name"),
       schema: z.string().optional().describe("Schema name (default: public for PostgreSQL)"),
       tables: z.array(z.string()).optional().describe("Specific table names to include"),
@@ -156,11 +156,11 @@ export function createDbxMcpServer(backend: Backend, options: { isWebMode?: bool
   );
 
   server.tool(
-    "dbx_add_connection",
-    "Add a new database connection to DBX",
+    "task_add_connection",
+    "Add a new database connection to TASK",
     {
       name: z.string().describe("Connection name"),
-      db_type: z.string().describe(DBX_CONNECTION_TYPE_DESCRIPTION),
+      db_type: z.string().describe(TASK_CONNECTION_TYPE_DESCRIPTION),
       host: z.string().describe("Database host"),
       port: z.number().optional().describe("Database port (TDengine defaults to 6041, IoTDB defaults to 6667, XuguDB defaults to 5138)"),
       username: z.string().default("").describe("Username"),
@@ -197,8 +197,8 @@ export function createDbxMcpServer(backend: Backend, options: { isWebMode?: bool
   );
 
   server.tool(
-    "dbx_remove_connection",
-    "Remove a database connection from DBX",
+    "task_remove_connection",
+    "Remove a database connection from TASK",
     {
       connection_name: z.string().describe("Name of the connection to remove"),
     },
@@ -213,10 +213,10 @@ export function createDbxMcpServer(backend: Backend, options: { isWebMode?: bool
   // Desktop-only tools: open table and execute-and-show require the Tauri bridge
   if (!isWebMode) {
     server.tool(
-      "dbx_open_table",
-      "Open a table in DBX desktop app UI. Requires DBX to be running.",
+      "task_open_table",
+      "Open a table in TASK desktop app UI. Requires TASK to be running.",
       {
-        connection_name: z.string().describe("Name of the DBX connection"),
+        connection_name: z.string().describe("Name of the TASK connection"),
         table: z.string().describe("Table name to open"),
         database: z.string().optional().describe("Database name"),
         schema: z.string().optional().describe("Schema name"),
@@ -224,15 +224,15 @@ export function createDbxMcpServer(backend: Backend, options: { isWebMode?: bool
       async ({ connection_name, table, database, schema }) => {
         const config = await backend.findConnection(connection_name);
         if (!config) return toolError("CONNECTION_NOT_FOUND", `Connection "${connection_name}" not found.`);
-        return bridgeRequest("/open-table", { connection_name, table, database, schema }, `Opened ${table} in DBX`);
+        return bridgeRequest("/open-table", { connection_name, table, database, schema }, `Opened ${table} in TASK`);
       },
     );
 
     server.tool(
-      "dbx_execute_and_show",
-      "Execute a SQL query in DBX desktop app UI and show results there. Requires DBX to be running.",
+      "task_execute_and_show",
+      "Execute a SQL query in TASK desktop app UI and show results there. Requires TASK to be running.",
       {
-        connection_name: z.string().describe("Name of the DBX connection"),
+        connection_name: z.string().describe("Name of the TASK connection"),
         sql: z.string().describe("SQL query to execute"),
         database: z.string().optional().describe("Database name"),
       },
@@ -261,7 +261,7 @@ export function createDbxMcpServer(backend: Backend, options: { isWebMode?: bool
             allow_writes: safetyOptions.allowWrites,
             allow_dangerous: safetyOptions.allowDangerous,
           },
-          "Query sent to DBX",
+          "Query sent to TASK",
         );
       },
     );
@@ -273,13 +273,13 @@ export function createDbxMcpServer(backend: Backend, options: { isWebMode?: bool
 async function bridgeRequest(path: string, body: Record<string, unknown>, successMsg: string) {
   const res = await postBridge(path, body);
   if (res.ok) return text(successMsg);
-  const message = res.text.startsWith("DBX is not running") ? res.text : `Failed: ${res.text}`;
-  return toolError("DBX_NOT_RUNNING", message);
+  const message = res.text.startsWith("TASK is not running") ? res.text : `Failed: ${res.text}`;
+  return toolError("TASK_NOT_RUNNING", message);
 }
 
 async function main() {
   const backend = await createBackend();
-  const server = createDbxMcpServer(backend);
+  const server = createTaskMcpServer(backend);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

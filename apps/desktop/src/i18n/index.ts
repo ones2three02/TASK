@@ -63,7 +63,7 @@ function detectUserLocale(): Locale {
   }
 }
 
-const savedLocale = normalizeLocale(safeLocalStorageGetWithLegacy("task-locale", "dbx-locale"));
+const savedLocale = normalizeLocale(safeLocalStorageGetWithLegacy("task-locale", "task-locale"));
 const initialLocale = savedLocale ?? detectUserLocale();
 
 const i18n = createI18n({

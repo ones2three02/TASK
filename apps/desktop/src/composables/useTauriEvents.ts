@@ -72,36 +72,36 @@ export function useTauriEvents(deps: { openTableTarget: (target: NavigationTarge
           }
         }).then((unlisten) => unlistenHandles.push(unlisten));
 
-        listen<string[]>("dbx-open-sql-files", async (event) => {
+        listen<string[]>("task-open-sql-files", async (event) => {
           try {
             for (const path of event.payload) {
               await deps.openSqlFilePath(path);
             }
             focusCurrentWindow();
           } catch (e) {
-            console.error("[TASK] dbx-open-sql-files error:", e);
+            console.error("[TASK] task-open-sql-files error:", e);
           }
         }).then((unlisten) => unlistenHandles.push(unlisten));
 
-        listen<string[]>("dbx-open-db-files", async (event) => {
+        listen<string[]>("task-open-db-files", async (event) => {
           try {
             for (const path of event.payload) {
               await deps.openDbFilePath(path);
             }
             focusCurrentWindow();
           } catch (e) {
-            console.error("[TASK] dbx-open-db-files error:", e);
+            console.error("[TASK] task-open-db-files error:", e);
           }
         }).then((unlisten) => unlistenHandles.push(unlisten));
 
-        listen<string[]>("dbx-open-connection-links", async (event) => {
+        listen<string[]>("task-open-connection-links", async (event) => {
           try {
             for (const url of event.payload) {
               await deps.openConnectionDeepLink(url);
             }
             focusCurrentWindow();
           } catch (e) {
-            console.error("[TASK] dbx-open-connection-links error:", e);
+            console.error("[TASK] task-open-connection-links error:", e);
           }
         }).then((unlisten) => unlistenHandles.push(unlisten));
       })

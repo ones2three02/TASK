@@ -2,16 +2,16 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
 use super::connection::AppState;
-pub use dbx_core::ai::*;
+pub use task_core::ai::*;
 
 #[tauri::command]
 pub async fn ai_test_connection(config: AiConfig) -> Result<AiTestConnectionResult, String> {
-    dbx_core::ai::test_connection_core(&config).await
+    task_core::ai::test_connection_core(&config).await
 }
 
 #[tauri::command]
 pub async fn ai_list_models(config: AiConfig) -> Result<Vec<AiModelInfo>, String> {
-    dbx_core::ai::list_models_core(&config).await
+    task_core::ai::list_models_core(&config).await
 }
 
 #[tauri::command]
@@ -26,29 +26,29 @@ pub async fn load_ai_config(state: State<'_, Arc<AppState>>) -> Result<Option<Ai
 
 #[tauri::command]
 pub async fn ai_complete(request: AiCompletionRequest) -> Result<String, String> {
-    dbx_core::ai::complete(&request).await
+    task_core::ai::complete(&request).await
 }
 
 #[tauri::command]
 pub async fn ai_stream(app: AppHandle, session_id: String, request: AiCompletionRequest) -> Result<(), String> {
-    let cancelled = dbx_core::ai::register_stream(&session_id).await;
+    let cancelled = task_core::ai::register_stream(&session_id).await;
 
-    let result = dbx_core::ai::stream(&session_id, &request, &cancelled, |chunk| {
+    let result = task_core::ai::stream(&session_id, &request, &cancelled, |chunk| {
         let _ = app.emit("ai-stream-chunk", &chunk);
     })
     .await;
 
-    dbx_core::ai::unregister_stream(&session_id).await;
+    task_core::ai::unregister_stream(&session_id).await;
     result
 }
 
-use dbx_core::agent_events::AgentEvent;
-use dbx_core::agent_loop::{run_agent_loop, AgentLoopContext};
-use dbx_core::models::connection::DatabaseType;
+use task_core::agent_events::AgentEvent;
+use task_core::agent_loop::{run_agent_loop, AgentLoopContext};
+use task_core::models::connection::DatabaseType;
 
 #[tauri::command]
 pub async fn ai_cancel_stream(session_id: String) -> Result<bool, String> {
-    Ok(dbx_core::ai::cancel_stream(&session_id).await)
+    Ok(task_core::ai::cancel_stream(&session_id).await)
 }
 
 #[tauri::command]
@@ -62,7 +62,7 @@ pub async fn ai_agent_stream(
     db_type: String,
     mode: Option<String>,
 ) -> Result<String, String> {
-    let cancelled = dbx_core::ai::register_stream(&session_id).await;
+    let cancelled = task_core::ai::register_stream(&session_id).await;
 
     let parsed_db_type: DatabaseType =
         serde_json::from_str(&format!("\"{}\"", db_type)).map_err(|_| format!("Unknown database type: {db_type}"))?;
@@ -88,7 +88,7 @@ pub async fn ai_agent_stream(
     )
     .await;
 
-    dbx_core::ai::unregister_stream(&session_id).await;
+    task_core::ai::unregister_stream(&session_id).await;
     result
 }
 

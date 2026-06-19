@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { DEFAULT_SQL_FORMATTER_SETTINGS } from "../../apps/desktop/src/lib/sqlFormatterConfig.ts";
 import { AI_PROVIDER_PRESETS, DEFAULT_EDITOR_SETTINGS, normalizeAiConfig, normalizeEditorSettings, useSettingsStore } from "../../apps/desktop/src/stores/settingsStore.ts";
 
-const OLD_FONT_SIZE_KEY = "dbx-query-editor-font-size";
+const OLD_FONT_SIZE_KEY = "task-query-editor-font-size";
 
 function withMockLocalStorage(initial: Record<string, string>, run: () => void) {
   const previousDescriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");

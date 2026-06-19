@@ -5,8 +5,8 @@ Thanks for helping improve TASK. This repository contains the desktop app, Tauri
 ## Project Layout
 
 - `apps/desktop/` - Vue desktop frontend.
-- `crates/dbx-core/` - shared Rust database core.
-- `crates/dbx-web/` - optional local web backend service used by package tests and development.
+- `crates/task-core/` - shared Rust database core.
+- `crates/task-web/` - optional local web backend service used by package tests and development.
 - `src-tauri/` - Tauri desktop shell and native commands.
 - `packages/` - Node packages, including CLI, MCP server, shared Node core, and app tests.
 - `plugins/` - optional TASK plugins.
@@ -69,7 +69,7 @@ pnpm publish:dry-run
 
 ## Database Driver Metadata
 
-When adding or changing a database type, update `crates/dbx-core/assets/database-drivers.manifest.json` first. The manifest is the shared source for driver mode, MCP/CLI routing, agent keys, support level, and top-level product capabilities.
+When adding or changing a database type, update `crates/task-core/assets/database-drivers.manifest.json` first. The manifest is the shared source for driver mode, MCP/CLI routing, agent keys, support level, and top-level product capabilities.
 
 Choose the support level conservatively:
 
@@ -83,9 +83,9 @@ Set `capabilities` explicitly for the product surfaces TASK should expose. Keep 
 Then run:
 
 ```bash
-cargo test -p dbx-core --test database_capabilities
-pnpm --filter @dbx-app/node-core exec tsx --test tests/driver-manifest.test.ts
-pnpm --filter @dbx-app/mcp-server exec tsx --test tests/driver-manifest.test.ts
+cargo test -p task-core --test database_capabilities
+pnpm --filter @task-app/node-core exec tsx --test tests/driver-manifest.test.ts
+pnpm --filter @task-app/mcp-server exec tsx --test tests/driver-manifest.test.ts
 ```
 
 ## Pull Requests

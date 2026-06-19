@@ -392,10 +392,10 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
 };
 
 export const STORAGE_KEY = "task-editor-settings";
-const LEGACY_STORAGE_KEY = "dbx-editor-settings";
-const OLD_FONT_SIZE_KEY = "dbx-query-editor-font-size";
+const LEGACY_STORAGE_KEY = "task-editor-settings";
+const OLD_FONT_SIZE_KEY = "task-query-editor-font-size";
 const AI_CONFIG_STORAGE_KEY = "task-ai-config";
-const LEGACY_AI_CONFIG_STORAGE_KEY = "dbx-ai-config";
+const LEGACY_AI_CONFIG_STORAGE_KEY = "task-ai-config";
 const MIN_UI_SCALE = 0.75;
 const MAX_UI_SCALE = 2;
 

@@ -3,8 +3,8 @@ import type { TableInfo, ColumnInfo, QueryOptions, QueryResult } from "./databas
 import { evaluateMongoAggregateSafety, evaluateMongoWriteSafety, inferMongoColumns, mongoDocumentsToQueryResult, parseMongoAggregateCommand, parseMongoCountDocumentsCommand, parseMongoFindCommand, parseMongoGetIndexesCommand, parseMongoWriteCommand, type MongoWriteCommand } from "./database.js";
 import { sqlSafetyFromEnv } from "./sql-safety.js";
 
-const baseUrl = process.env.DBX_WEB_URL!.replace(/\/+$/, "");
-const password = process.env.DBX_WEB_PASSWORD || "";
+const baseUrl = process.env.TASK_WEB_URL!.replace(/\/+$/, "");
+const password = process.env.TASK_WEB_PASSWORD || "";
 
 let sessionCookie: string | null = null;
 
@@ -25,7 +25,7 @@ async function ensureAuth(): Promise<void> {
 
   const setCookie = res.headers.get("set-cookie");
   if (setCookie) {
-    const match = setCookie.match(/dbx_session=([^;]+)/);
+    const match = setCookie.match(/task_session=([^;]+)/);
     if (match) {
       sessionCookie = match[1];
     }
@@ -35,7 +35,7 @@ async function ensureAuth(): Promise<void> {
 function headers(extra?: Record<string, string>): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json", ...extra };
   if (sessionCookie) {
-    h["Cookie"] = `dbx_session=${sessionCookie}`;
+    h["Cookie"] = `task_session=${sessionCookie}`;
   }
   return h;
 }

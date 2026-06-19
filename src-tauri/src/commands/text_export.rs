@@ -1,6 +1,6 @@
-use dbx_core::text_export::{format_json, format_markdown, QueryResultTextExportData};
 use serde::Deserialize;
 use serde_json::Value;
+use task_core::text_export::{format_json, format_markdown, QueryResultTextExportData};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -9,7 +9,7 @@ test("normalizes sidebar hidden table prefixes", () => {
 });
 
 test("hides a configured table prefix from the sidebar label", () => {
-  assert.equal(sidebarDisplayTableName("t8y2_long_customer_order", ["t8y2_long_"]), "...customer_order");
+  assert.equal(sidebarDisplayTableName("task_long_customer_order", ["task_long_"]), "...customer_order");
 });
 
 test("uses the longest matching sidebar table prefix", () => {

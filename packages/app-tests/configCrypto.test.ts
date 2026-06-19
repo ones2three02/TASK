@@ -26,9 +26,9 @@ test("fails to decrypt with wrong passphrase", async () => {
 });
 
 test("detects encrypted config format", () => {
-  assert.equal(isEncryptedConfig({ format: "dbx-encrypted", version: 1, salt: "a", iv: "b", data: "c" }), true);
   assert.equal(isEncryptedConfig({ format: "task-encrypted", version: 1, salt: "a", iv: "b", data: "c" }), true);
-  assert.equal(isEncryptedConfig({ format: "dbx-config", version: 1, connections: [] }), false);
+  assert.equal(isEncryptedConfig({ format: "task-encrypted", version: 1, salt: "a", iv: "b", data: "c" }), true);
+  assert.equal(isEncryptedConfig({ format: "task-config", version: 1, connections: [] }), false);
   assert.equal(isEncryptedConfig([{ id: "1" }]), false);
   assert.equal(isEncryptedConfig(null), false);
   assert.equal(isEncryptedConfig("string"), false);

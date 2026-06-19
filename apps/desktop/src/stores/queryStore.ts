@@ -37,8 +37,8 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import type { SavedSqlFile } from "@/types/database";
 
-const STORAGE_KEY = "dbx-open-tabs";
-const ACTIVE_TAB_KEY = "dbx-active-tab";
+const STORAGE_KEY = "task-open-tabs";
+const ACTIVE_TAB_KEY = "task-active-tab";
 const ORACLE_LIKE_METADATA_TYPES = new Set<string>(["oracle", "dameng", "oceanbase-oracle"]);
 
 function markQueryResultRowsRaw(result: QueryResult): QueryResult {

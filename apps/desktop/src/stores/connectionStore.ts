@@ -50,10 +50,10 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { safeLocalStorageGetWithLegacy, safeLocalStorageRemove, safeLocalStorageSet } from "@/lib/safeStorage";
 
 const PINNED_TREE_NODES_STORAGE_KEY = "task-pinned-tree-nodes";
-const LEGACY_PINNED_TREE_NODES_STORAGE_KEY = "dbx-pinned-tree-nodes";
+const LEGACY_PINNED_TREE_NODES_STORAGE_KEY = "task-pinned-tree-nodes";
 const ACTIVE_CONNECTION_STORAGE_KEY = "task-active-connection";
-const LEGACY_ACTIVE_CONNECTION_STORAGE_KEY = "dbx-active-connection";
-type ImportSource = "dbx" | "navicat" | "dbeaver" | "datagrip";
+const LEGACY_ACTIVE_CONNECTION_STORAGE_KEY = "task-active-connection";
+type ImportSource = "task" | "navicat" | "dbeaver" | "datagrip";
 
 // Temporary storage for DataGrip import payload (used to read Keychain passwords after import)
 let pendingDataGripPayload: { format: "datagrip-import"; dataSources: string; dataSourcesLocal?: string } | null = null;
@@ -2313,7 +2313,7 @@ export const useConnectionStore = defineStore("connection", () => {
     };
   }
 
-  async function readImportFile(source: ImportSource = "dbx"): Promise<{ content: string; encrypted: boolean } | null> {
+  async function readImportFile(source: ImportSource = "task"): Promise<{ content: string; encrypted: boolean } | null> {
     if (source === "dbeaver") return readDbeaverImportFile();
     if (source === "datagrip") return readDataGripImportFile();
 
@@ -2382,7 +2382,7 @@ export const useConnectionStore = defineStore("connection", () => {
 
         if (Array.isArray(parsed)) {
           imported = parsed;
-        } else if ((parsed.format === "task-config" || parsed.format === "dbx-config") && Array.isArray(parsed.connections)) {
+        } else if ((parsed.format === "task-config" || parsed.format === "task-config") && Array.isArray(parsed.connections)) {
           imported = parsed.connections;
         } else if (parsed.connections && Array.isArray(parsed.connections)) {
           imported = parsed.connections;

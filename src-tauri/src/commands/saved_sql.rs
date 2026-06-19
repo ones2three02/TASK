@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
 
-use dbx_core::connection::AppState;
-use dbx_core::saved_sql::{SavedSqlFile, SavedSqlFolder, SavedSqlLibrary};
+use task_core::connection::AppState;
+use task_core::saved_sql::{SavedSqlFile, SavedSqlFolder, SavedSqlLibrary};
 
 #[derive(Clone)]
 pub struct SavedSqlStorageState {
@@ -11,7 +11,7 @@ pub struct SavedSqlStorageState {
 }
 
 const SYNC_MANIFEST_FILE: &str = ".task-sql-library-sync.json";
-const LEGACY_SYNC_MANIFEST_FILE: &str = ".dbx-sql-library-sync.json";
+const LEGACY_SYNC_MANIFEST_FILE: &str = ".task-sql-library-sync.json";
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]

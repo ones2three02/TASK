@@ -72,7 +72,7 @@
     connections: "CONNECTIONS",
     noConnections: "No connections yet",
     import: "Import Connections",
-    importDbx: "Import TASK Config",
+    importTask: "Import TASK Config",
     importNavicat: "Import Navicat NCX",
     importDbeaver: "Import DBeaver",
     importDatagrip: "Import DataGrip",

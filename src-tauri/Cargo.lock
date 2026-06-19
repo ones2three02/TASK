@@ -1586,8 +1586,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "dbx"
-version = "0.4.2"
+name = "task"
+version = "0.5.38"
 dependencies = [
  "anyhow",
  "calamine",

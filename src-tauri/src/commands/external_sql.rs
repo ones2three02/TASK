@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use dbx_core::sql::decode_sql_file_bytes;
+use task_core::sql::decode_sql_file_bytes;
 
 #[tauri::command]
 pub fn pending_open_sql_files(state: tauri::State<'_, ExternalSqlOpenState>) -> Vec<String> {
@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     fn reads_external_sql_file_content() {
-        let path = std::env::temp_dir().join(format!("dbx-test-{}.sql", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!("task-test-{}.sql", uuid::Uuid::new_v4()));
         std::fs::write(&path, "select 1;").unwrap();
 
         let result = read_external_sql_file_content(&path);
@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn reads_gbk_external_sql_file_content() {
-        let path = std::env::temp_dir().join(format!("dbx-test-{}.sql", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!("task-test-{}.sql", uuid::Uuid::new_v4()));
         std::fs::write(&path, b"select '\xD6\xD0\xCE\xC4';").unwrap();
 
         let result = read_external_sql_file_content(&path);
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn rejects_external_non_sql_file_content() {
-        let path = std::env::temp_dir().join(format!("dbx-test-{}.txt", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!("task-test-{}.txt", uuid::Uuid::new_v4()));
         std::fs::write(&path, "select 1;").unwrap();
 
         let result = read_external_sql_file_content(&path);

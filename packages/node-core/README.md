@@ -1,8 +1,8 @@
-# DBX Node Core
+# TASK Node Core
 
-Shared Node.js runtime utilities for DBX CLI and DBX MCP Server.
+Shared Node.js runtime utilities for TASK CLI and TASK MCP Server.
 
-This package reads DBX Desktop connection storage, redacts connection summaries, builds schema context, applies SQL safety rules, and executes supported direct database queries.
+This package reads TASK Desktop connection storage, redacts connection summaries, builds schema context, applies SQL safety rules, and executes supported direct database queries.
 
 ## Supported Runtime
 
@@ -16,12 +16,12 @@ Direct execution currently supports:
 - MySQL-compatible databases, including MySQL, Doris, and StarRocks
 - SQLite
 
-Other DBX connection types can be routed through DBX Desktop bridge integrations used by the CLI and MCP server.
+Other TASK connection types can be routed through TASK Desktop bridge integrations used by the CLI and MCP server.
 
 ## Public Modules
 
 ```ts
-import { createBackend, loadConnections, getDbxDiagnostics, evaluateSqlSafety, buildSchemaContext } from "@dbx-app/node-core";
+import { createBackend, loadConnections, getTaskDiagnostics, evaluateSqlSafety, buildSchemaContext } from "@task-app/node-core";
 ```
 
-The package is intended as a shared implementation layer for official DBX Node packages. Applications should prefer `@dbx-app/cli` for terminal workflows and `@dbx-app/mcp-server` for MCP clients.
+The package is intended as a shared implementation layer for official TASK Node packages. Applications should prefer `@task-app/cli` for terminal workflows and `@task-app/mcp-server` for MCP clients.

@@ -21,7 +21,7 @@ export interface ConnectionDeepLinkDraft {
 
 const CONNECTION_DEEP_LINK_TARGET = "connection/new";
 const CONNECTION_DEEP_LINK_PROTOCOL = "task:";
-const LEGACY_CONNECTION_DEEP_LINK_PROTOCOL = "dbx:";
+const LEGACY_CONNECTION_DEEP_LINK_PROTOCOL = "task:";
 
 function normalizePath(url: URL): string {
   return [url.hostname, url.pathname.replace(/^\/+/, "")].filter(Boolean).join("/").replace(/\/+$/, "");

@@ -8,7 +8,7 @@ import { supportsDataGridTransaction } from "@/lib/tableEditing";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import type { ColumnInfo, DatabaseType } from "@/types/database";
-import { DBX_NEO4J_ELEMENT_ID_COLUMN, DBX_ROWID_COLUMN } from "@/lib/tableEditing";
+import { TASK_NEO4J_ELEMENT_ID_COLUMN, TASK_ROWID_COLUMN } from "@/lib/tableEditing";
 
 interface RowItem {
   id: number;
@@ -84,7 +84,7 @@ interface PendingChangesSnapshot {
 
 const pendingChangesCache = new Map<string, PendingChangesSnapshot>();
 const closingPendingSnapshotTabs = new Set<string>();
-const BEFORE_TAB_SWITCH_EVENT = "dbx:before-tab-switch";
+const BEFORE_TAB_SWITCH_EVENT = "task:before-tab-switch";
 
 function cacheKeyBelongsToTab(cacheKey: string, tabId: string) {
   return cacheKey === tabId || cacheKey.startsWith(`${tabId}-`);
@@ -532,8 +532,8 @@ export function useDataGridEditor(options: UseDataGridEditorOptions) {
   }
 
   function shouldClearClonedColumn(columnName: string, columnInfo: ColumnInfo | undefined): boolean {
-    if (databaseType.value === "oracle" && columnName.toUpperCase() === DBX_ROWID_COLUMN) return true;
-    if (databaseType.value === "neo4j" && columnName === DBX_NEO4J_ELEMENT_ID_COLUMN) return true;
+    if (databaseType.value === "oracle" && columnName.toUpperCase() === TASK_ROWID_COLUMN) return true;
+    if (databaseType.value === "neo4j" && columnName === TASK_NEO4J_ELEMENT_ID_COLUMN) return true;
     const extra = columnInfo?.extra ?? "";
     const columnDefault = columnInfo?.column_default ?? "";
     return /\b(auto_increment|autoincrement|identity|generated)\b/i.test(extra) || /\bnextval\s*\(/i.test(columnDefault);

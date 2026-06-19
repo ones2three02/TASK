@@ -1,7 +1,7 @@
 import type { Theme } from "@tauri-apps/api/window";
 
 export const APP_THEME_STORAGE_KEY = "task-theme";
-export const LEGACY_APP_THEME_STORAGE_KEY = "dbx-theme";
+export const LEGACY_APP_THEME_STORAGE_KEY = "task-theme";
 
 export type AppThemeMode = "light" | "dark" | "system";
 export type AppThemeAppearance = "light" | "dark";

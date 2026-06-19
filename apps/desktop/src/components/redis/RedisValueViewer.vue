@@ -64,7 +64,7 @@ const zsetTableRef = ref<HTMLElement | null>(null);
 const zsetScoreWidth = ref(220);
 const isResizingZsetColumns = ref(false);
 type RedisValueView = "json" | "raw";
-const REDIS_JSON_WRAP_STORAGE_KEY = "dbx-redis-json-word-wrap";
+const REDIS_JSON_WRAP_STORAGE_KEY = "task-redis-json-word-wrap";
 const stringValueView = ref<RedisValueView>("raw");
 const memberValueView = ref<RedisValueView>("raw");
 const redisJsonWordWrap = ref(readRedisJsonWordWrap());
@@ -769,7 +769,7 @@ onBeforeUnmount(() => {
       <!-- Header -->
       <div class="shrink-0 border-b bg-background">
         <div class="flex h-9 items-center gap-2 px-4">
-          <span class="dbx-editor-font-family min-w-0 flex-1 truncate text-sm font-semibold">{{ data.key_display }}</span>
+          <span class="task-editor-font-family min-w-0 flex-1 truncate text-sm font-semibold">{{ data.key_display }}</span>
           <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0" @click="load"><RefreshCw class="h-3.5 w-3.5" /></Button>
           <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0" @click="copyValue"><Copy class="h-3.5 w-3.5" /></Button>
           <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0" :title="t('redis.copyInsertStatement')" @click="copyInsertStatement"><Terminal class="h-3.5 w-3.5" /></Button>
@@ -777,7 +777,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="flex min-h-7 flex-wrap items-center gap-2 px-4 pb-1">
-          <Badge variant="secondary" class="dbx-editor-font-family text-xs uppercase">{{ data.key_type }}</Badge>
+          <Badge variant="secondary" class="task-editor-font-family text-xs uppercase">{{ data.key_type }}</Badge>
           <Badge v-if="metadataSizeLabel" variant="outline" class="text-xs text-muted-foreground"> {{ t("redis.columnSize") }}: {{ metadataSizeLabel }} </Badge>
           <template v-if="!editingTtl">
             <Badge v-if="data.ttl > 0" variant="outline" class="text-xs cursor-pointer text-muted-foreground hover:bg-accent" @click="startEditTtl">TTL: {{ data.ttl }}s</Badge>
@@ -816,10 +816,10 @@ onBeforeUnmount(() => {
             <Switch size="sm" :model-value="redisJsonWordWrap" @update:model-value="setRedisJsonWordWrap(Boolean($event))" />
           </label>
         </div>
-        <div v-if="stringJsonDetail && stringValueView === 'json'" class="dbx-editor-font-family min-h-0 flex-1 overflow-auto bg-background p-4 text-sm leading-6">
+        <div v-if="stringJsonDetail && stringValueView === 'json'" class="task-editor-font-family min-h-0 flex-1 overflow-auto bg-background p-4 text-sm leading-6">
           <RedisJsonTree :value="stringJsonDetail.value" :word-wrap="redisJsonWordWrap" :highlight-json="highlightRedisJson" />
         </div>
-        <textarea v-else v-model="editValue" class="dbx-editor-font-family flex-1 p-4 text-sm bg-background resize-none outline-none" :class="{ 'whitespace-pre': stringJsonDetail && !redisJsonWordWrap }" :readonly="isBinaryStringValue" @input="handleStringInput" />
+        <textarea v-else v-model="editValue" class="task-editor-font-family flex-1 p-4 text-sm bg-background resize-none outline-none" :class="{ 'whitespace-pre': stringJsonDetail && !redisJsonWordWrap }" :readonly="isBinaryStringValue" @input="handleStringInput" />
         <div v-if="isBinaryStringValue" class="px-4 py-2 border-t text-xs text-muted-foreground shrink-0">
           {{ t("redis.binaryStringReadonlyHint") }}
         </div>
@@ -854,7 +854,7 @@ onBeforeUnmount(() => {
           <template #default="{ item: row }">
             <div
               data-redis-value-row
-              class="dbx-editor-font-family grid grid-cols-[60px_1fr_84px] border-b text-sm hover:bg-accent/50 group cursor-pointer"
+              class="task-editor-font-family grid grid-cols-[60px_1fr_84px] border-b text-sm hover:bg-accent/50 group cursor-pointer"
               :class="{ 'bg-accent/60': isSelectedMember(`#${row.index}`, row.value) }"
               :style="{ height: `${REDIS_COLLECTION_ROW_HEIGHT}px` }"
               @click="viewMember(`#${row.index}`, row.value, { kind: 'list', index: row.index })"
@@ -895,7 +895,7 @@ onBeforeUnmount(() => {
           <template #default="{ item: row }">
             <div
               data-redis-value-row
-              class="dbx-editor-font-family grid grid-cols-[1fr_84px] border-b text-sm hover:bg-accent/50 group cursor-pointer"
+              class="task-editor-font-family grid grid-cols-[1fr_84px] border-b text-sm hover:bg-accent/50 group cursor-pointer"
               :class="{ 'bg-accent/60': isSelectedMember(t('redis.member'), row.value) }"
               :style="{ height: `${REDIS_COLLECTION_ROW_HEIGHT}px` }"
               @click="viewMember(t('redis.member'), row.value, { kind: 'set', member: String(row.value) })"
@@ -940,7 +940,7 @@ onBeforeUnmount(() => {
           <template #default="{ item: row }">
             <div
               data-redis-value-row
-              class="dbx-editor-font-family grid border-b text-sm hover:bg-accent/50 group cursor-pointer"
+              class="task-editor-font-family grid border-b text-sm hover:bg-accent/50 group cursor-pointer"
               :style="{ ...hashGridStyle, height: `${REDIS_COLLECTION_ROW_HEIGHT}px` }"
               :class="{ 'bg-accent/60': isSelectedMember(String(row.value.field), row.value.value) }"
               @click="viewMember(String(row.value.field), row.value.value, { kind: 'hash', field: String(row.value.field) })"
@@ -998,7 +998,7 @@ onBeforeUnmount(() => {
           <template #default="{ item: row }">
             <div
               data-redis-value-row
-              class="dbx-editor-font-family grid border-b text-sm hover:bg-accent/50 group cursor-pointer"
+              class="task-editor-font-family grid border-b text-sm hover:bg-accent/50 group cursor-pointer"
               :class="{ 'bg-accent/60': isSelectedMember(String(row.value.score), row.value.member) }"
               :style="{ ...zsetGridStyle, height: `${REDIS_COLLECTION_ROW_HEIGHT}px` }"
               @click="
@@ -1054,7 +1054,7 @@ onBeforeUnmount(() => {
         <DynamicScroller class="flex-1 overflow-y-auto" :items="streamRows" :min-item-size="REDIS_STREAM_MIN_ROW_HEIGHT" :buffer="600" key-field="id">
           <template #default="{ item: row, active }">
             <DynamicScrollerItem :item="row" :active="active" :size-dependencies="[streamFieldCount(row)]" :data-index="row.index">
-              <div data-redis-stream-entry class="dbx-editor-font-family px-4 py-2 border-b text-sm hover:bg-accent/50">
+              <div data-redis-stream-entry class="task-editor-font-family px-4 py-2 border-b text-sm hover:bg-accent/50">
                 <div class="mb-1 text-xs text-muted-foreground">{{ row.entry.id }}</div>
                 <div
                   v-for="[field, val] in streamFields(row.entry)"
@@ -1078,7 +1078,7 @@ onBeforeUnmount(() => {
 
       <!-- Unknown -->
       <div v-else class="flex-1 overflow-auto p-4">
-        <pre class="dbx-editor-font-family text-sm whitespace-pre-wrap">{{ formatValue(data.value) }}</pre>
+        <pre class="task-editor-font-family text-sm whitespace-pre-wrap">{{ formatValue(data.value) }}</pre>
       </div>
     </template>
 
@@ -1111,7 +1111,7 @@ onBeforeUnmount(() => {
               <IndentDecrease class="h-3.5 w-3.5" />
             </Button>
           </div>
-          <textarea v-model="memberEditValue" class="dbx-editor-font-family min-h-0 flex-1 resize-none bg-background p-5 text-[13px] leading-6 outline-none" spellcheck="false" />
+          <textarea v-model="memberEditValue" class="task-editor-font-family min-h-0 flex-1 resize-none bg-background p-5 text-[13px] leading-6 outline-none" spellcheck="false" />
         </template>
         <template v-else-if="selectedMemberJsonDetail">
           <div class="flex h-9 items-center gap-2 border-b px-5 text-xs">
@@ -1138,12 +1138,12 @@ onBeforeUnmount(() => {
               <Switch size="sm" :model-value="redisJsonWordWrap" @update:model-value="setRedisJsonWordWrap(Boolean($event))" />
             </label>
           </div>
-          <div v-if="memberValueView === 'json'" class="dbx-editor-font-family min-h-0 flex-1 overflow-auto bg-background p-5 text-[13px] leading-6">
+          <div v-if="memberValueView === 'json'" class="task-editor-font-family min-h-0 flex-1 overflow-auto bg-background p-5 text-[13px] leading-6">
             <RedisJsonTree :value="selectedMemberJsonDetail.value" :word-wrap="redisJsonWordWrap" :highlight-json="highlightRedisJson" />
           </div>
-          <pre v-else class="dbx-editor-font-family min-h-0 flex-1 overflow-auto bg-background p-5 text-[13px] leading-6" :class="redisJsonWordWrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'" v-html="memberRawJsonHtml"></pre>
+          <pre v-else class="task-editor-font-family min-h-0 flex-1 overflow-auto bg-background p-5 text-[13px] leading-6" :class="redisJsonWordWrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'" v-html="memberRawJsonHtml"></pre>
         </template>
-        <pre v-else class="dbx-editor-font-family min-h-0 flex-1 overflow-auto bg-background p-5 text-[13px] leading-6 whitespace-pre-wrap break-words">{{ selectedMemberDetail.text }}</pre>
+        <pre v-else class="task-editor-font-family min-h-0 flex-1 overflow-auto bg-background p-5 text-[13px] leading-6 whitespace-pre-wrap break-words">{{ selectedMemberDetail.text }}</pre>
         <SheetFooter class="shrink-0 border-t px-5 py-3">
           <template v-if="isEditingMember">
             <Button variant="ghost" :disabled="savingMember" @click="cancelEditMember">

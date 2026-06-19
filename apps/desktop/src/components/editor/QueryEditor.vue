@@ -19,8 +19,8 @@ import { buildElasticsearchCompletionItemsFromContext, getElasticsearchCompletio
 import { extractIdentifierAt, isSqlKeyword, matchTable } from "@/lib/sqlNavigation";
 import { lineColumnToOffset, parseSqlErrorLocation } from "@/lib/sqlDiagnostics";
 import {
-  DBX_TABLE_REFERENCE_MIME,
-  DBX_TABLE_REFERENCE_DROP_EVENT,
+  TASK_TABLE_REFERENCE_MIME,
+  TASK_TABLE_REFERENCE_DROP_EVENT,
   activeTableReferencePayloadValue,
   clearActiveTableReferencePayload,
   hasTableReferencePayloadType,
@@ -760,7 +760,7 @@ async function formatCurrentSql() {
 }
 
 function droppedTableReference(event: DragEvent) {
-  return activeTableReferencePayloadValue() ?? parseTableReferencePayload(event.dataTransfer?.getData(DBX_TABLE_REFERENCE_MIME));
+  return activeTableReferencePayloadValue() ?? parseTableReferencePayload(event.dataTransfer?.getData(TASK_TABLE_REFERENCE_MIME));
 }
 
 function hasDroppedTableReference(event: DragEvent) {
@@ -807,13 +807,13 @@ function onTableReferenceDropEvent(event: Event) {
 
 function registerTableReferenceDropListener() {
   if (tableReferenceDropListenerRegistered) return;
-  window.addEventListener(DBX_TABLE_REFERENCE_DROP_EVENT, onTableReferenceDropEvent);
+  window.addEventListener(TASK_TABLE_REFERENCE_DROP_EVENT, onTableReferenceDropEvent);
   tableReferenceDropListenerRegistered = true;
 }
 
 function unregisterTableReferenceDropListener() {
   if (!tableReferenceDropListenerRegistered) return;
-  window.removeEventListener(DBX_TABLE_REFERENCE_DROP_EVENT, onTableReferenceDropEvent);
+  window.removeEventListener(TASK_TABLE_REFERENCE_DROP_EVENT, onTableReferenceDropEvent);
   tableReferenceDropListenerRegistered = false;
 }
 

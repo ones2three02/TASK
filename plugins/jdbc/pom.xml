@@ -2,8 +2,8 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>app.dbx</groupId>
-  <artifactId>dbx-jdbc-plugin</artifactId>
+  <groupId>app.task</groupId>
+  <artifactId>task-jdbc-plugin</artifactId>
   <version>0.1.12</version>
 
   <properties>
@@ -122,7 +122,7 @@
               <shadedClassifierName>all</shadedClassifierName>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>app.dbx.jdbc.DbxJdbcPlugin</mainClass>
+                  <mainClass>app.task.jdbc.TaskJdbcPlugin</mainClass>
                 </transformer>
               </transformers>
             </configuration>

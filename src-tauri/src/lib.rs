@@ -5,10 +5,10 @@ mod models;
 mod window_state_guard;
 
 use commands::connection::AppState;
-use dbx_core::storage::{DesktopIconTheme, DesktopSettings, Storage};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
+use task_core::storage::{DesktopIconTheme, DesktopSettings, Storage};
 #[cfg(target_os = "macos")]
 use tauri::RunEvent;
 use tauri::{
@@ -26,7 +26,7 @@ const BLACK_APP_ICON: tauri::image::Image<'_> = tauri::include_image!("icons/ico
 
 fn task_storage_db_path(data_dir: &Path) -> PathBuf {
     let db_path = data_dir.join("task.db");
-    let legacy_db_path = data_dir.join("dbx.db");
+    let legacy_db_path = data_dir.join("task.db");
     if !db_path.exists() && legacy_db_path.is_file() {
         std::fs::rename(&legacy_db_path, &db_path).expect("Failed to migrate legacy storage database");
     }
@@ -64,7 +64,7 @@ fn open_connection_deep_links(app: &tauri::AppHandle, links: Vec<String>) {
     if let Some(state) = app.try_state::<commands::deep_link::DeepLinkOpenState>() {
         state.push(links.clone());
     }
-    let _ = app.emit("dbx-open-connection-links", links);
+    let _ = app.emit("task-open-connection-links", links);
     show_main_window(app);
 }
 
@@ -231,7 +231,7 @@ pub fn run() {
                 if let Some(state) = app.try_state::<commands::external_sql::ExternalSqlOpenState>() {
                     state.push(paths.clone());
                 }
-                let _ = app.emit("dbx-open-sql-files", paths);
+                let _ = app.emit("task-open-sql-files", paths);
             }
 
             let db_paths = commands::external_db::db_file_paths_from_args(args, std::path::Path::new(&cwd));
@@ -239,7 +239,7 @@ pub fn run() {
                 if let Some(state) = app.try_state::<commands::external_db::ExternalDbOpenState>() {
                     state.push(db_paths.clone());
                 }
-                let _ = app.emit("dbx-open-db-files", db_paths);
+                let _ = app.emit("task-open-db-files", db_paths);
             }
             show_main_window(app);
         }))
@@ -566,7 +566,7 @@ pub fn run() {
                     if let Some(state) = app_handle.try_state::<commands::external_sql::ExternalSqlOpenState>() {
                         state.push(paths.clone());
                     }
-                    let _ = app_handle.emit("dbx-open-sql-files", paths);
+                    let _ = app_handle.emit("task-open-sql-files", paths);
                     if let Some(window) = app_handle.get_webview_window("main") {
                         let _ = window.show();
                         let _ = window.set_focus();
@@ -583,7 +583,7 @@ pub fn run() {
                     if let Some(state) = app_handle.try_state::<commands::external_db::ExternalDbOpenState>() {
                         state.push(db_paths.clone());
                     }
-                    let _ = app_handle.emit("dbx-open-db-files", db_paths);
+                    let _ = app_handle.emit("task-open-db-files", db_paths);
                     if let Some(window) = app_handle.get_webview_window("main") {
                         let _ = window.show();
                         let _ = window.set_focus();

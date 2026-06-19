@@ -11,7 +11,7 @@ function rqliteConfig(port: number): ConnectionConfig {
     db_type: "rqlite",
     host: "127.0.0.1",
     port,
-    username: "dbx",
+    username: "task",
     password: "secret",
     database: "main",
     ssh_enabled: false,
@@ -45,7 +45,7 @@ function json(res: ServerResponse, body: unknown) {
 test("executes rqlite query through the HTTP API", async () => {
   const server = await withRqliteServer((req, res, body) => {
     assert.equal(req.url, "/db/query");
-    assert.equal(req.headers.authorization, "Basic ZGJ4OnNlY3JldA==");
+    assert.equal(req.headers.authorization, "Basic dGFzazpzZWNyZXQ=");
     assert.deepEqual(JSON.parse(body), ["select id, name from users"]);
     json(res, {
       results: [

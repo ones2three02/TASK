@@ -267,7 +267,7 @@ defineExpose({ focusSearch });
           <div v-else-if="selectedValue && !selectedValue.found" class="p-4 text-sm text-muted-foreground">
             {{ t("etcd.notFound") }}
           </div>
-          <pre v-else class="dbx-editor-font-family m-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-4 text-sm">{{ selectedTextValue }}</pre>
+          <pre v-else class="task-editor-font-family m-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-4 text-sm">{{ selectedTextValue }}</pre>
         </div>
       </div>
     </div>

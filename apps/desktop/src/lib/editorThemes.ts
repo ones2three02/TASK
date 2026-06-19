@@ -7,9 +7,9 @@ import { tags } from "@lezer/highlight";
 type CodeMirrorStyleSpec = Parameters<typeof import("@codemirror/view").EditorView.theme>[0];
 type LucideIconNode = Array<[string, Record<string, string>]>;
 
-export const EDITOR_FONT_SIZE_CSS_VAR = "--dbx-editor-font-size";
-export const EDITOR_FONT_FAMILY_CSS_VAR = "--dbx-editor-font-family";
-const EDITOR_SELECTION_BACKGROUND_CSS_VAR = "--dbx-editor-selection-background";
+export const EDITOR_FONT_SIZE_CSS_VAR = "--task-editor-font-size";
+export const EDITOR_FONT_FAMILY_CSS_VAR = "--task-editor-font-family";
+const EDITOR_SELECTION_BACKGROUND_CSS_VAR = "--task-editor-selection-background";
 
 const SUPPORTS_COLOR_MIX = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("color", "color-mix(in oklch, black 50%, white)");
 const SUPPORTS_OKLCH = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("color", "oklch(0.62 0.19 255)");
@@ -226,7 +226,7 @@ function encodeSvgIcon(iconNode: LucideIconNode): string {
 function lucideCompletionIconMask(iconNode: LucideIconNode) {
   const mask = encodeSvgIcon(iconNode);
   return {
-    "--dbx-completion-icon-mask": mask,
+    "--task-completion-icon-mask": mask,
   };
 }
 
@@ -418,11 +418,11 @@ export function buildSqlCompletionThemeRules(): CodeMirrorStyleSpec {
       display: "block",
       height: "14px",
       position: "absolute",
-      WebkitMaskImage: "var(--dbx-completion-icon-mask)",
+      WebkitMaskImage: "var(--task-completion-icon-mask)",
       WebkitMaskPosition: "center",
       WebkitMaskRepeat: "no-repeat",
       WebkitMaskSize: "14px 14px",
-      maskImage: "var(--dbx-completion-icon-mask)",
+      maskImage: "var(--task-completion-icon-mask)",
       maskPosition: "center",
       maskRepeat: "no-repeat",
       maskSize: "14px 14px",

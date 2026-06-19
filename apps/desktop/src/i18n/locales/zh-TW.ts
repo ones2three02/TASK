@@ -69,7 +69,7 @@
     connections: "連線",
     noConnections: "暫無連線",
     import: "匯入連線",
-    importDbx: "匯入 TASK 設定",
+    importTask: "匯入 TASK 設定",
     importNavicat: "匯入 Navicat NCX",
     importDbeaver: "匯入 DBeaver",
     importDatagrip: "匯入 DataGrip",

@@ -113,9 +113,9 @@ const showSettingsDialog = ref(false);
 const showDriverStore = ref(false);
 const agentDriverUpdateCount = ref(0);
 const showHistory = ref(false);
-const showAiPanel = ref(safeLocalStorageGetWithLegacy("task-ai-panel-open", "dbx-ai-panel-open") === "true");
-const showSqlLibraryPanel = ref(safeLocalStorageGetWithLegacy("task-sql-library-open", "dbx-sql-library-open") === "true");
-const sidebarOpen = ref(safeLocalStorageGetWithLegacy("task-sidebar-open", "dbx-sidebar-open") !== "false");
+const showAiPanel = ref(safeLocalStorageGetWithLegacy("task-ai-panel-open", "task-ai-panel-open") === "true");
+const showSqlLibraryPanel = ref(safeLocalStorageGetWithLegacy("task-sql-library-open", "task-sql-library-open") === "true");
+const sidebarOpen = ref(safeLocalStorageGetWithLegacy("task-sidebar-open", "task-sidebar-open") !== "false");
 const aiPanelReady = ref(false);
 const { sidebarWidth, aiPanelWidth, historyWidth, sqlLibraryWidth, startSidebarResize, startAiPanelResize, startHistoryResize, startSqlLibraryResize } = usePanelResize();
 const aiAssistantRef = ref<AiAssistantHandle | null>(null);
@@ -278,7 +278,7 @@ async function applyUiScale(scale: number) {
   try {
     const { getCurrentWebview } = await import("@tauri-apps/api/webview");
     await getCurrentWebview().setZoom(scale);
-    window.dispatchEvent(new CustomEvent("dbx:ui-scale-applied", { detail: { scale } }));
+    window.dispatchEvent(new CustomEvent("task:ui-scale-applied", { detail: { scale } }));
   } catch (error) {
     console.warn("[TASK] Failed to apply UI scale", { scale, error });
   }
@@ -315,7 +315,7 @@ watch(
   () => queryStore.activeTabId,
   (id, previousId) => {
     if (previousId && previousId !== id && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("dbx:before-tab-switch", { detail: { tabId: id, fromTabId: previousId } }));
+      window.dispatchEvent(new CustomEvent("task:before-tab-switch", { detail: { tabId: id, fromTabId: previousId } }));
     }
     if (id) newQueryContextSource.value = "tab";
     selectedSql.value = "";
@@ -985,7 +985,7 @@ onMounted(async () => {
   applyTheme();
   void applyUiScale(settingsStore.editorSettings.uiScale);
   window.addEventListener("keydown", handleKeydown);
-  window.addEventListener("dbx-open-driver-store", openDriverStoreFromEvent);
+  window.addEventListener("task-open-driver-store", openDriverStoreFromEvent);
   if (isDesktop) {
     document.addEventListener("contextmenu", handleContextMenu);
   }
@@ -1038,7 +1038,7 @@ onUnmounted(() => {
     clearInterval(updateCheckTimer);
   }
   window.removeEventListener("keydown", handleKeydown);
-  window.removeEventListener("dbx-open-driver-store", openDriverStoreFromEvent);
+  window.removeEventListener("task-open-driver-store", openDriverStoreFromEvent);
   document.removeEventListener("contextmenu", handleContextMenu);
 });
 </script>

@@ -46,7 +46,7 @@ pub async fn check_mcp_server_status() -> Result<McpServerStatus, String> {
     let update_available = current_version
         .as_deref()
         .zip(latest_version.as_deref())
-        .is_some_and(|(current, latest)| dbx_core::update::is_newer_version(latest, current));
+        .is_some_and(|(current, latest)| task_core::update::is_newer_version(latest, current));
     let error = if npm_available { None } else { Some("npm is not available in PATH.".to_string()) };
 
     Ok(McpServerStatus {
@@ -66,7 +66,7 @@ pub async fn check_mcp_server_status() -> Result<McpServerStatus, String> {
 async fn fetch_latest_mcp_version() -> Result<String, String> {
     let mut builder = reqwest::Client::builder().timeout(Duration::from_secs(10)).user_agent("task-mcp-status-checker");
     let proxy_url =
-        tauri::async_runtime::spawn_blocking(dbx_core::update::system_proxy_url).await.map_err(|e| e.to_string())?;
+        tauri::async_runtime::spawn_blocking(task_core::update::system_proxy_url).await.map_err(|e| e.to_string())?;
     if let Some(proxy_url) = proxy_url {
         let proxy = reqwest::Proxy::all(&proxy_url).map_err(|e| format!("Invalid system proxy URL: {e}"))?;
         builder = builder.proxy(proxy);

@@ -1,27 +1,27 @@
 {
-  "name": "@dbx-app/cli",
+  "name": "@task-app/cli",
   "version": "0.4.8",
-  "description": "Command line interface for DBX database connections, schema, and safe queries",
+  "description": "Command line interface for TASK database connections, schema, and safe queries",
   "keywords": [
     "ai-agent",
     "automation",
     "cli",
     "codex",
     "database",
-    "dbx",
+    "task",
     "mysql",
     "postgresql",
     "terminal"
   ],
-  "homepage": "https://github.com/t8y2/dbx/tree/main/packages/cli",
+  "homepage": "https://github.com/ones2three02/TASK/tree/main/packages/cli",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/t8y2/dbx",
+    "url": "https://github.com/ones2three02/TASK",
     "directory": "packages/cli"
   },
   "bin": {
-    "dbx": "dist/cli.js"
+    "task": "dist/cli.js"
   },
   "files": [
     "dist"
@@ -29,12 +29,12 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/cli.ts",
-    "test": "pnpm --filter @dbx-app/node-core build && vitest run --config vitest.config.ts",
-    "build": "pnpm --filter @dbx-app/node-core build && tsc",
+    "test": "pnpm --filter @task-app/node-core build && vitest run --config vitest.config.ts",
+    "build": "pnpm --filter @task-app/node-core build && tsc",
     "prepublishOnly": "tsc"
   },
   "dependencies": {
-    "@dbx-app/node-core": "workspace:^"
+    "@task-app/node-core": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",

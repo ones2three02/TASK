@@ -1,25 +1,25 @@
 {
-  "name": "@dbx-app/mcp-server",
+  "name": "@task-app/mcp-server",
   "version": "0.4.8",
-  "description": "MCP server for DBX — query databases from Claude Code, Cursor, and other AI agents",
+  "description": "MCP server for TASK — query databases from Claude Code, Cursor, and other AI agents",
   "keywords": [
     "ai-agent",
     "claude",
     "database",
-    "dbx",
+    "task",
     "mcp",
     "mysql",
     "postgresql"
   ],
-  "homepage": "https://github.com/t8y2/dbx/tree/main/packages/mcp-server",
+  "homepage": "https://github.com/ones2three02/TASK/tree/main/packages/mcp-server",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/t8y2/dbx",
+    "url": "https://github.com/ones2three02/TASK",
     "directory": "packages/mcp-server"
   },
   "bin": {
-    "dbx-mcp-server": "dist/index.js",
+    "task-mcp-server": "dist/index.js",
     "mcp-server": "dist/index.js"
   },
   "files": [
@@ -29,12 +29,12 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
-    "test": "pnpm --filter @dbx-app/mcp-server build && vitest run --config vitest.config.ts",
-    "build": "pnpm --filter @dbx-app/node-core build && tsc",
+    "test": "pnpm --filter @task-app/mcp-server build && vitest run --config vitest.config.ts",
+    "build": "pnpm --filter @task-app/node-core build && tsc",
     "prepublishOnly": "tsc"
   },
   "dependencies": {
-    "@dbx-app/node-core": "workspace:^",
+    "@task-app/node-core": "workspace:^",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "zod": "^3.25.20"
   },
@@ -46,5 +46,5 @@
   "engines": {
     "node": ">=22.13.0"
   },
-  "mcpName": "io.github.t8y2/dbx"
+  "mcpName": "io.github.ones2three02/task"
 }

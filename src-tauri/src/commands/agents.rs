@@ -2,14 +2,16 @@ use std::sync::Arc;
 
 use tauri::{Emitter, State};
 
-use dbx_core::agent_manager::{AgentDriverInfo, DriverStoreUsage, JavaRuntimeConfig, JavaRuntimeMode, DEFAULT_JRE_KEY};
-use dbx_core::agent_service::{
+use task_core::agent_manager::{
+    AgentDriverInfo, DriverStoreUsage, JavaRuntimeConfig, JavaRuntimeMode, DEFAULT_JRE_KEY,
+};
+use task_core::agent_service::{
     build_agent_list, fetch_registry, import_agent_jar, import_agents_from_zip as import_agents_from_zip_core,
     install_agent_driver, invalidate_registry_cache, reinstall_agent_jre, uninstall_agent_driver, uninstall_agent_jre,
     upgrade_all_agent_drivers, AgentProgressEvent, UpgradeAllAgentDriversResult,
 };
-use dbx_core::connection::AppState;
-use dbx_core::driver_runtime::DriverRuntimeSummary;
+use task_core::connection::AppState;
+use task_core::driver_runtime::DriverRuntimeSummary;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct AgentUpdateBlocker {
@@ -35,17 +37,17 @@ pub async fn get_driver_store_usage(state: State<'_, Arc<AppState>>) -> Result<D
 
 #[tauri::command]
 pub async fn get_driver_runtime_summary(state: State<'_, Arc<AppState>>) -> Result<DriverRuntimeSummary, String> {
-    Ok(dbx_core::driver_runtime::collect_driver_runtime_summary(state.inner().as_ref()).await)
+    Ok(task_core::driver_runtime::collect_driver_runtime_summary(state.inner().as_ref()).await)
 }
 
 #[tauri::command]
 pub async fn stop_driver_runtime(state: State<'_, Arc<AppState>>, runtime_id: String) -> Result<(), String> {
-    dbx_core::driver_runtime::stop_driver_runtime(state.inner().as_ref(), &runtime_id).await
+    task_core::driver_runtime::stop_driver_runtime(state.inner().as_ref(), &runtime_id).await
 }
 
 #[tauri::command]
 pub async fn restart_driver_runtime(state: State<'_, Arc<AppState>>, runtime_id: String) -> Result<(), String> {
-    dbx_core::driver_runtime::restart_driver_runtime(state.inner().as_ref(), &runtime_id).await
+    task_core::driver_runtime::restart_driver_runtime(state.inner().as_ref(), &runtime_id).await
 }
 
 #[tauri::command]
@@ -104,7 +106,7 @@ pub async fn set_agent_java_runtime_config(
 ) -> Result<JavaRuntimeConfig, String> {
     let am = &state.agent_manager;
     if config.mode == JavaRuntimeMode::Custom || config.mode == JavaRuntimeMode::System {
-        let candidate_state = dbx_core::agent_manager::AgentState { java_runtime: config.clone(), ..am.load_state() };
+        let candidate_state = task_core::agent_manager::AgentState { java_runtime: config.clone(), ..am.load_state() };
         let resolved = am.resolve_java_runtime(&candidate_state, DEFAULT_JRE_KEY)?;
         if config.mode == JavaRuntimeMode::Custom {
             config.custom_java_path = Some(resolved.to_string_lossy().to_string());
@@ -190,7 +192,7 @@ async fn agent_update_blockers(state: &AppState, db_types: &[String]) -> Vec<Age
         .into_iter()
         .filter(|key| candidate_keys.contains(key.as_str()))
         .map(|db_type| AgentUpdateBlocker {
-            label: dbx_core::agent_catalog::label_for_key(&db_type).unwrap_or(&db_type).to_string(),
+            label: task_core::agent_catalog::label_for_key(&db_type).unwrap_or(&db_type).to_string(),
             db_type,
         })
         .collect::<Vec<_>>();

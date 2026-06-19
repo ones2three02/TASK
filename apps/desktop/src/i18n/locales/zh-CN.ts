@@ -72,7 +72,7 @@
     connections: "连接",
     noConnections: "暂无连接",
     import: "导入连接",
-    importDbx: "导入 TASK 配置",
+    importTask: "导入 TASK 配置",
     importNavicat: "导入 Navicat NCX",
     importDbeaver: "导入 DBeaver",
     importDatagrip: "导入 DataGrip",

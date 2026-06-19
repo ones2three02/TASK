@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { test } from "vitest";
-import { DBX_CONNECTION_TYPE_DESCRIPTION } from "../src/index.js";
+import { TASK_CONNECTION_TYPE_DESCRIPTION } from "../src/index.js";
 
 interface DriverManifest {
   drivers: Array<{
@@ -33,7 +33,7 @@ const PRODUCT_CAPABILITY_KEYS = [
 type DatabaseProductCapability = (typeof PRODUCT_CAPABILITY_KEYS)[number];
 
 function loadManifest(): DriverManifest {
-  const path = fileURLToPath(new URL("../../../crates/dbx-core/assets/database-drivers.manifest.json", import.meta.url));
+  const path = fileURLToPath(new URL("../../../crates/task-core/assets/database-drivers.manifest.json", import.meta.url));
   return JSON.parse(readFileSync(path, "utf8")) as DriverManifest;
 }
 
@@ -41,7 +41,7 @@ test("add connection database type description includes every manifest database 
   const manifest = loadManifest();
 
   for (const driver of manifest.drivers) {
-    assert.match(DBX_CONNECTION_TYPE_DESCRIPTION, new RegExp(`\\b${driver.dbType}\\b`));
+    assert.match(TASK_CONNECTION_TYPE_DESCRIPTION, new RegExp(`\\b${driver.dbType}\\b`));
   }
 });
 

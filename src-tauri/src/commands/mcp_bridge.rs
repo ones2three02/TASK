@@ -327,7 +327,7 @@ async fn handle_list_tables_data(state: &Arc<AppState>, body: &str, stream: &mut
         respond_error(stream, "403 Forbidden", &e).await;
         return;
     }
-    match dbx_core::schema::list_tables_core(state, &config.id, &database, &schema, None, None).await {
+    match task_core::schema::list_tables_core(state, &config.id, &database, &schema, None, None).await {
         Ok(tables) => respond_json(stream, &tables).await,
         Err(e) => respond_error(stream, "500 Internal Server Error", &e).await,
     }
@@ -354,7 +354,7 @@ async fn handle_describe_table_data(state: &Arc<AppState>, body: &str, stream: &
         respond_error(stream, "403 Forbidden", &e).await;
         return;
     }
-    match dbx_core::schema::get_columns_core(state, &config.id, &database, &schema, &req.table).await {
+    match task_core::schema::get_columns_core(state, &config.id, &database, &schema, &req.table).await {
         Ok(columns) => respond_json(stream, &columns).await,
         Err(e) => respond_error(stream, "500 Internal Server Error", &e).await,
     }
@@ -373,7 +373,7 @@ async fn handle_mongo_list_collections_data(state: &Arc<AppState>, body: &str, s
     else {
         return;
     };
-    match dbx_core::mongo_ops::mongo_list_collections_core(state, &pool_key, &database).await {
+    match task_core::mongo_ops::mongo_list_collections_core(state, &pool_key, &database).await {
         Ok(collections) => respond_json(stream, &collections).await,
         Err(e) => respond_error(stream, "500 Internal Server Error", &e).await,
     }
@@ -392,7 +392,7 @@ async fn handle_mongo_find_documents_data(state: &Arc<AppState>, body: &str, str
     else {
         return;
     };
-    match dbx_core::mongo_ops::mongo_find_documents_core(
+    match task_core::mongo_ops::mongo_find_documents_core(
         state,
         &pool_key,
         &database,
@@ -422,7 +422,7 @@ async fn handle_mongo_aggregate_documents_data(state: &Arc<AppState>, body: &str
     else {
         return;
     };
-    match dbx_core::mongo_ops::mongo_aggregate_documents_core(
+    match task_core::mongo_ops::mongo_aggregate_documents_core(
         state,
         &pool_key,
         &database,
@@ -454,8 +454,14 @@ async fn handle_mongo_insert_documents_data(state: &Arc<AppState>, body: &str, s
         respond_error(stream, "403 Forbidden", &e).await;
         return;
     }
-    match dbx_core::mongo_ops::mongo_insert_documents_core(state, &pool_key, &database, &req.collection, &req.docs_json)
-        .await
+    match task_core::mongo_ops::mongo_insert_documents_core(
+        state,
+        &pool_key,
+        &database,
+        &req.collection,
+        &req.docs_json,
+    )
+    .await
     {
         Ok(inserted) => respond_json(stream, &serde_json::json!({ "affected_rows": inserted })).await,
         Err(e) => respond_error(stream, "500 Internal Server Error", &e).await,
@@ -479,7 +485,7 @@ async fn handle_mongo_update_documents_data(state: &Arc<AppState>, body: &str, s
         respond_error(stream, "403 Forbidden", &e).await;
         return;
     }
-    match dbx_core::mongo_ops::mongo_update_documents_core(
+    match task_core::mongo_ops::mongo_update_documents_core(
         state,
         &pool_key,
         &database,
@@ -512,7 +518,7 @@ async fn handle_mongo_delete_documents_data(state: &Arc<AppState>, body: &str, s
         respond_error(stream, "403 Forbidden", &e).await;
         return;
     }
-    match dbx_core::mongo_ops::mongo_delete_documents_core(
+    match task_core::mongo_ops::mongo_delete_documents_core(
         state,
         &pool_key,
         &database,
@@ -548,11 +554,11 @@ async fn handle_execute_query_data(state: &Arc<AppState>, body: &str, stream: &m
         return;
     }
     // Read-only check: reject if the connection has read-only protection and the SQL is a write
-    if let Err(e) = dbx_core::query::check_read_only_for_connection(state, &config.id, &req.sql).await {
+    if let Err(e) = task_core::query::check_read_only_for_connection(state, &config.id, &req.sql).await {
         respond_error(stream, "403 Forbidden", &e).await;
         return;
     }
-    match dbx_core::query::execute_sql_statement(state, &config.id, &database, &req.sql, req.schema.as_deref(), None)
+    match task_core::query::execute_sql_statement(state, &config.id, &database, &req.sql, req.schema.as_deref(), None)
         .await
     {
         Ok(result) => respond_json(stream, &result).await,

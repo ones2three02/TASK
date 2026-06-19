@@ -476,7 +476,7 @@ const savedCustomFormatters = computed(() => {
 });
 
 function localFilterKey(value: CellValue): string {
-  if (value === null) return "__dbx_null__";
+  if (value === null) return "__task_null__";
   if (typeof value === "boolean") return `bool:${value}`;
   if (typeof value === "number") return `num:${value}`;
   return `str:${String(value)}`;
@@ -3926,7 +3926,7 @@ onMounted(() => {
   if (typeof window === "undefined") return;
   window.addEventListener("resize", scheduleCanvasPixelRatioRefresh);
   window.visualViewport?.addEventListener("resize", scheduleCanvasPixelRatioRefresh);
-  window.addEventListener("dbx:ui-scale-applied", scheduleCanvasPixelRatioRefresh);
+  window.addEventListener("task:ui-scale-applied", scheduleCanvasPixelRatioRefresh);
 });
 onDeactivated(pauseCanvasGridWork);
 onUnmounted(() => {
@@ -3939,7 +3939,7 @@ onUnmounted(() => {
   if (typeof window === "undefined") return;
   window.removeEventListener("resize", scheduleCanvasPixelRatioRefresh);
   window.visualViewport?.removeEventListener("resize", scheduleCanvasPixelRatioRefresh);
-  window.removeEventListener("dbx:ui-scale-applied", scheduleCanvasPixelRatioRefresh);
+  window.removeEventListener("task:ui-scale-applied", scheduleCanvasPixelRatioRefresh);
 });
 
 function setRowStatusFilter(value: string) {

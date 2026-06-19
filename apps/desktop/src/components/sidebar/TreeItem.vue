@@ -383,7 +383,7 @@ async function toggle() {
     const errMsg = e?.message || String(e);
     toast(t("connection.connectFailed", { message: translateBackendError(t, errMsg) }), 5000);
     if (errMsg.includes("driver is not installed") || errMsg.includes("is not installed")) {
-      window.dispatchEvent(new Event("dbx-open-driver-store"));
+      window.dispatchEvent(new Event("task-open-driver-store"));
     }
   }
 }
@@ -636,7 +636,7 @@ async function openObjectBrowser() {
   } catch (e: any) {
     toast(t("connection.connectFailed", { message: translateBackendError(t, e?.message || String(e)) }), 5000);
     if (e?.message?.includes("driver is not installed") || (e?.message?.includes("JRE") && e?.message?.includes("not installed"))) {
-      window.dispatchEvent(new Event("dbx-open-driver-store"));
+      window.dispatchEvent(new Event("task-open-driver-store"));
     }
   }
 }
@@ -775,7 +775,7 @@ async function newQuery() {
   } catch (e: any) {
     toast(t("connection.connectFailed", { message: translateBackendError(t, e?.message || String(e)) }), 5000);
     if (e?.message?.includes("driver is not installed") || (e?.message?.includes("JRE") && e?.message?.includes("not installed"))) {
-      window.dispatchEvent(new Event("dbx-open-driver-store"));
+      window.dispatchEvent(new Event("task-open-driver-store"));
     }
   }
 }
@@ -806,7 +806,7 @@ async function refresh() {
   } catch (e: any) {
     toast(t("connection.connectFailed", { message: translateBackendError(t, e?.message || String(e)) }), 5000);
     if (e?.message?.includes("driver is not installed") || (e?.message?.includes("JRE") && e?.message?.includes("not installed"))) {
-      window.dispatchEvent(new Event("dbx-open-driver-store"));
+      window.dispatchEvent(new Event("task-open-driver-store"));
     }
   }
 }
@@ -1632,7 +1632,7 @@ async function confirmFlushRedisDb() {
     await api.redisFlushDb(node.connectionId, Number(node.database));
     connectionStore.updateRedisDbKeyStats(node.connectionId, Number(node.database), { loaded: 0, total: 0 });
     window.dispatchEvent(
-      new CustomEvent("dbx-redis-db-flushed", {
+      new CustomEvent("task-redis-db-flushed", {
         detail: { connectionId: node.connectionId, db: Number(node.database) },
       }),
     );
@@ -2442,7 +2442,7 @@ const showDropAfter = computed(() => dragState.active && dragState.targetId === 
 const showDropInside = computed(() => dragState.active && dragState.targetId === props.node.id && dragState.dropPosition === "inside");
 const isDragging = computed(() => dragState.active && dragState.draggedId === props.node.id);
 const TABLE_REFERENCE_DRAG_THRESHOLD = 5;
-const TABLE_REFERENCE_DRAGGING_CLASS = "dbx-table-reference-dragging";
+const TABLE_REFERENCE_DRAGGING_CLASS = "task-table-reference-dragging";
 const canDragTableReference = computed(() => !props.dragDisabled && (props.node.type === "table" || props.node.type === "view") && !!props.node.connectionId && props.node.database != null);
 
 let pendingTableReferenceDrag: {

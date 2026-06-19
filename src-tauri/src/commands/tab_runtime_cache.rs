@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use dbx_core::connection::AppState;
 use serde::Serialize;
+use task_core::connection::AppState;
 use tauri::State;
 
 #[derive(Serialize)]

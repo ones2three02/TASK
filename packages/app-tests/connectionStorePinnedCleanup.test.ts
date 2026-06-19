@@ -39,7 +39,7 @@ function conn(id: string, name: string): ConnectionConfig {
 
 test("removeConnection prunes pinned ids and persists the pruned set", async () => {
   const storage = installMemoryStorage({
-    "dbx-pinned-tree-nodes": JSON.stringify(["conn-a", "conn-a:db:main", "conn-b:db:main"]),
+    "task-pinned-tree-nodes": JSON.stringify(["conn-a", "conn-a:db:main", "conn-b:db:main"]),
   });
   const originalFetch = globalThis.fetch;
   const savedPayloads: unknown[] = [];

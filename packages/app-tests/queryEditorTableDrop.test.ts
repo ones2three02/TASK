@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "vitest";
 import {
-  DBX_TABLE_REFERENCE_MIME,
+  TASK_TABLE_REFERENCE_MIME,
   activeTableReferencePayloadValue,
   clearActiveTableReferencePayload,
   createTableReferencePayload,
@@ -22,7 +22,7 @@ test("creates table drag payload only when table context is complete", () => {
       databaseType: "sqlite",
     }),
     {
-      kind: "dbx-table-reference",
+      kind: "task-table-reference",
       connectionId: "c1",
       database: "",
       tableName: "catalogless_table",
@@ -38,7 +38,7 @@ test("creates table drag payload only when table context is complete", () => {
       databaseType: "postgres",
     }),
     {
-      kind: "dbx-table-reference",
+      kind: "task-table-reference",
       connectionId: "c1",
       database: "db",
       schema: "public",
@@ -60,21 +60,21 @@ test("round trips table drag payload and rejects unrelated data", () => {
   assert.deepEqual(
     parseTableReferencePayload(
       JSON.stringify({
-        kind: "dbx-table-reference",
+        kind: "task-table-reference",
         connectionId: "c1",
         database: "",
         tableName: "orders",
       }),
     ),
     {
-      kind: "dbx-table-reference",
+      kind: "task-table-reference",
       connectionId: "c1",
       database: "",
       tableName: "orders",
     },
   );
   assert.equal(parseTableReferencePayload("not json"), null);
-  assert.equal(parseTableReferencePayload(JSON.stringify({ kind: "dbx-table-reference", tableName: "orders" })), null);
+  assert.equal(parseTableReferencePayload(JSON.stringify({ kind: "task-table-reference", tableName: "orders" })), null);
 });
 
 test("tracks the active in-app table drag payload without dataTransfer reads", () => {
@@ -94,13 +94,13 @@ test("tracks the active in-app table drag payload without dataTransfer reads", (
 test("detects table drag payload type without reading drag data", () => {
   assert.equal(hasTableReferencePayloadType(undefined), false);
   assert.equal(hasTableReferencePayloadType(["text/plain"]), false);
-  assert.equal(hasTableReferencePayloadType(["text/plain", DBX_TABLE_REFERENCE_MIME]), true);
+  assert.equal(hasTableReferencePayloadType(["text/plain", TASK_TABLE_REFERENCE_MIME]), true);
 });
 
 test("formats dropped table reference for the source database type", () => {
   assert.equal(
     tableReferenceInsertText({
-      kind: "dbx-table-reference",
+      kind: "task-table-reference",
       connectionId: "c1",
       database: "db",
       schema: "sales",
@@ -111,7 +111,7 @@ test("formats dropped table reference for the source database type", () => {
   );
   assert.equal(
     tableReferenceInsertText({
-      kind: "dbx-table-reference",
+      kind: "task-table-reference",
       connectionId: "c1",
       database: "db",
       schema: "dbo",
@@ -122,7 +122,7 @@ test("formats dropped table reference for the source database type", () => {
   );
   assert.equal(
     tableReferenceInsertText({
-      kind: "dbx-table-reference",
+      kind: "task-table-reference",
       connectionId: "c1",
       database: "db",
       schema: "ignored",

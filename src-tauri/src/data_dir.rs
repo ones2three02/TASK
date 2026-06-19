@@ -1,12 +1,10 @@
 use std::path::PathBuf;
 
 #[cfg(target_os = "windows")]
-const PORTABLE_MARKERS: [&str; 2] = ["portable.task", "portable.dbx"];
+const PORTABLE_MARKERS: [&str; 1] = ["portable.task"];
 
 pub fn resolve_data_dir(default_app_data_dir: PathBuf) -> PathBuf {
-    if let Some(env_dir) =
-        std::env::var_os("TASK_DATA_DIR").or_else(|| std::env::var_os("DBX_DATA_DIR")).filter(|value| !value.is_empty())
-    {
+    if let Some(env_dir) = std::env::var_os("TASK_DATA_DIR").filter(|value| !value.is_empty()) {
         return PathBuf::from(env_dir);
     }
 
@@ -21,11 +19,7 @@ pub fn resolve_data_dir(default_app_data_dir: PathBuf) -> PathBuf {
 }
 
 pub fn uses_custom_data_dir() -> bool {
-    std::env::var_os("TASK_DATA_DIR")
-        .or_else(|| std::env::var_os("DBX_DATA_DIR"))
-        .filter(|value| !value.is_empty())
-        .is_some()
-        || is_portable_mode()
+    std::env::var_os("TASK_DATA_DIR").filter(|value| !value.is_empty()).is_some() || is_portable_mode()
 }
 
 #[cfg(target_os = "windows")]

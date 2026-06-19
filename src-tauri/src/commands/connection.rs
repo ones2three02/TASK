@@ -1,19 +1,19 @@
 use std::sync::Arc;
 use tauri::State;
 
-pub use dbx_core::agent_connection::{
+pub use task_core::agent_connection::{
     agent_connect_params, mongo_legacy_error_with_auth_hint, oracle_alternate_connect_config,
     oracle_auth_fallback_profiles, oracle_error_with_driver_hint, should_retry_oracle_with_10g_driver,
 };
-pub use dbx_core::connection::{
+pub use task_core::connection::{
     connect_bare_metadata_pool, connect_mysql_metadata_pool, connection_url_for_endpoint, metadata_connection_config,
     probe_connection_endpoint, redacted_connection_url_for_endpoint, AppState, MysqlMode, PoolKind,
 };
-use dbx_core::database_capabilities;
-use dbx_core::db;
-use dbx_core::db::agent_driver::AgentMethod;
-use dbx_core::models::connection::{rewrite_jdbc_url_host, ConnectionConfig, DatabaseType};
-pub use dbx_core::path_utils::expand_tilde;
+use task_core::database_capabilities;
+use task_core::db;
+use task_core::db::agent_driver::AgentMethod;
+use task_core::models::connection::{rewrite_jdbc_url_host, ConnectionConfig, DatabaseType};
+pub use task_core::path_utils::expand_tilde;
 
 fn mongo_legacy_connect_params(config: &ConnectionConfig, host: &str, port: u16) -> serde_json::Value {
     serde_json::json!({
@@ -152,7 +152,7 @@ async fn connect_agent_pool(
 #[cfg(test)]
 mod tests {
     use super::mongo_legacy_connect_params;
-    use dbx_core::models::connection::{ConnectionConfig, DatabaseType};
+    use task_core::models::connection::{ConnectionConfig, DatabaseType};
 
     fn mongodb_config() -> ConnectionConfig {
         ConnectionConfig {
@@ -171,9 +171,9 @@ mod tests {
             attached_databases: Vec::new(),
             color: None,
             transport_layers: Vec::new(),
-            connect_timeout_secs: dbx_core::models::connection::default_connect_timeout_secs(),
-            query_timeout_secs: dbx_core::models::connection::default_query_timeout_secs(),
-            idle_timeout_secs: dbx_core::models::connection::default_idle_timeout_secs(),
+            connect_timeout_secs: task_core::models::connection::default_connect_timeout_secs(),
+            query_timeout_secs: task_core::models::connection::default_query_timeout_secs(),
+            idle_timeout_secs: task_core::models::connection::default_idle_timeout_secs(),
             ssl: false,
             ca_cert_path: String::new(),
             client_cert_path: String::new(),
@@ -190,7 +190,7 @@ mod tests {
             redis_sentinel_password: String::new(),
             redis_sentinel_tls: false,
             redis_cluster_nodes: String::new(),
-            redis_key_separator: dbx_core::models::connection::default_redis_key_separator(),
+            redis_key_separator: task_core::models::connection::default_redis_key_separator(),
             etcd_endpoints: String::new(),
             external_config: None,
             jdbc_driver_class: None,
@@ -324,7 +324,7 @@ pub async fn test_connection(state: State<'_, Arc<AppState>>, config: Connection
                     Ok("Connection successful".to_string())
                 } else {
                     let con = db::duckdb_driver::connect_path(&expand_tilde(&config.host))?;
-                    dbx_core::db::duckdb_driver::close_connection(con);
+                    task_core::db::duckdb_driver::close_connection(con);
                     Ok("Connection successful".to_string())
                 }
             }
@@ -531,7 +531,7 @@ pub async fn connect_db(state: State<'_, Arc<AppState>>, config: ConnectionConfi
             {
                 let locked = con.lock().map_err(|e| e.to_string())?;
                 for attached in &db_config.attached_databases {
-                    dbx_core::schema::duckdb_attach_database(&locked, &attached.name, &expand_tilde(&attached.path))?;
+                    task_core::schema::duckdb_attach_database(&locked, &attached.name, &expand_tilde(&attached.path))?;
                 }
             }
             PoolKind::DuckDb(con)
@@ -689,7 +689,7 @@ pub async fn disconnect_db(state: State<'_, Arc<AppState>>, connection_id: Strin
         conns.keys().filter(|k| *k == &connection_id || k.starts_with(&format!("{connection_id}:"))).cloned().collect();
     for key in keys_to_remove {
         if let Some(pool) = conns.remove(&key) {
-            dbx_core::connection::close_pool_kind(pool).await;
+            task_core::connection::close_pool_kind(pool).await;
         }
     }
     drop(conns);
@@ -724,7 +724,7 @@ pub async fn ensure_connection_writable(
     connection_id: &str,
     action: &str,
 ) -> Result<(), String> {
-    if let Some(name) = dbx_core::query::connection_readonly_name(state, connection_id).await {
+    if let Some(name) = task_core::query::connection_readonly_name(state, connection_id).await {
         return Err(format!(
             "Read-only mode: connection '{}' has read-only protection enabled. {} blocked.",
             name, action

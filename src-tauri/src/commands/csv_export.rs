@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::commands::connection::AppState;
-use dbx_core::csv_export::{export_table_data_csv_core, format_csv, TableCsvExportOptions};
 use serde::Deserialize;
 use serde_json::Value;
+use task_core::csv_export::{export_table_data_csv_core, format_csv, TableCsvExportOptions};
 use tauri::State;
 
 #[derive(Debug, Clone, Deserialize)]

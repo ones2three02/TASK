@@ -5,9 +5,9 @@ import { createEmptyConfig, getDefaultOptionsForDbType } from "@/types/schemaDif
 import { safeLocalStorageGetWithLegacy, safeLocalStorageSet } from "@/lib/safeStorage";
 
 const STORAGE_KEY = "task-schema-diff-configs";
-const LEGACY_STORAGE_KEY = "dbx-schema-diff-configs";
+const LEGACY_STORAGE_KEY = "task-schema-diff-configs";
 const HISTORY_KEY = "task-schema-diff-history";
-const LEGACY_HISTORY_KEY = "dbx-schema-diff-history";
+const LEGACY_HISTORY_KEY = "task-schema-diff-history";
 const MAX_HISTORY = 10;
 
 const configs = ref<SchemaDiffConfig[]>(loadConfigsFromStorage());

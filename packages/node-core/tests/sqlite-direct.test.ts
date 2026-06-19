@@ -21,8 +21,8 @@ function sqliteConfig(path: string): ConnectionConfig {
   };
 }
 
-test("queries SQLite connections without the DBX bridge", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "dbx-mcp-sqlite-"));
+test("queries SQLite connections without the TASK bridge", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "task-mcp-sqlite-"));
   const path = join(dir, "app.db");
   const db = new Database(path);
   db.exec("create table users (id integer primary key, name text not null); insert into users (name) values ('Ada');");
@@ -40,7 +40,7 @@ test("queries SQLite connections without the DBX bridge", async () => {
 });
 
 test("applies query row limits to SQLite connections", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "dbx-mcp-sqlite-"));
+  const dir = mkdtempSync(join(tmpdir(), "task-mcp-sqlite-"));
   const path = join(dir, "app.db");
   const db = new Database(path);
   db.exec("create table users (id integer primary key, name text not null); insert into users (name) values ('Ada'), ('Grace');");
@@ -57,8 +57,8 @@ test("applies query row limits to SQLite connections", async () => {
   }
 });
 
-test("lists and describes SQLite tables without the DBX bridge", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "dbx-mcp-sqlite-"));
+test("lists and describes SQLite tables without the TASK bridge", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "task-mcp-sqlite-"));
   const path = join(dir, "app.db");
   const db = new Database(path);
   db.exec("create table users (id integer primary key, name text not null);");

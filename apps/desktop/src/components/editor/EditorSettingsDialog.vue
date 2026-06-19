@@ -718,12 +718,12 @@ async function copyMcpText(kind: "install" | "claude-config" | "codex-config", v
 }
 
 // ---------- WebDAV Sync ----------
-const webdavEndpoint = ref(localStorage.getItem("task-webdav-endpoint") || localStorage.getItem("dbx-webdav-endpoint") || "");
-const webdavUsername = ref(localStorage.getItem("task-webdav-username") || localStorage.getItem("dbx-webdav-username") || "");
+const webdavEndpoint = ref(localStorage.getItem("task-webdav-endpoint") || localStorage.getItem("task-webdav-endpoint") || "");
+const webdavUsername = ref(localStorage.getItem("task-webdav-username") || localStorage.getItem("task-webdav-username") || "");
 const webdavPassword = ref("");
-const webdavRememberPassword = ref((localStorage.getItem("task-webdav-remember-password") || localStorage.getItem("dbx-webdav-remember-password")) === "true");
+const webdavRememberPassword = ref((localStorage.getItem("task-webdav-remember-password") || localStorage.getItem("task-webdav-remember-password")) === "true");
 const webdavHasSavedPassword = ref(false);
-const webdavRemotePath = ref(localStorage.getItem("task-webdav-remote-path") || localStorage.getItem("dbx-webdav-remote-path") || "TASK/sync/snapshot.json");
+const webdavRemotePath = ref(localStorage.getItem("task-webdav-remote-path") || localStorage.getItem("task-webdav-remote-path") || "TASK/sync/snapshot.json");
 const webdavSyncSecrets = ref(false);
 const webdavSecretsPassphrase = ref("");
 const webdavBusy = ref<"" | "test" | "upload" | "download">("");

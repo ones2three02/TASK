@@ -34,7 +34,7 @@ const PRODUCT_CAPABILITY_KEYS = [
 type DatabaseProductCapability = (typeof PRODUCT_CAPABILITY_KEYS)[number];
 
 function loadManifest(): DriverManifest {
-  const path = fileURLToPath(new URL("../../../crates/dbx-core/assets/database-drivers.manifest.json", import.meta.url));
+  const path = fileURLToPath(new URL("../../../crates/task-core/assets/database-drivers.manifest.json", import.meta.url));
   return JSON.parse(readFileSync(path, "utf8")) as DriverManifest;
 }
 

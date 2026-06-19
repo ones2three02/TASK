@@ -69,7 +69,7 @@
     connections: "CONNESSIONI",
     noConnections: "Nessuna connessione",
     import: "Importa Connessioni",
-    importDbx: "Importa Configurazione TASK",
+    importTask: "Importa Configurazione TASK",
     importNavicat: "Importa Navicat NCX",
     importDbeaver: "Importa DBeaver",
     importDatagrip: "Importa DataGrip",

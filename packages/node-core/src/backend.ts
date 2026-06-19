@@ -15,7 +15,7 @@ export interface Backend {
 }
 
 export async function createBackend(env: NodeJS.ProcessEnv = process.env): Promise<Backend> {
-  if (env.DBX_WEB_URL) {
+  if (env.TASK_WEB_URL) {
     return await import("./web-backend.js");
   }
 

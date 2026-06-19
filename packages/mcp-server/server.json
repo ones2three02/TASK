@@ -1,16 +1,16 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.t8y2/dbx",
-  "description": "Query and manage databases from AI agents using connections configured in DBX.",
+  "name": "io.github.ones2three02/task",
+  "description": "Query and manage databases from AI agents using connections configured in TASK.",
   "repository": {
-    "url": "https://github.com/t8y2/dbx",
+    "url": "https://github.com/ones2three02/TASK",
     "source": "github"
   },
   "version": "0.4.8",
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "@dbx-app/mcp-server",
+      "identifier": "@task-app/mcp-server",
       "version": "0.4.8",
       "transport": {
         "type": "stdio"

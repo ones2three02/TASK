@@ -3,9 +3,9 @@ use std::time::Instant;
 use tauri::State;
 
 use crate::commands::connection::AppState;
-use dbx_core::db;
-use dbx_core::models::connection::DatabaseType;
-use dbx_core::sql::split_sql_statements;
+use task_core::db;
+use task_core::models::connection::DatabaseType;
+use task_core::sql::split_sql_statements;
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -27,14 +27,14 @@ pub async fn execute_query(
         execution_id.as_ref().filter(|id| !id.trim().is_empty()).map(|id| state.running_queries.register(id.clone()));
     let cancel_token = registered_query.as_ref().map(|query| query.token());
 
-    dbx_core::query::execute_sql_statement_with_options(
+    task_core::query::execute_sql_statement_with_options(
         &state,
         &connection_id,
         &database,
         &sql,
         schema.as_deref(),
         cancel_token,
-        dbx_core::query::QueryExecutionOptions {
+        task_core::query::QueryExecutionOptions {
             max_rows,
             fetch_size,
             page_size,
@@ -77,14 +77,14 @@ pub async fn execute_multi(
         sql
     );
 
-    let result = dbx_core::query::execute_multi_core_with_options(
+    let result = task_core::query::execute_multi_core_with_options(
         &state,
         &connection_id,
         &database,
         &sql,
         schema.as_deref(),
         cancel_token,
-        dbx_core::query::QueryExecutionOptions {
+        task_core::query::QueryExecutionOptions {
             max_rows,
             fetch_size,
             page_size,
@@ -127,7 +127,7 @@ pub async fn close_query_session(
     session_id: String,
     client_session_id: Option<String>,
 ) -> Result<bool, String> {
-    dbx_core::query::close_query_session(&state, &connection_id, &database, &session_id, client_session_id.as_deref())
+    task_core::query::close_query_session(&state, &connection_id, &database, &session_id, client_session_id.as_deref())
         .await
 }
 
@@ -151,8 +151,15 @@ pub async fn execute_batch(
     schema: Option<String>,
     timeout_secs: Option<u64>,
 ) -> Result<db::QueryResult, String> {
-    dbx_core::query::execute_statements(&state, &connection_id, &database, &statements, schema.as_deref(), timeout_secs)
-        .await
+    task_core::query::execute_statements(
+        &state,
+        &connection_id,
+        &database,
+        &statements,
+        schema.as_deref(),
+        timeout_secs,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -168,13 +175,13 @@ pub async fn execute_script(
         configs.get(&connection_id).map(|config| config.db_type)
     };
 
-    dbx_core::query::execute_statements(
+    task_core::query::execute_statements(
         &state,
         &connection_id,
         &database,
         &db_type.map_or_else(
             || split_sql_statements(&sql),
-            |db_type| dbx_core::sql::split_sql_statements_for_database(&sql, db_type),
+            |db_type| task_core::sql::split_sql_statements_for_database(&sql, db_type),
         ),
         schema.as_deref(),
         None,
@@ -190,7 +197,7 @@ pub async fn execute_in_transaction(
     statements: Vec<String>,
     schema: Option<String>,
 ) -> Result<db::QueryResult, String> {
-    dbx_core::query::execute_statements_in_transaction(
+    task_core::query::execute_statements_in_transaction(
         &state,
         &connection_id,
         &database,
@@ -204,8 +211,8 @@ pub async fn execute_in_transaction(
 pub async fn analyze_sql_references(
     sql: String,
     dialect: Option<String>,
-) -> Result<dbx_core::sql_analysis::SqlReferenceAnalysis, String> {
-    dbx_core::sql_analysis::analyze_sql_references(&sql, dialect.as_deref())
+) -> Result<task_core::sql_analysis::SqlReferenceAnalysis, String> {
+    task_core::sql_analysis::analyze_sql_references(&sql, dialect.as_deref())
 }
 
 #[tauri::command]
@@ -215,247 +222,247 @@ pub fn find_statement_at_cursor(
     database_type: Option<DatabaseType>,
 ) -> Result<String, String> {
     Ok(database_type
-        .map(|db_type| dbx_core::sql::find_statement_at_cursor_for_database(&sql, cursor_pos, db_type))
-        .unwrap_or_else(|| dbx_core::sql::find_statement_at_cursor(&sql, cursor_pos)))
+        .map(|db_type| task_core::sql::find_statement_at_cursor_for_database(&sql, cursor_pos, db_type))
+        .unwrap_or_else(|| task_core::sql::find_statement_at_cursor(&sql, cursor_pos)))
 }
 
 #[tauri::command]
 pub fn prepare_query_pagination_execution_plan(
-    options: dbx_core::query_result_sql::QueryPaginationExecutionPlanOptions,
-) -> Result<dbx_core::query_result_sql::QueryPaginationExecutionPlan, String> {
-    Ok(dbx_core::query_result_sql::build_query_pagination_execution_plan(options))
+    options: task_core::query_result_sql::QueryPaginationExecutionPlanOptions,
+) -> Result<task_core::query_result_sql::QueryPaginationExecutionPlan, String> {
+    Ok(task_core::query_result_sql::build_query_pagination_execution_plan(options))
 }
 
 #[tauri::command]
 pub fn build_sorted_query_sql(
-    options: dbx_core::query_result_sql::SortedQuerySqlOptions,
-) -> Result<dbx_core::query_result_sql::QuerySqlBuildResult, String> {
-    Ok(dbx_core::query_result_sql::build_sorted_query_sql(options))
+    options: task_core::query_result_sql::SortedQuerySqlOptions,
+) -> Result<task_core::query_result_sql::QuerySqlBuildResult, String> {
+    Ok(task_core::query_result_sql::build_sorted_query_sql(options))
 }
 
 #[tauri::command]
 pub fn build_explain_sql(
-    options: dbx_core::query_execution_sql::ExplainSqlOptions,
-) -> Result<dbx_core::query_execution_sql::ExplainSqlBuildResult, String> {
-    Ok(dbx_core::query_execution_sql::build_explain_sql(options))
+    options: task_core::query_execution_sql::ExplainSqlOptions,
+) -> Result<task_core::query_execution_sql::ExplainSqlBuildResult, String> {
+    Ok(task_core::query_execution_sql::build_explain_sql(options))
 }
 
 #[tauri::command]
 pub fn build_dropped_file_preview_sql(
-    options: dbx_core::query_execution_sql::DroppedFilePreviewSqlOptions,
+    options: task_core::query_execution_sql::DroppedFilePreviewSqlOptions,
 ) -> Result<Option<String>, String> {
-    Ok(dbx_core::query_execution_sql::build_dropped_file_preview_sql(options))
+    Ok(task_core::query_execution_sql::build_dropped_file_preview_sql(options))
 }
 
 #[tauri::command]
-pub fn build_table_select_sql(options: dbx_core::sql_dialect::TableDataSelectSqlOptions) -> Result<String, String> {
-    Ok(dbx_core::sql_dialect::build_table_data_select_sql(options))
+pub fn build_table_select_sql(options: task_core::sql_dialect::TableDataSelectSqlOptions) -> Result<String, String> {
+    Ok(task_core::sql_dialect::build_table_data_select_sql(options))
 }
 
 #[tauri::command]
 pub fn build_database_search_sql(
-    options: dbx_core::database_search_sql::DatabaseSearchSqlOptions,
-) -> Result<Option<dbx_core::database_search_sql::DatabaseSearchSql>, String> {
-    Ok(dbx_core::database_search_sql::build_database_search_sql(options))
+    options: task_core::database_search_sql::DatabaseSearchSqlOptions,
+) -> Result<Option<task_core::database_search_sql::DatabaseSearchSql>, String> {
+    Ok(task_core::database_search_sql::build_database_search_sql(options))
 }
 
 #[tauri::command]
 pub fn build_search_result_where(
-    options: dbx_core::database_search_sql::SearchResultWhereOptions,
+    options: task_core::database_search_sql::SearchResultWhereOptions,
 ) -> Result<String, String> {
-    Ok(dbx_core::database_search_sql::build_search_result_where(options))
+    Ok(task_core::database_search_sql::build_search_result_where(options))
 }
 
 #[tauri::command]
-pub fn build_rename_object_sql(options: dbx_core::db_admin_sql::RenameObjectSqlOptions) -> Result<String, String> {
-    dbx_core::db_admin_sql::build_rename_object_sql(options)
+pub fn build_rename_object_sql(options: task_core::db_admin_sql::RenameObjectSqlOptions) -> Result<String, String> {
+    task_core::db_admin_sql::build_rename_object_sql(options)
 }
 
 #[tauri::command]
-pub fn build_create_database_sql(options: dbx_core::db_admin_sql::CreateDatabaseSqlOptions) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_create_database_sql(options))
+pub fn build_create_database_sql(options: task_core::db_admin_sql::CreateDatabaseSqlOptions) -> Result<String, String> {
+    Ok(task_core::db_admin_sql::build_create_database_sql(options))
 }
 
 #[cfg(feature = "duckdb-bundled")]
 #[tauri::command]
 pub fn build_duckdb_attach_database_sql(
-    options: dbx_core::db_admin_sql::DuckDbAttachDatabaseSqlOptions,
+    options: task_core::db_admin_sql::DuckDbAttachDatabaseSqlOptions,
 ) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_duckdb_attach_database_sql(options))
+    Ok(task_core::db_admin_sql::build_duckdb_attach_database_sql(options))
 }
 
 #[tauri::command]
-pub fn build_drop_object_sql(options: dbx_core::db_admin_sql::DropObjectSqlOptions) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_drop_object_sql(options))
+pub fn build_drop_object_sql(options: task_core::db_admin_sql::DropObjectSqlOptions) -> Result<String, String> {
+    Ok(task_core::db_admin_sql::build_drop_object_sql(options))
 }
 
 #[tauri::command]
-pub fn build_drop_table_sql(options: dbx_core::db_admin_sql::TableAdminSqlOptions) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_drop_table_sql(options))
+pub fn build_drop_table_sql(options: task_core::db_admin_sql::TableAdminSqlOptions) -> Result<String, String> {
+    Ok(task_core::db_admin_sql::build_drop_table_sql(options))
 }
 
 #[tauri::command]
 pub fn build_drop_table_child_object_sql(
-    options: dbx_core::db_admin_sql::DropTableChildObjectSqlOptions,
+    options: task_core::db_admin_sql::DropTableChildObjectSqlOptions,
 ) -> Result<String, String> {
-    dbx_core::db_admin_sql::build_drop_table_child_object_sql(options)
+    task_core::db_admin_sql::build_drop_table_child_object_sql(options)
 }
 
 #[tauri::command]
-pub fn build_empty_table_sql(options: dbx_core::db_admin_sql::TableAdminSqlOptions) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_empty_table_sql(options))
+pub fn build_empty_table_sql(options: task_core::db_admin_sql::TableAdminSqlOptions) -> Result<String, String> {
+    Ok(task_core::db_admin_sql::build_empty_table_sql(options))
 }
 
 #[tauri::command]
-pub fn build_truncate_table_sql(options: dbx_core::db_admin_sql::TableAdminSqlOptions) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_truncate_table_sql(options))
+pub fn build_truncate_table_sql(options: task_core::db_admin_sql::TableAdminSqlOptions) -> Result<String, String> {
+    Ok(task_core::db_admin_sql::build_truncate_table_sql(options))
 }
 
 #[tauri::command]
-pub fn build_drop_database_sql(options: dbx_core::db_admin_sql::DatabaseNameSqlOptions) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_drop_database_sql(options))
+pub fn build_drop_database_sql(options: task_core::db_admin_sql::DatabaseNameSqlOptions) -> Result<String, String> {
+    Ok(task_core::db_admin_sql::build_drop_database_sql(options))
 }
 
 #[tauri::command]
-pub fn build_create_schema_sql(options: dbx_core::db_admin_sql::SchemaNameSqlOptions) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_create_schema_sql(options))
+pub fn build_create_schema_sql(options: task_core::db_admin_sql::SchemaNameSqlOptions) -> Result<String, String> {
+    Ok(task_core::db_admin_sql::build_create_schema_sql(options))
 }
 
 #[tauri::command]
-pub fn build_drop_schema_sql(options: dbx_core::db_admin_sql::SchemaNameSqlOptions) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_drop_schema_sql(options))
+pub fn build_drop_schema_sql(options: task_core::db_admin_sql::SchemaNameSqlOptions) -> Result<String, String> {
+    Ok(task_core::db_admin_sql::build_drop_schema_sql(options))
 }
 
 #[tauri::command]
 pub fn build_duplicate_table_structure_sql(
-    options: dbx_core::db_admin_sql::DuplicateTableStructureSqlOptions,
+    options: task_core::db_admin_sql::DuplicateTableStructureSqlOptions,
 ) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_duplicate_table_structure_sql(options))
+    Ok(task_core::db_admin_sql::build_duplicate_table_structure_sql(options))
 }
 
 #[tauri::command]
 pub fn build_executable_object_source_statements(
-    input: dbx_core::object_source_sql::EditableObjectSourceSqlInput,
+    input: task_core::object_source_sql::EditableObjectSourceSqlInput,
 ) -> Result<Vec<String>, String> {
-    dbx_core::object_source_sql::build_executable_object_source_statements(input)
+    task_core::object_source_sql::build_executable_object_source_statements(input)
 }
 
 #[tauri::command]
 pub fn build_executable_object_source_sql(
-    input: dbx_core::object_source_sql::EditableObjectSourceSqlInput,
+    input: task_core::object_source_sql::EditableObjectSourceSqlInput,
 ) -> Result<String, String> {
-    dbx_core::object_source_sql::build_executable_object_source_sql(input)
+    task_core::object_source_sql::build_executable_object_source_sql(input)
 }
 
 #[tauri::command]
 pub fn build_routine_rename_object_source_statements(
-    input: dbx_core::object_source_sql::RoutineRenameObjectSourceInput,
+    input: task_core::object_source_sql::RoutineRenameObjectSourceInput,
 ) -> Result<Vec<String>, String> {
-    dbx_core::object_source_sql::build_routine_rename_object_source_statements(input)
+    task_core::object_source_sql::build_routine_rename_object_source_statements(input)
 }
 
 #[tauri::command]
-pub fn build_view_ddl_sql(input: dbx_core::object_source_sql::BuildViewDdlInput) -> Result<String, String> {
-    Ok(dbx_core::object_source_sql::build_view_ddl_sql(input))
+pub fn build_view_ddl_sql(input: task_core::object_source_sql::BuildViewDdlInput) -> Result<String, String> {
+    Ok(task_core::object_source_sql::build_view_ddl_sql(input))
 }
 
 #[tauri::command]
 pub fn build_table_structure_change_sql(
-    options: dbx_core::table_structure_sql::TableStructureSqlOptions,
-) -> Result<dbx_core::table_structure_sql::TableStructureSqlResult, String> {
-    Ok(dbx_core::table_structure_sql::build_table_structure_change_sql(options))
+    options: task_core::table_structure_sql::TableStructureSqlOptions,
+) -> Result<task_core::table_structure_sql::TableStructureSqlResult, String> {
+    Ok(task_core::table_structure_sql::build_table_structure_change_sql(options))
 }
 
 #[tauri::command]
 pub fn build_create_table_sql(
-    options: dbx_core::table_structure_sql::TableStructureSqlOptions,
-) -> Result<dbx_core::table_structure_sql::TableStructureSqlResult, String> {
-    Ok(dbx_core::table_structure_sql::build_create_table_sql(options))
+    options: task_core::table_structure_sql::TableStructureSqlOptions,
+) -> Result<task_core::table_structure_sql::TableStructureSqlResult, String> {
+    Ok(task_core::table_structure_sql::build_create_table_sql(options))
 }
 
 #[tauri::command]
 pub fn build_single_column_alter_sql(
-    options: dbx_core::table_structure_sql::SingleColumnAlterSqlOptions,
-) -> Result<dbx_core::table_structure_sql::TableStructureSqlResult, String> {
-    Ok(dbx_core::table_structure_sql::build_single_column_alter_sql(options))
+    options: task_core::table_structure_sql::SingleColumnAlterSqlOptions,
+) -> Result<task_core::table_structure_sql::TableStructureSqlResult, String> {
+    Ok(task_core::table_structure_sql::build_single_column_alter_sql(options))
 }
 
 #[tauri::command]
-pub fn analyze_editable_query_editability(sql: String) -> Result<dbx_core::sql_editability::QueryEditability, String> {
-    Ok(dbx_core::sql_editability::analyze_editable_query_editability(&sql))
+pub fn analyze_editable_query_editability(sql: String) -> Result<task_core::sql_editability::QueryEditability, String> {
+    Ok(task_core::sql_editability::analyze_editable_query_editability(&sql))
 }
 
 #[tauri::command]
 pub fn prepare_data_grid_save(
-    options: dbx_core::data_grid_sql::DataGridSaveStatementOptions,
-) -> Result<dbx_core::data_grid_sql::DataGridSavePreparation, String> {
-    Ok(dbx_core::data_grid_sql::prepare_data_grid_save(options))
+    options: task_core::data_grid_sql::DataGridSaveStatementOptions,
+) -> Result<task_core::data_grid_sql::DataGridSavePreparation, String> {
+    Ok(task_core::data_grid_sql::prepare_data_grid_save(options))
 }
 
 #[tauri::command]
 pub fn build_data_grid_copy_update_statements(
-    options: dbx_core::data_grid_sql::DataGridCopyUpdateStatementOptions,
+    options: task_core::data_grid_sql::DataGridCopyUpdateStatementOptions,
 ) -> Result<Vec<String>, String> {
-    Ok(dbx_core::data_grid_sql::build_data_grid_copy_update_statements(options))
+    Ok(task_core::data_grid_sql::build_data_grid_copy_update_statements(options))
 }
 
 #[tauri::command]
 pub fn build_data_grid_copy_insert_statement(
-    options: dbx_core::data_grid_sql::DataGridCopyInsertStatementOptions,
+    options: task_core::data_grid_sql::DataGridCopyInsertStatementOptions,
 ) -> Result<Option<String>, String> {
-    Ok(dbx_core::data_grid_sql::build_data_grid_copy_insert_statement(options))
+    Ok(task_core::data_grid_sql::build_data_grid_copy_insert_statement(options))
 }
 
 #[tauri::command]
 pub fn build_data_grid_context_filter_condition(
-    options: dbx_core::data_grid_sql::DataGridContextFilterConditionOptions,
+    options: task_core::data_grid_sql::DataGridContextFilterConditionOptions,
 ) -> Result<Option<String>, String> {
-    Ok(dbx_core::data_grid_sql::build_data_grid_context_filter_condition(options))
+    Ok(task_core::data_grid_sql::build_data_grid_context_filter_condition(options))
 }
 
 #[tauri::command]
 pub fn build_data_grid_column_value_filter_condition(
-    options: dbx_core::data_grid_sql::DataGridColumnValueFilterConditionOptions,
+    options: task_core::data_grid_sql::DataGridColumnValueFilterConditionOptions,
 ) -> Result<Option<String>, String> {
-    Ok(dbx_core::data_grid_sql::build_data_grid_column_value_filter_condition(options))
+    Ok(task_core::data_grid_sql::build_data_grid_column_value_filter_condition(options))
 }
 
 #[tauri::command]
-pub fn build_data_grid_count_sql(options: dbx_core::data_grid_sql::DataGridCountSqlOptions) -> Result<String, String> {
-    Ok(dbx_core::data_grid_sql::build_data_grid_count_sql(options))
+pub fn build_data_grid_count_sql(options: task_core::data_grid_sql::DataGridCountSqlOptions) -> Result<String, String> {
+    Ok(task_core::data_grid_sql::build_data_grid_count_sql(options))
 }
 
 #[tauri::command]
 pub fn build_hive_table_properties_sql(
-    options: dbx_core::data_grid_sql::HiveTablePropertiesSqlOptions,
+    options: task_core::data_grid_sql::HiveTablePropertiesSqlOptions,
 ) -> Result<String, String> {
-    Ok(dbx_core::data_grid_sql::build_hive_table_properties_sql(options))
+    Ok(task_core::data_grid_sql::build_hive_table_properties_sql(options))
 }
 
 #[tauri::command]
 pub fn build_export_insert_statements(
-    options: dbx_core::database_export::BuildExportInsertStatementsOptions,
+    options: task_core::database_export::BuildExportInsertStatementsOptions,
 ) -> Result<Vec<String>, String> {
-    dbx_core::database_export::build_export_insert_statements(options)
+    task_core::database_export::build_export_insert_statements(options)
 }
 
 #[tauri::command]
 pub fn build_export_sql_insert(
-    options: dbx_core::database_export::BuildExportSqlInsertOptions,
+    options: task_core::database_export::BuildExportSqlInsertOptions,
 ) -> Result<String, String> {
-    dbx_core::database_export::build_export_sql_insert(options)
+    task_core::database_export::build_export_sql_insert(options)
 }
 
 #[tauri::command]
 pub fn build_database_sql_export(
-    options: dbx_core::database_export::BuildDatabaseSqlExportOptions,
+    options: task_core::database_export::BuildDatabaseSqlExportOptions,
 ) -> Result<String, String> {
-    dbx_core::database_export::build_database_sql_export(options)
+    task_core::database_export::build_database_sql_export(options)
 }
 
 #[tauri::command]
 pub async fn get_explain_info(
-    state: tauri::State<'_, std::sync::Arc<dbx_core::connection::AppState>>,
+    state: tauri::State<'_, std::sync::Arc<task_core::connection::AppState>>,
     connection_id: String,
     database: Option<String>,
     schema: Option<String>,
@@ -466,7 +473,7 @@ pub async fn get_explain_info(
         let connections = state.connections.read().await;
         let pool = connections.get(&connection_id).ok_or_else(|| "Connection not found".to_string())?;
         match pool {
-            dbx_core::connection::PoolKind::Agent(client) => client.clone(),
+            task_core::connection::PoolKind::Agent(client) => client.clone(),
             _ => return Err("Connection is not an agent-based connection".to_string()),
         }
     };
@@ -480,7 +487,7 @@ pub async fn get_explain_info(
 
     let mut client = client.lock().await;
     let mode = mode.unwrap_or_else(|| "explain".to_string());
-    if mode.eq_ignore_ascii_case("autotrace") && !dbx_core::query_execution_sql::is_safe_dameng_autotrace_sql(&sql) {
+    if mode.eq_ignore_ascii_case("autotrace") && !task_core::query_execution_sql::is_safe_dameng_autotrace_sql(&sql) {
         return Err("unsafe".to_string());
     }
     let params = serde_json::json!({
@@ -516,5 +523,5 @@ pub async fn get_explain_info(
 
 #[tauri::command]
 pub fn build_create_user_sql(username: String, password: String, tablespace: String) -> Result<String, String> {
-    Ok(dbx_core::db_admin_sql::build_create_user_sql(&username, &password, &tablespace))
+    Ok(task_core::db_admin_sql::build_create_user_sql(&username, &password, &tablespace))
 }

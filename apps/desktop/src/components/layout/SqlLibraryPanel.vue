@@ -574,7 +574,7 @@ function resetDragState() {
 
 function createDragGhost(sourceEl: HTMLElement, x: number, y: number) {
   const ghost = document.createElement("div");
-  const textNode = sourceEl.querySelector(".dbx-sql-library-drag-label");
+  const textNode = sourceEl.querySelector(".task-sql-library-drag-label");
   ghost.textContent = textNode?.textContent || "";
   ghost.style.cssText = `
     position: fixed;
@@ -814,7 +814,7 @@ function showDropInside(targetId: string) {
                     @click.stop
                   />
                 </template>
-                <span v-else class="dbx-sql-library-drag-label min-w-0 flex-1 truncate">
+                <span v-else class="task-sql-library-drag-label min-w-0 flex-1 truncate">
                   {{ row.folder.name }}
                   <span class="ml-1 text-muted-foreground">({{ filesInFolder(row.folder.id).length }})</span>
                 </span>
@@ -849,7 +849,7 @@ function showDropInside(targetId: string) {
                     @click.stop
                   />
                 </template>
-                <span v-else class="dbx-sql-library-drag-label min-w-0 flex-1 truncate">{{ row.file.name }}</span>
+                <span v-else class="task-sql-library-drag-label min-w-0 flex-1 truncate">{{ row.file.name }}</span>
                 <span class="shrink-0 text-xs text-muted-foreground"> [{{ getConnectionLabel(row.file.connectionId) }}] </span>
               </div>
             </div>
@@ -892,7 +892,7 @@ function showDropInside(targetId: string) {
                     @click.stop
                   />
                 </template>
-                <span v-else class="dbx-sql-library-drag-label min-w-0 flex-1 truncate">{{ file.name }}</span>
+                <span v-else class="task-sql-library-drag-label min-w-0 flex-1 truncate">{{ file.name }}</span>
                 <span class="shrink-0 text-xs text-muted-foreground"> [{{ getConnectionLabel(file.connectionId) }}] </span>
               </div>
             </div>

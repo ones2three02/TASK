@@ -761,13 +761,13 @@ function onRedisDbFlushed(event: Event) {
 
 function registerRedisDbFlushedListener() {
   if (redisDbFlushedListenerRegistered) return;
-  window.addEventListener("dbx-redis-db-flushed", onRedisDbFlushed);
+  window.addEventListener("task-redis-db-flushed", onRedisDbFlushed);
   redisDbFlushedListenerRegistered = true;
 }
 
 function unregisterRedisDbFlushedListener() {
   if (!redisDbFlushedListenerRegistered) return;
-  window.removeEventListener("dbx-redis-db-flushed", onRedisDbFlushed);
+  window.removeEventListener("task-redis-db-flushed", onRedisDbFlushed);
   redisDbFlushedListenerRegistered = false;
 }
 
@@ -887,7 +887,7 @@ defineExpose({ focusSearch });
                   <template v-if="row.node.kind === 'group'">
                     <component :is="expandedGroupIds.has(row.node.id) ? ChevronDown : ChevronRight" class="w-3 h-3 shrink-0 text-muted-foreground" />
                     <component :is="expandedGroupIds.has(row.node.id) ? FolderOpen : FolderClosed" class="w-3 h-3 shrink-0 text-amber-500" />
-                    <span class="dbx-editor-font-family truncate">{{ row.node.label }}</span>
+                    <span class="task-editor-font-family truncate">{{ row.node.label }}</span>
                     <span class="text-muted-foreground ml-1">({{ countLeaves(row.node) }})</span>
                   </template>
                   <template v-else>
@@ -895,7 +895,7 @@ defineExpose({ focusSearch });
                       <KeyRound class="h-3.5 w-3.5 text-muted-foreground/70 transition-opacity group-hover:opacity-0" :class="{ 'opacity-0': checkedKeys.has(row.node.keyRaw) }" />
                       <input type="checkbox" class="absolute h-3.5 w-3.5 accent-primary cursor-pointer opacity-0 group-hover:opacity-100" :class="{ 'opacity-100': checkedKeys.has(row.node.keyRaw) }" :checked="checkedKeys.has(row.node.keyRaw)" @click="toggleCheck(row.node.keyRaw, $event)" />
                     </span>
-                    <span class="dbx-editor-font-family truncate">{{ row.node.label }}</span>
+                    <span class="task-editor-font-family truncate">{{ row.node.label }}</span>
                   </template>
                 </div>
 
@@ -956,7 +956,7 @@ defineExpose({ focusSearch });
             </TabsContent>
 
             <TabsContent value="command" class="m-0 min-h-0 flex-1 flex flex-col">
-              <div class="dbx-editor-font-family relative flex min-h-0 flex-1 flex-col bg-[#171b21] text-[13px] leading-5 text-slate-200" @click="getCommandInput()?.focus()">
+              <div class="task-editor-font-family relative flex min-h-0 flex-1 flex-col bg-[#171b21] text-[13px] leading-5 text-slate-200" @click="getCommandInput()?.focus()">
                 <div ref="commandTerminalRef" class="min-h-0 flex-1 overflow-auto px-4 pb-3 pt-4">
                   <div class="mb-4 text-slate-400">
                     <span class="text-slate-200">{{ t("redis.commandWelcome") }}</span>
@@ -976,7 +976,7 @@ defineExpose({ focusSearch });
                   <input
                     v-model="commandText"
                     data-redis-command-input
-                    class="dbx-editor-font-family min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] text-slate-200 caret-[#d7ba7d] outline-none placeholder:text-slate-500"
+                    class="task-editor-font-family min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] text-slate-200 caret-[#d7ba7d] outline-none placeholder:text-slate-500"
                     :disabled="commandRunning"
                     autocomplete="off"
                     autocapitalize="off"
@@ -1003,7 +1003,7 @@ defineExpose({ focusSearch });
         <div class="grid gap-3">
           <label class="grid gap-1.5 text-xs font-medium">
             <span>{{ t("redis.createKeyName") }}</span>
-            <Input v-model="createKeyName" class="dbx-editor-font-family h-8 text-xs" :placeholder="t('redis.createKeyNamePlaceholder')" @keydown.enter="createRedisKey" />
+            <Input v-model="createKeyName" class="task-editor-font-family h-8 text-xs" :placeholder="t('redis.createKeyNamePlaceholder')" @keydown.enter="createRedisKey" />
           </label>
 
           <label class="grid gap-1.5 text-xs font-medium">
@@ -1022,18 +1022,18 @@ defineExpose({ focusSearch });
 
           <label v-if="createKeyType === 'hash' && createKeyRawMode" class="grid gap-1.5 text-xs font-medium">
             <span>{{ t("redis.createField") }}</span>
-            <Input v-model="createKeyField" class="dbx-editor-font-family h-8 text-xs" :placeholder="t('redis.createFieldPlaceholder')" @keydown.enter="createRedisKey" />
+            <Input v-model="createKeyField" class="task-editor-font-family h-8 text-xs" :placeholder="t('redis.createFieldPlaceholder')" @keydown.enter="createRedisKey" />
           </label>
 
           <label v-if="createKeyType === 'zset' && createKeyRawMode" class="grid gap-1.5 text-xs font-medium">
             <span>{{ t("redis.createScore") }}</span>
-            <Input v-model="createKeyScore" class="dbx-editor-font-family h-8 text-xs" placeholder="0" @keydown.enter="createRedisKey" />
+            <Input v-model="createKeyScore" class="task-editor-font-family h-8 text-xs" placeholder="0" @keydown.enter="createRedisKey" />
           </label>
 
           <!-- TTL input -- always visible -->
           <label class="grid gap-1.5 text-xs font-medium">
             <span>{{ t("redis.createKeyTtl") }}</span>
-            <Input v-model="createKeyTtl" class="dbx-editor-font-family h-8 text-xs" type="number" min="0" :placeholder="t('redis.createKeyTtlPlaceholder')" @keydown.enter="createRedisKey" />
+            <Input v-model="createKeyTtl" class="task-editor-font-family h-8 text-xs" type="number" min="0" :placeholder="t('redis.createKeyTtlPlaceholder')" @keydown.enter="createRedisKey" />
           </label>
 
           <!-- Raw mode toggle (non-string, non-stream, non-json types) -->
@@ -1049,7 +1049,7 @@ defineExpose({ focusSearch });
             <!-- Stream entry ID -->
             <label v-if="createKeyType === 'stream'" class="grid gap-1.5 text-xs font-medium">
               <span>{{ t("redis.createKeyEntryId") }}</span>
-              <Input v-model="createKeyEntryId" class="dbx-editor-font-family h-8 text-xs font-mono" placeholder="*" />
+              <Input v-model="createKeyEntryId" class="task-editor-font-family h-8 text-xs font-mono" placeholder="*" />
             </label>
 
             <div class="grid gap-2">
@@ -1063,17 +1063,17 @@ defineExpose({ focusSearch });
               <div v-for="(entry, idx) in createKeyEntries" :key="entry.id" class="flex items-start gap-2">
                 <!-- Hash / Stream: field + value -->
                 <template v-if="createKeyType === 'hash' || createKeyType === 'stream'">
-                  <Input v-model="entry.field" class="dbx-editor-font-family h-8 w-2/5 text-xs" :placeholder="t('redis.createFieldPlaceholder')" />
-                  <Input v-model="entry.value" class="dbx-editor-font-family h-8 flex-1 text-xs" :placeholder="t('redis.createValuePlaceholder')" />
+                  <Input v-model="entry.field" class="task-editor-font-family h-8 w-2/5 text-xs" :placeholder="t('redis.createFieldPlaceholder')" />
+                  <Input v-model="entry.value" class="task-editor-font-family h-8 flex-1 text-xs" :placeholder="t('redis.createValuePlaceholder')" />
                 </template>
                 <!-- ZSet: score + member -->
                 <template v-else-if="createKeyType === 'zset'">
-                  <Input v-model="entry.score" class="dbx-editor-font-family h-8 w-20 text-xs" type="number" step="any" placeholder="0" />
-                  <Input v-model="entry.value" class="dbx-editor-font-family h-8 flex-1 text-xs" :placeholder="t('redis.createMember')" />
+                  <Input v-model="entry.score" class="task-editor-font-family h-8 w-20 text-xs" type="number" step="any" placeholder="0" />
+                  <Input v-model="entry.value" class="task-editor-font-family h-8 flex-1 text-xs" :placeholder="t('redis.createMember')" />
                 </template>
                 <!-- List / Set: single value -->
                 <template v-else>
-                  <Input v-model="entry.value" class="dbx-editor-font-family h-8 flex-1 text-xs" :placeholder="t('redis.createValuePlaceholder')" />
+                  <Input v-model="entry.value" class="task-editor-font-family h-8 flex-1 text-xs" :placeholder="t('redis.createValuePlaceholder')" />
                 </template>
                 <Button variant="ghost" size="sm" class="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-destructive" :disabled="createKeyEntries.length <= 1" @click="removeEntry(idx)">
                   <Trash2 class="h-3.5 w-3.5" />
@@ -1085,7 +1085,7 @@ defineExpose({ focusSearch });
           <!-- Raw value textarea (string, json, or raw mode for other types) -->
           <label v-if="createKeyType === 'string' || createKeyType === 'json' || createKeyRawMode" class="grid gap-1.5 text-xs font-medium">
             <span>{{ t(createKeyType === "set" || createKeyType === "zset" ? "redis.createMember" : "redis.createValue") }}</span>
-            <textarea v-model="createKeyValue" class="dbx-editor-font-family min-h-28 resize-y rounded-md border bg-background p-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring" spellcheck="false" :placeholder="t('redis.createValuePlaceholder')" />
+            <textarea v-model="createKeyValue" class="task-editor-font-family min-h-28 resize-y rounded-md border bg-background p-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring" spellcheck="false" :placeholder="t('redis.createValuePlaceholder')" />
           </label>
 
           <p v-if="createKeyError" class="text-xs text-destructive">{{ createKeyError }}</p>

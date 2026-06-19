@@ -6,7 +6,7 @@ import { isTauriRuntime } from "@/lib/tauriRuntime";
 import { useSettingsStore } from "@/stores/settingsStore";
 import type { SavedSqlFile, SavedSqlFolder, SavedSqlLibrary } from "@/types/database";
 
-const LEGACY_STORAGE_KEY = "dbx-saved-sql-library";
+const LEGACY_STORAGE_KEY = "task-saved-sql-library";
 
 interface SavedSqlState {
   folders: SavedSqlFolder[];
