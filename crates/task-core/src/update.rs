@@ -9,6 +9,8 @@ const UPDATE_CHECK_USER_AGENT: &str = "task-update-checker";
 pub struct TauriRelease {
     pub version: String,
     #[serde(default)]
+    pub platforms: serde_json::Map<String, serde_json::Value>,
+    #[serde(default)]
     pub notes: Option<String>,
     #[serde(default)]
     pub jdbc_plugin: Option<JdbcPluginLatest>,
@@ -35,6 +37,7 @@ pub struct UpdateInfo {
     pub current_version: String,
     pub latest_version: String,
     pub update_available: bool,
+    pub platform_available: bool,
     pub portable_mode: bool,
     pub release_name: String,
     pub release_url: String,
@@ -232,12 +235,58 @@ pub fn build_update_info(release: TauriRelease, current_version: &str) -> Update
 
     UpdateInfo {
         update_available: is_newer_version(&latest_version, current_version),
+        platform_available: is_current_platform_available(&release.platforms),
         portable_mode: false,
         current_version: current_version.to_string(),
         release_name,
         release_url,
         release_notes,
         latest_version,
+    }
+}
+
+fn is_current_platform_available(platforms: &serde_json::Map<String, serde_json::Value>) -> bool {
+    if platforms.is_empty() {
+        return false;
+    }
+    current_platform_keys().iter().any(|key| platforms.contains_key(*key))
+}
+
+fn current_platform_keys() -> &'static [&'static str] {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    {
+        &["darwin-aarch64-app", "darwin-aarch64"]
+    }
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    {
+        &["darwin-x86_64-app", "darwin-x86_64"]
+    }
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    {
+        &["windows-x86_64", "windows-x86_64-msi", "windows-x86_64-nsis"]
+    }
+    #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
+    {
+        &["windows-aarch64", "windows-aarch64-msi", "windows-aarch64-nsis"]
+    }
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    {
+        &["linux-x86_64", "linux-x86_64-appimage", "linux-x86_64-deb", "linux-x86_64-rpm"]
+    }
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    {
+        &["linux-aarch64", "linux-aarch64-appimage", "linux-aarch64-deb", "linux-aarch64-rpm"]
+    }
+    #[cfg(not(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "aarch64"),
+        all(target_os = "linux", target_arch = "x86_64"),
+        all(target_os = "linux", target_arch = "aarch64")
+    )))]
+    {
+        &[]
     }
 }
 
@@ -282,7 +331,7 @@ pub fn is_newer_version(latest: &str, current: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_update_info, is_newer_version, normalize_version, system_proxy_url_from_scutil_output,
+        build_update_info, is_current_platform_available, is_newer_version, normalize_version, system_proxy_url_from_scutil_output,
         system_proxy_url_from_windows_registry_output, GithubReleaseMetadata, TauriRelease,
     };
 
@@ -387,6 +436,7 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
         let release = TauriRelease {
             version: "0.5.3".to_string(),
             notes: Some("See the assets below to download and install.".to_string()),
+            platforms: serde_json::Map::new(),
             jdbc_plugin: None,
             github: Some(GithubReleaseMetadata {
                 name: Some("TASK v0.5.3".to_string()),
@@ -401,5 +451,10 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
         assert_eq!(info.release_url, "https://github.com/ones2three02/TASK/releases/tag/v0.5.3");
         assert_eq!(info.release_notes, "### 新功能\n\n真实发布说明");
         assert!(!info.portable_mode);
+    }
+
+    #[test]
+    fn detects_missing_platforms() {
+        assert!(!is_current_platform_available(&serde_json::Map::new()));
     }
 }

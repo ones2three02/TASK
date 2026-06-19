@@ -58,6 +58,7 @@
     rateLimited: "GitHub update checks are temporarily rate limited. You can still open the release page to check manually.",
     openRelease: "Open Release",
     downloadAndInstall: "Download & Install",
+    platformUnavailable: "The latest release does not include an installer for this device yet. Wait for a complete release or open the release page to check manually.",
     portableManualUpdate: "Portable builds cannot use the in-app installer. Download the portable ZIP from the release page, then extract it over the current TASK folder to keep portable.task and data.",
     downloading: "Downloading {progress}%",
     downloadFailed: "Update download failed: {error}",
