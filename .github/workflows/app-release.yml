@@ -33,14 +33,15 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          missing=0
-          for name in TAURI_SIGNING_PRIVATE_KEY APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY secret is required before publishing a signed cross-platform release."
+            exit 1
+          fi
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
             if [ -z "${!name}" ]; then
-              echo "::error::$name secret is required before publishing a signed cross-platform release."
-              missing=1
+              echo "::warning::$name secret is missing. The macOS release will be built WITHOUT signing and notarization."
             fi
           done
-          exit "$missing"
 
   build:
     name: Release ${{ matrix.name }}
@@ -112,14 +113,23 @@ jobs:
           missing=0
           for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
             if [ -z "${!name}" ]; then
-              echo "::error::$name secret is required for signed and notarized macOS releases."
-              missing=1
+              missing=$((missing + 1))
             fi
           done
-          exit "$missing"
+
+          if [ "$missing" -gt 0 ] && [ "$missing" -lt 6 ]; then
+            echo "::error::Some but not all macOS signing secrets are provided. Please provide all or none."
+            exit 1
+          elif [ "$missing" -eq 6 ]; then
+            echo "No macOS signing secrets provided. Skipping macOS signing and notarization."
+            echo "SKIP_MACOS_SIGNING=true" >> "$GITHUB_ENV"
+          else
+            echo "All macOS signing secrets provided. Proceeding with signed build."
+            echo "SKIP_MACOS_SIGNING=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Import Apple Developer ID certificate
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.SKIP_MACOS_SIGNING != 'true'
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
