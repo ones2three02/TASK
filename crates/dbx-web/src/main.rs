@@ -24,12 +24,16 @@ use state::WebState;
 
 fn web_body_limit_bytes() -> usize {
     const DEFAULT_MB: usize = 1024;
-    let mb = std::env::var("DBX_MAX_UPLOAD_MB")
+    let mb = read_env_with_legacy("TASK_MAX_UPLOAD_MB", "DBX_MAX_UPLOAD_MB")
         .ok()
         .and_then(|value| value.parse::<usize>().ok())
         .filter(|value| *value > 0)
         .unwrap_or(DEFAULT_MB);
     mb.saturating_mul(1024 * 1024)
+}
+
+fn read_env_with_legacy(primary: &str, legacy: &str) -> Result<String, std::env::VarError> {
+    std::env::var(primary).or_else(|_| std::env::var(legacy))
 }
 
 #[tokio::main]
@@ -44,14 +48,27 @@ async fn main() {
     rustls::crypto::aws_lc_rs::default_provider().install_default().expect("Failed to install rustls crypto provider");
 
     // Data directory
-    let data_dir = std::env::var("DBX_DATA_DIR").map(std::path::PathBuf::from).unwrap_or_else(|_| {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        std::path::PathBuf::from(home).join(".dbx-web")
-    });
+    let data_dir =
+        read_env_with_legacy("TASK_DATA_DIR", "DBX_DATA_DIR").map(std::path::PathBuf::from).unwrap_or_else(|_| {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            let task_dir = std::path::PathBuf::from(&home).join(".task-web");
+            if task_dir.exists() {
+                task_dir
+            } else {
+                let legacy_dir = std::path::PathBuf::from(&home).join(".dbx-web");
+                if legacy_dir.exists() {
+                    legacy_dir
+                } else {
+                    task_dir
+                }
+            }
+        });
     std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
 
     let app_state = {
-        let db_path = data_dir.join("dbx.db");
+        let task_db_path = data_dir.join("task.db");
+        let legacy_db_path = data_dir.join("dbx.db");
+        let db_path = if task_db_path.exists() || !legacy_db_path.exists() { task_db_path } else { legacy_db_path };
         let storage = Storage::open(&db_path).await.expect("Failed to open storage");
         storage.migrate_from_json(&data_dir).await.expect("Failed to migrate JSON data");
         Arc::new(AppState::new_with_plugin_dir_and_app_version(
@@ -62,7 +79,7 @@ async fn main() {
     };
 
     // Password hash: env var takes priority, then database
-    let password_hash = if let Ok(pw) = std::env::var("DBX_PASSWORD") {
+    let password_hash = if let Ok(pw) = read_env_with_legacy("TASK_PASSWORD", "DBX_PASSWORD") {
         let salt = SaltString::generate(&mut OsRng);
         Some(Argon2::default().hash_password(pw.as_bytes(), &salt).expect("Failed to hash password").to_string())
     } else {
@@ -343,7 +360,7 @@ async fn main() {
         .layer(cors);
 
     // Static file serving
-    if let Ok(static_dir) = std::env::var("DBX_STATIC_DIR") {
+    if let Ok(static_dir) = read_env_with_legacy("TASK_STATIC_DIR", "DBX_STATIC_DIR") {
         use tower_http::services::{ServeDir, ServeFile};
         let index_path = format!("{}/index.html", static_dir);
         let serve_dir = ServeDir::new(&static_dir).not_found_service(ServeFile::new(&index_path));
@@ -351,11 +368,11 @@ async fn main() {
     }
 
     // Bind address
-    let port: u16 = std::env::var("DBX_PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(4224);
+    let port: u16 = read_env_with_legacy("TASK_PORT", "DBX_PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(4224);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
-    tracing::info!("DBX Web server starting on http://{}", addr);
-    if std::env::var("DBX_PASSWORD").is_ok() {
+    tracing::info!("TASK web server starting on http://{}", addr);
+    if read_env_with_legacy("TASK_PASSWORD", "DBX_PASSWORD").is_ok() {
         tracing::info!("Password protection is enabled");
     }
 

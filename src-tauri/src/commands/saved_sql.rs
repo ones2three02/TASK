@@ -10,7 +10,8 @@ pub struct SavedSqlStorageState {
     pub data_dir: PathBuf,
 }
 
-const SYNC_MANIFEST_FILE: &str = ".dbx-sql-library-sync.json";
+const SYNC_MANIFEST_FILE: &str = ".task-sql-library-sync.json";
+const LEGACY_SYNC_MANIFEST_FILE: &str = ".dbx-sql-library-sync.json";
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -95,7 +96,7 @@ pub async fn sync_saved_sql_directory(request: SavedSqlSyncRequest) -> Result<()
 }
 
 fn sync_saved_sql_directory_blocking(target_dir: &Path, entries: &[SavedSqlSyncEntry]) -> Result<(), String> {
-    let sync_root = target_dir.join("dbx-sql-library");
+    let sync_root = target_dir.join("task-sql-library");
     std::fs::create_dir_all(&sync_root).map_err(|e| e.to_string())?;
     remove_previous_sync_files(&sync_root)?;
 
@@ -128,7 +129,9 @@ fn sync_saved_sql_directory_blocking(target_dir: &Path, entries: &[SavedSqlSyncE
 
 fn remove_previous_sync_files(target_dir: &Path) -> Result<(), String> {
     let manifest_path = target_dir.join(SYNC_MANIFEST_FILE);
-    let Ok(raw) = std::fs::read_to_string(&manifest_path) else {
+    let raw = std::fs::read_to_string(&manifest_path)
+        .or_else(|_| std::fs::read_to_string(target_dir.join(LEGACY_SYNC_MANIFEST_FILE)));
+    let Ok(raw) = raw else {
         return Ok(());
     };
     let manifest = serde_json::from_str::<SavedSqlSyncManifest>(&raw).unwrap_or_default();

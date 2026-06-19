@@ -99,6 +99,18 @@ const JSON_REPAIR_PROMPT = `你是 JSON 修复器。用户会提供一个模型�
 请只返回修复后的严格 JSON 对象，不要输出 Markdown、解释或额外文字。
 修复后的结构必须包含 targets、actions、serves、keeps 四个数组，并符合 TASK 四层规划结构。`;
 
+const COMPACT_RETRY_PROMPT = `${SYSTEM_PROMPT}
+
+这是一次容错重试：上一次返回疑似被截断。
+请输出“精简但完整”的 TASK 四层规划：
+- targets 最多 1 个；
+- actions 最多 4 个；
+- serves 最多 3 个；
+- keeps 最多 4 个；
+- 每个字符串字段尽量控制在 80 个中文字符以内；
+- acceptanceChecklist、successCriteria、risks、milestones 每项最多 3 条。
+必须优先保证 JSON 完整闭合，不要为了内容丰富导致输出被截断。`;
+
 const MAX_PREVIEW_LENGTH = 500;
 const REQUIREMENT_PARSE_MAX_TOKENS = 8192;
 const SERVE_KEEP_SUGGESTION_MAX_TOKENS = 4096;
@@ -106,24 +118,43 @@ const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
 const VALID_KEEP_TYPES = new Set(["document", "link", "archive", "evidence", "version", "retrospective"]);
 
 export async function parseRequirementWithAi(config: AiConfig, requirementText: string, referenceDocuments: RequirementReferenceDocument[] = []): Promise<ParsedRequirementResult> {
-  const textContent = await aiComplete({
-    config,
-    systemPrompt: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: buildRequirementPrompt(requirementText, referenceDocuments) }],
-    maxTokens: REQUIREMENT_PARSE_MAX_TOKENS,
-    temperature: 0.1,
-  });
+  const textContent = await requestRequirementCompletion(config, SYSTEM_PROMPT, buildRequirementPrompt(requirementText, referenceDocuments));
 
   try {
     return cleanAndParseRequirementJson(textContent);
   } catch (error) {
+    if (isLikelyTruncatedParseError(error)) {
+      try {
+        const compactTextContent = await requestRequirementCompletion(config, COMPACT_RETRY_PROMPT, buildCompactRetryRequirementPrompt(requirementText, referenceDocuments));
+        return cleanAndParseRequirementJson(compactTextContent);
+      } catch (compactError) {
+        return repairRequirementJsonOrThrow(config, compactError, compactError instanceof AiRequirementParseError && compactError.rawText ? compactError.rawText : textContent);
+      }
+    }
+
+    return repairRequirementJsonOrThrow(config, error, textContent);
+  }
+}
+
+async function requestRequirementCompletion(config: AiConfig, systemPrompt: string, userPrompt: string): Promise<string> {
+  return aiComplete({
+    config,
+    systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
+    maxTokens: REQUIREMENT_PARSE_MAX_TOKENS,
+    temperature: 0.1,
+  });
+}
+
+async function repairRequirementJsonOrThrow(config: AiConfig, originalError: unknown, rawText: string): Promise<ParsedRequirementResult> {
+  try {
     const repairedContent = await aiComplete({
       config,
       systemPrompt: JSON_REPAIR_PROMPT,
       messages: [
         {
-          role: "user",
-          content: `请修复以下 JSON，并保持 TASK 四层规划结构：\n\n${textContent}`,
+          role: "user" as const,
+          content: `请修复以下 JSON，并保持 TASK 四层规划结构：\n\n${rawText}`,
         },
       ],
       maxTokens: REQUIREMENT_PARSE_MAX_TOKENS,
@@ -133,8 +164,10 @@ export async function parseRequirementWithAi(config: AiConfig, requirementText: 
     try {
       return cleanAndParseRequirementJson(repairedContent);
     } catch {
-      throw error;
+      throw originalError;
     }
+  } catch {
+    throw originalError;
   }
 }
 
@@ -156,8 +189,42 @@ ${references}
 ${requirementText}`;
 }
 
+function buildCompactRetryRequirementPrompt(requirementText: string, referenceDocuments: RequirementReferenceDocument[]): string {
+  const references = referenceDocuments
+    .filter((document) => document.content.trim())
+    .map((document, index) => {
+      const compactContent = document.content.trim().slice(0, 4_000);
+      const truncatedHint = document.content.trim().length > compactContent.length ? "\n（该参考文档较长，此处只提供前 4000 字符用于重试。）" : "";
+      return `【参考文档 ${index + 1}：${document.name}】\n${compactContent}${truncatedHint}`;
+    })
+    .join("\n\n");
+
+  const compactRequirementText = requirementText.trim().slice(0, 8_000);
+  const requirementTruncatedHint = requirementText.trim().length > compactRequirementText.length ? "\n（用户需求较长，此处只提供前 8000 字符用于重试。）" : "";
+
+  if (!references) {
+    return `上一次 TASK JSON 输出疑似被截断。请基于以下需求输出精简但完整闭合的 JSON：\n${compactRequirementText}${requirementTruncatedHint}`;
+  }
+
+  return `上一次 TASK JSON 输出疑似被截断。请基于以下参考资料和用户需求输出精简但完整闭合的 JSON。
+
+${references}
+
+【用户需求】
+${compactRequirementText}${requirementTruncatedHint}`;
+}
+
 export function cleanAndParseRequirementJson(rawText: string): ParsedRequirementResult {
   const cleaned = extractJsonCandidate(rawText);
+
+  if (!cleaned) {
+    throw new AiRequirementParseError("解析 AI 响应失败：AI 服务返回空内容。请检查当前模型是否支持聊天补全，或换用更稳定的模型后重试。", {
+      rawText,
+      cleanedText: cleaned,
+      reason: "empty response",
+      maybeTruncated: true,
+    });
+  }
 
   try {
     return normalizeParsedRequirement(JSON.parse(cleaned));
@@ -167,8 +234,33 @@ export function cleanAndParseRequirementJson(rawText: string): ParsedRequirement
     const reason = error instanceof Error ? error.message : String(error);
     const maybeTruncated = !cleaned.trimEnd().endsWith("}") || /unexpected eof|unterminated|string literal|end of json input/i.test(reason);
     const truncatedHint = maybeTruncated ? "响应疑似被模型截断；已提高输出长度，请减少参考文档长度或换用更大输出上限的模型后重试。" : "请重试，或换用更稳定的 JSON 输出模型。";
-    throw new Error(`解析 AI 响应失败：返回数据不是合法的 JSON。错误原因: ${reason}。${truncatedHint} 响应片段: ${preview}`);
+    throw new AiRequirementParseError(`解析 AI 响应失败：返回数据不是合法的 JSON。错误原因: ${reason}。${truncatedHint} 响应片段: ${preview}`, {
+      rawText,
+      cleanedText: cleaned,
+      reason,
+      maybeTruncated,
+    });
   }
+}
+
+export class AiRequirementParseError extends Error {
+  readonly rawText: string;
+  readonly cleanedText: string;
+  readonly reason: string;
+  readonly maybeTruncated: boolean;
+
+  constructor(message: string, options: { rawText: string; cleanedText: string; reason: string; maybeTruncated: boolean }) {
+    super(message);
+    this.name = "AiRequirementParseError";
+    this.rawText = options.rawText;
+    this.cleanedText = options.cleanedText;
+    this.reason = options.reason;
+    this.maybeTruncated = options.maybeTruncated;
+  }
+}
+
+function isLikelyTruncatedParseError(error: unknown): boolean {
+  return error instanceof AiRequirementParseError && error.maybeTruncated;
 }
 
 function extractJsonCandidate(rawText: string): string {

@@ -55,7 +55,7 @@ pub async fn decrypt_config(Json(body): Json<DecryptConfigRequest>) -> Result<Js
 }
 
 fn decrypt_config_payload(payload: &EncryptedConfigPayload, passphrase: &str) -> Result<String, String> {
-    if payload.format != "dbx-encrypted" || payload.version != 1 {
+    if !matches!(payload.format.as_str(), "task-encrypted" | "dbx-encrypted") || payload.version != 1 {
         return Err("Unsupported encrypted config format".to_string());
     }
     let salt = BASE64.decode(&payload.salt).map_err(|_| "wrong_passphrase".to_string())?;
@@ -79,7 +79,7 @@ mod tests {
 
     fn exported_browser_payload() -> EncryptedConfigPayload {
         EncryptedConfigPayload {
-            format: "dbx-encrypted".to_string(),
+            format: "task-encrypted".to_string(),
             version: 1,
             salt: "AAECAwQFBgcICQoLDA0ODw==".to_string(),
             iv: "EBESExQVFhcYGRob".to_string(),
@@ -99,5 +99,15 @@ mod tests {
         let error = decrypt_config_payload(&exported_browser_payload(), "wrong").unwrap_err();
 
         assert_eq!(error, "wrong_passphrase");
+    }
+
+    #[test]
+    fn accepts_legacy_exported_config_payload() {
+        let mut payload = exported_browser_payload();
+        payload.format = "dbx-encrypted".to_string();
+
+        let plaintext = decrypt_config_payload(&payload, "passphrase").unwrap();
+
+        assert_eq!(plaintext, r#"{"connections":[{"name":"local"}]}"#);
     }
 }

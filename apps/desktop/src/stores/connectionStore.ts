@@ -47,9 +47,12 @@ import { prunePinnedTreeNodeIdsForConnection } from "@/lib/pinnedTreeNodeIds";
 import { supportsDatabaseUserAdmin } from "@/lib/databaseUserAdmin";
 import { getTableMetadataCapabilities } from "@/lib/tableMetadataCapabilities";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { safeLocalStorageGetWithLegacy, safeLocalStorageRemove, safeLocalStorageSet } from "@/lib/safeStorage";
 
-const PINNED_TREE_NODES_STORAGE_KEY = "dbx-pinned-tree-nodes";
-const ACTIVE_CONNECTION_STORAGE_KEY = "dbx-active-connection";
+const PINNED_TREE_NODES_STORAGE_KEY = "task-pinned-tree-nodes";
+const LEGACY_PINNED_TREE_NODES_STORAGE_KEY = "dbx-pinned-tree-nodes";
+const ACTIVE_CONNECTION_STORAGE_KEY = "task-active-connection";
+const LEGACY_ACTIVE_CONNECTION_STORAGE_KEY = "dbx-active-connection";
 type ImportSource = "dbx" | "navicat" | "dbeaver" | "datagrip";
 
 // Temporary storage for DataGrip import payload (used to read Keychain passwords after import)
@@ -83,15 +86,18 @@ export const useConnectionStore = defineStore("connection", () => {
   const settingsStore = useSettingsStore();
   const connections = ref<ConnectionConfig[]>([]);
   const isDesktop = isTauriRuntime();
-  const activeConnectionId = ref<string | null>(localStorage.getItem(ACTIVE_CONNECTION_STORAGE_KEY));
+  const activeConnectionId = ref<string | null>(safeLocalStorageGetWithLegacy(ACTIVE_CONNECTION_STORAGE_KEY, LEGACY_ACTIVE_CONNECTION_STORAGE_KEY));
   const selectedTreeNodeId = ref<string | null>(null);
   const selectedTreeNodeIds = ref<string[]>([]);
   const treeSelectionAnchorId = ref<string | null>(null);
   const treeClipboard = ref<TreeClipboardTableStructure | null>(null);
 
   watch(activeConnectionId, (id) => {
-    if (id) localStorage.setItem(ACTIVE_CONNECTION_STORAGE_KEY, id);
-    else localStorage.removeItem(ACTIVE_CONNECTION_STORAGE_KEY);
+    if (id) safeLocalStorageSet(ACTIVE_CONNECTION_STORAGE_KEY, id);
+    else {
+      safeLocalStorageRemove(ACTIVE_CONNECTION_STORAGE_KEY);
+      safeLocalStorageRemove(LEGACY_ACTIVE_CONNECTION_STORAGE_KEY);
+    }
   });
   const treeNodes = ref<TreeNode[]>([]);
   const pinnedTreeNodeIds = ref<Set<string>>(new Set());
@@ -298,7 +304,7 @@ export const useConnectionStore = defineStore("connection", () => {
   function loadPinnedTreeNodeIdsFromLocalStorage(): Set<string> {
     try {
       if (typeof localStorage === "undefined") return new Set();
-      const saved = localStorage.getItem(PINNED_TREE_NODES_STORAGE_KEY);
+      const saved = safeLocalStorageGetWithLegacy(PINNED_TREE_NODES_STORAGE_KEY, LEGACY_PINNED_TREE_NODES_STORAGE_KEY);
       const ids = saved ? JSON.parse(saved) : [];
       return new Set(Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : []);
     } catch {
@@ -317,7 +323,8 @@ export const useConnectionStore = defineStore("connection", () => {
     if (legacy.size > 0) {
       await api.savePinnedTreeNodeIds([...legacy]).catch(() => undefined);
       if (typeof localStorage !== "undefined") {
-        localStorage.removeItem(PINNED_TREE_NODES_STORAGE_KEY);
+        safeLocalStorageRemove(PINNED_TREE_NODES_STORAGE_KEY);
+        safeLocalStorageRemove(LEGACY_PINNED_TREE_NODES_STORAGE_KEY);
       }
     }
     return legacy;
@@ -329,7 +336,7 @@ export const useConnectionStore = defineStore("connection", () => {
       return;
     }
     if (typeof localStorage === "undefined") return;
-    localStorage.setItem(PINNED_TREE_NODES_STORAGE_KEY, JSON.stringify([...pinnedTreeNodeIds.value]));
+    safeLocalStorageSet(PINNED_TREE_NODES_STORAGE_KEY, JSON.stringify([...pinnedTreeNodeIds.value]));
   }
 
   function isTreeNodePinned(id: string): boolean {

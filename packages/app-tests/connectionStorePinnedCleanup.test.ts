@@ -76,7 +76,7 @@ test("removeConnection prunes pinned ids and persists the pruned set", async () 
     assert.equal(store.isTreeNodePinned("conn-a"), false);
     assert.equal(store.isTreeNodePinned("conn-a:db:main"), false);
     assert.equal(store.isTreeNodePinned("conn-b:db:main"), true);
-    assert.deepEqual(JSON.parse(storage.values.get("dbx-pinned-tree-nodes") || "[]"), ["conn-b:db:main"]);
+    assert.deepEqual(JSON.parse(storage.values.get("task-pinned-tree-nodes") || "[]"), ["conn-b:db:main"]);
     assert.equal(savedPayloads.length >= 1, true);
   } finally {
     globalThis.fetch = originalFetch;

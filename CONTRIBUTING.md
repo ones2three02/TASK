@@ -1,17 +1,15 @@
-# Contributing to DBX
+# Contributing to TASK
 
-Thanks for helping improve DBX. This repository contains the desktop app, Rust backend, Docker service, documentation site, CLI, MCP server, and optional plugins.
+Thanks for helping improve TASK. This repository contains the desktop app, Tauri native shell, Rust database core, local packages, and optional plugins.
 
 ## Project Layout
 
 - `apps/desktop/` - Vue desktop frontend.
 - `crates/dbx-core/` - shared Rust database core.
-- `crates/dbx-web/` - Docker/web backend service.
+- `crates/dbx-web/` - optional local web backend service used by package tests and development.
 - `src-tauri/` - Tauri desktop shell and native commands.
 - `packages/` - Node packages, including CLI, MCP server, shared Node core, and app tests.
-- `plugins/` - optional DBX plugins.
-- `docs/` - documentation site and docs assets.
-- `deploy/` - Docker and deployment assets.
+- `plugins/` - optional TASK plugins.
 
 ## Development Setup
 
@@ -69,8 +67,6 @@ pnpm test:packages
 pnpm publish:dry-run
 ```
 
-For Docker or deployment changes, run the relevant Docker Compose or Docker build checks from `deploy/`.
-
 ## Database Driver Metadata
 
 When adding or changing a database type, update `crates/dbx-core/assets/database-drivers.manifest.json` first. The manifest is the shared source for driver mode, MCP/CLI routing, agent keys, support level, and top-level product capabilities.
@@ -82,7 +78,7 @@ Choose the support level conservatively:
 - `understand` — browsing plus higher-level understanding features such as search, object sources, or diagrams.
 - `operate` — advanced operation surfaces such as table data editing, structure editing, import, transfer, database creation, explain plans, or user administration.
 
-Set `capabilities` explicitly for the product surfaces DBX should expose. Keep detailed feature behavior in the owning feature module, such as table structure sub-capabilities or user administration dialects. Custom JDBC support should remain conservative unless dialect inference or a dedicated profile proves the advanced capability works.
+Set `capabilities` explicitly for the product surfaces TASK should expose. Keep detailed feature behavior in the owning feature module, such as table structure sub-capabilities or user administration dialects. Custom JDBC support should remain conservative unless dialect inference or a dedicated profile proves the advanced capability works.
 
 Then run:
 
@@ -101,4 +97,4 @@ pnpm --filter @dbx-app/mcp-server exec tsx --test tests/driver-manifest.test.ts
 
 ## Reporting Issues
 
-Use GitHub Issues for reproducible bugs, feature requests, database compatibility reports, and questions. Include the DBX version, operating system, database type, and relevant logs or screenshots when possible.
+Use GitHub Issues for reproducible bugs, feature requests, database compatibility reports, and questions. Include the TASK version, operating system, database type, and relevant logs or screenshots when possible.
