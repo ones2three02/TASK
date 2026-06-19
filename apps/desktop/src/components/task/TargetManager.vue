@@ -302,10 +302,10 @@ function getChecklistProgress(items: ChecklistDraft[] = []) {
             <span class="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-500">风险假设 {{ target.risks?.length ?? 0 }} 项</span>
           </div>
           <div v-if="target.successCriteria?.length" class="grid gap-1">
-            <button v-for="criterion in target.successCriteria.slice(0, 2)" :key="criterion.id" class="flex items-center gap-2 text-muted-foreground text-left py-0.5 hover:bg-muted/40 rounded px-1 transition-colors" @click="toggleSuccessCriterion(target, criterion.id)">
-              <CheckCircle2 v-if="criterion.completed" class="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-              <Circle v-else class="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
-              <span :class="{ 'line-through text-muted-foreground/60': criterion.completed }" class="truncate">
+            <button v-for="criterion in target.successCriteria.slice(0, 2)" :key="criterion.id" class="flex items-start gap-2 text-muted-foreground text-left py-1 hover:bg-muted/40 rounded px-1 transition-colors w-full min-w-0" @click="toggleSuccessCriterion(target, criterion.id)">
+              <CheckCircle2 v-if="criterion.completed" class="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+              <Circle v-else class="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 mt-0.5" />
+              <span :class="{ 'line-through text-muted-foreground/60': criterion.completed }" class="flex-1 whitespace-normal break-words leading-normal">
                 {{ criterion.title }}
               </span>
             </button>
@@ -320,10 +320,10 @@ function getChecklistProgress(items: ChecklistDraft[] = []) {
           </div>
 
           <div class="grid gap-2 max-h-40 overflow-y-auto pr-1">
-            <button v-for="m in target.milestones" :key="m.id" class="flex items-center gap-2 text-xs py-1.5 px-2.5 rounded bg-muted/30 hover:bg-muted/60 text-left transition-colors" @click="toggleMilestone(target, m.id)">
-              <CheckCircle2 v-if="m.completed" class="h-4 w-4 text-emerald-500 shrink-0" />
-              <Circle v-else class="h-4 w-4 text-muted-foreground shrink-0" />
-              <span :class="{ 'line-through text-muted-foreground/60': m.completed }" class="truncate">
+            <button v-for="m in target.milestones" :key="m.id" class="flex items-start gap-2 text-xs py-1.5 px-2.5 rounded bg-muted/30 hover:bg-muted/60 text-left transition-colors w-full min-w-0" @click="toggleMilestone(target, m.id)">
+              <CheckCircle2 v-if="m.completed" class="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+              <Circle v-else class="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <span :class="{ 'line-through text-muted-foreground/60': m.completed }" class="flex-1 whitespace-normal break-words leading-normal">
                 {{ m.title }}
               </span>
             </button>
