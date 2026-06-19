@@ -9,7 +9,7 @@ export function shouldOpenUpdateDialog(options: { silent?: boolean }) {
 }
 
 export function canDownloadAndInstallUpdate(info: api.UpdateInfo | null, isDesktop: boolean) {
-  return isDesktop && info?.update_available === true && info.portable_mode !== true;
+  return isDesktop && info?.update_available === true && info.platform_available !== false && info.portable_mode !== true;
 }
 
 export async function resolveUpdaterProxy(): Promise<string | undefined> {
@@ -109,7 +109,12 @@ export function useAppUpdater() {
       });
       updateReady.value = true;
     } catch (e: any) {
-      toast(t("updates.downloadFailed", { error: e?.message || String(e) }), 5000);
+      const message = e?.message || String(e);
+      if (message.includes("fallback platforms") || message.includes("platforms` object")) {
+        toast(t("updates.platformUnavailable"), 5000);
+      } else {
+        toast(t("updates.downloadFailed", { error: message }), 5000);
+      }
     } finally {
       isDownloadingUpdate.value = false;
     }

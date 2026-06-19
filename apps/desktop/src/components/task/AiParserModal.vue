@@ -32,7 +32,7 @@ interface ReferenceDocumentEntry extends RequirementReferenceDocument {
   truncated: boolean;
 }
 
-const MAX_REFERENCE_CHARS = 30_000;
+const MAX_REFERENCE_CHARS = 12_000;
 const SUPPORTED_REFERENCE_EXTENSIONS = [".txt", ".md", ".markdown", ".json", ".csv"];
 const referenceDocuments = ref<ReferenceDocumentEntry[]>([]);
 const totalReferenceChars = computed(() => referenceDocuments.value.reduce((total, document) => total + document.content.length, 0));

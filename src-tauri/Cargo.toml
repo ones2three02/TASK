@@ -1,6 +1,6 @@
 [package]
 name = "task"
-version = "0.5.38"
+version = "0.5.41"
 description = "TASK lifecycle planning desktop app"
 authors = ["skyler"]
 license = "Apache-2.0"

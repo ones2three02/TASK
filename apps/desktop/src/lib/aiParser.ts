@@ -113,12 +113,31 @@ const COMPACT_RETRY_PROMPT = `${SYSTEM_PROMPT}
 
 const MAX_PREVIEW_LENGTH = 500;
 const REQUIREMENT_PARSE_MAX_TOKENS = 8192;
+const COMPACT_REQUIREMENT_PARSE_MAX_TOKENS = 4096;
+const REFERENCE_PROMPT_CHAR_BUDGET = 12_000;
+const REFERENCE_PROMPT_PER_DOCUMENT_LIMIT = 6_000;
+const COMPACT_REFERENCE_PROMPT_CHAR_BUDGET = 4_000;
+const COMPACT_REFERENCE_PROMPT_PER_DOCUMENT_LIMIT = 2_000;
 const SERVE_KEEP_SUGGESTION_MAX_TOKENS = 4096;
 const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
 const VALID_KEEP_TYPES = new Set(["document", "link", "archive", "evidence", "version", "retrospective"]);
 
 export async function parseRequirementWithAi(config: AiConfig, requirementText: string, referenceDocuments: RequirementReferenceDocument[] = []): Promise<ParsedRequirementResult> {
-  const textContent = await requestRequirementCompletion(config, SYSTEM_PROMPT, buildRequirementPrompt(requirementText, referenceDocuments));
+  let textContent: string;
+  try {
+    textContent = await requestRequirementCompletion(config, SYSTEM_PROMPT, buildRequirementPrompt(requirementText, referenceDocuments));
+  } catch (error) {
+    if (!isAiTransportError(error)) {
+      throw error;
+    }
+
+    try {
+      const compactTextContent = await requestRequirementCompletion(config, COMPACT_RETRY_PROMPT, buildCompactRetryRequirementPrompt(requirementText, referenceDocuments), COMPACT_REQUIREMENT_PARSE_MAX_TOKENS);
+      return cleanAndParseRequirementJson(compactTextContent);
+    } catch (compactError) {
+      throw formatAiTransportError(compactError, config, referenceDocuments.length > 0);
+    }
+  }
 
   try {
     return cleanAndParseRequirementJson(textContent);
@@ -136,12 +155,12 @@ export async function parseRequirementWithAi(config: AiConfig, requirementText: 
   }
 }
 
-async function requestRequirementCompletion(config: AiConfig, systemPrompt: string, userPrompt: string): Promise<string> {
+async function requestRequirementCompletion(config: AiConfig, systemPrompt: string, userPrompt: string, maxTokens = REQUIREMENT_PARSE_MAX_TOKENS): Promise<string> {
   return aiComplete({
     config,
     systemPrompt,
     messages: [{ role: "user", content: userPrompt }],
-    maxTokens: REQUIREMENT_PARSE_MAX_TOKENS,
+    maxTokens,
     temperature: 0.1,
   });
 }
@@ -172,10 +191,7 @@ async function repairRequirementJsonOrThrow(config: AiConfig, originalError: unk
 }
 
 export function buildRequirementPrompt(requirementText: string, referenceDocuments: RequirementReferenceDocument[] = []): string {
-  const references = referenceDocuments
-    .filter((document) => document.content.trim())
-    .map((document, index) => `【参考文档 ${index + 1}：${document.name}】\n${document.content.trim()}`)
-    .join("\n\n");
+  const references = formatReferenceDocumentsForPrompt(referenceDocuments, REFERENCE_PROMPT_CHAR_BUDGET, REFERENCE_PROMPT_PER_DOCUMENT_LIMIT);
 
   if (!references) {
     return `这是需求文档内容，请开始进行 TASK 四层规划，覆盖目标、行动、交付和沉淀:\n${requirementText}`;
@@ -190,14 +206,7 @@ ${requirementText}`;
 }
 
 function buildCompactRetryRequirementPrompt(requirementText: string, referenceDocuments: RequirementReferenceDocument[]): string {
-  const references = referenceDocuments
-    .filter((document) => document.content.trim())
-    .map((document, index) => {
-      const compactContent = document.content.trim().slice(0, 4_000);
-      const truncatedHint = document.content.trim().length > compactContent.length ? "\n（该参考文档较长，此处只提供前 4000 字符用于重试。）" : "";
-      return `【参考文档 ${index + 1}：${document.name}】\n${compactContent}${truncatedHint}`;
-    })
-    .join("\n\n");
+  const references = formatReferenceDocumentsForPrompt(referenceDocuments, COMPACT_REFERENCE_PROMPT_CHAR_BUDGET, COMPACT_REFERENCE_PROMPT_PER_DOCUMENT_LIMIT);
 
   const compactRequirementText = requirementText.trim().slice(0, 8_000);
   const requirementTruncatedHint = requirementText.trim().length > compactRequirementText.length ? "\n（用户需求较长，此处只提供前 8000 字符用于重试。）" : "";
@@ -212,6 +221,50 @@ ${references}
 
 【用户需求】
 ${compactRequirementText}${requirementTruncatedHint}`;
+}
+
+function formatReferenceDocumentsForPrompt(referenceDocuments: RequirementReferenceDocument[], totalBudget: number, perDocumentLimit: number): string {
+  let remaining = totalBudget;
+  const formatted: string[] = [];
+
+  for (const [index, document] of referenceDocuments.entries()) {
+    if (remaining <= 0) break;
+
+    const normalizedContent = document.content.replace(/\r\n/g, "\n").trim();
+    if (!normalizedContent) continue;
+
+    const limit = Math.min(remaining, perDocumentLimit);
+    const content = normalizedContent.slice(0, limit);
+    remaining -= content.length;
+
+    const truncatedHint = normalizedContent.length > content.length ? `\n（该参考文档较长，已只发送前 ${content.length.toLocaleString()} 字符。）` : "";
+    formatted.push(`【参考文档 ${index + 1}：${document.name}】\n${content}${truncatedHint}`);
+  }
+
+  return formatted.join("\n\n");
+}
+
+function isAiTransportError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /request failed|error sending request|timed out|timeout|dns|connect|connection|tls|ssl|network|dispatch failure/i.test(message);
+}
+
+function formatAiTransportError(error: unknown, config: AiConfig, hasReferenceDocuments: boolean): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  const endpoint = config.endpoint || "未配置";
+  const endpointHost = `${safeEndpointHost(endpoint)} ${message.toLowerCase()}`;
+  const minimaxHint = endpointHost.includes("minimax") || endpointHost.includes("minimaxi") ? "当前 MiniMax 接口在网络/TLS 握手阶段不可达。请在「系统设置 → AI 设置」中确认 endpoint 是否正确，必要时启用代理后重试。" : "当前 AI 接口网络不可达。请检查网络、代理、endpoint 和模型服务状态后重试。";
+  const referenceHint = hasReferenceDocuments ? "已自动使用精简参考资料重试一次，但仍然连接失败。你也可以先删除参考文档，只用需求文本验证模型配置。" : "请先在 AI 设置里测试连接，确认模型配置可用。";
+
+  return new Error(`${minimaxHint}${referenceHint} 原始错误：${message}`);
+}
+
+function safeEndpointHost(endpoint: string): string {
+  try {
+    return new URL(endpoint).host.toLowerCase();
+  } catch {
+    return endpoint.toLowerCase();
+  }
 }
 
 export function cleanAndParseRequirementJson(rawText: string): ParsedRequirementResult {
