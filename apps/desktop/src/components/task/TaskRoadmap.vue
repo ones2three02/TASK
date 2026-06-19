@@ -94,11 +94,26 @@ const keepStatus = computed(() => {
     return { state: "pending", label: "待沉淀", percent: 0, details: "核心文件及代码待留存归档" };
   }
   const totalKeeps = projectKeeps.value.length;
+
+  // 只有当 T、A、S 阶段全部完成时，K 才能标记为 completed
+  const upstreamCompleted = targetStatus.value.state === "completed" && actionStatus.value.state === "completed" && serveStatus.value.state === "completed";
+
+  if (upstreamCompleted) {
+    return {
+      state: "completed",
+      label: "已留存",
+      percent: 100,
+      details: `已完成 ${totalKeeps} 项核心资产归档`,
+    };
+  }
+
+  // 否则即使已有沉淀资产，也属于“沉淀中”状态（百分比限制在 90% 以内）
+  const percent = Math.min(90, Math.round((totalKeeps / Math.max(1, projectServes.value.length)) * 100)) || 50;
   return {
-    state: "completed",
-    label: "已留存",
-    percent: 100,
-    details: `已完成 ${totalKeeps} 项核心资产归档`,
+    state: "in_progress",
+    label: "沉淀中",
+    percent,
+    details: `已归档 ${totalKeeps} 项核心资产，项目其他阶段仍在推进中`,
   };
 });
 
