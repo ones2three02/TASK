@@ -135,6 +135,29 @@ describe("aiParser", () => {
     expect(aiCompleteMock.mock.calls[1]?.[0]?.systemPrompt).toContain("容错重试");
   });
 
+  it("retries with compact references when the first AI request has a transport failure", async () => {
+    aiCompleteMock.mockRejectedValueOnce(new Error("AI request failed: error sending request for url (https://api.minimaxi.com/v1/chat/completions)")).mockResolvedValueOnce(validRequirementJson);
+
+    const result = await parseRequirementWithAi(aiConfig, "解析一下", [
+      {
+        name: "guide.md",
+        content: "参考资料".repeat(5000),
+      },
+    ]);
+
+    expect(result.targets[0]?.title).toBe("上线 TASK 项目规划");
+    expect(aiCompleteMock).toHaveBeenCalledTimes(2);
+    expect(aiCompleteMock.mock.calls[1]?.[0]?.maxTokens).toBe(4096);
+    expect(aiCompleteMock.mock.calls[1]?.[0]?.messages[0]?.content).toContain("已只发送前");
+  });
+
+  it("turns repeated MiniMax transport failures into a readable diagnostic", async () => {
+    aiCompleteMock.mockRejectedValue(new Error("AI request failed: error sending request for url (https://api.minimaxi.com/v1/chat/completions)"));
+
+    await expect(parseRequirementWithAi(aiConfig, "解析一下", [{ name: "guide.md", content: "参考资料" }])).rejects.toThrow(/MiniMax 接口.*不可达/);
+    expect(aiCompleteMock).toHaveBeenCalledTimes(2);
+  });
+
   it("reports a clear empty-response hint when the AI service returns no content", () => {
     expect(() => cleanAndParseRequirementJson("")).toThrow(/AI 服务返回空内容/);
   });
