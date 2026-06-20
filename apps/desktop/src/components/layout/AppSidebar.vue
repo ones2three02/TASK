@@ -115,11 +115,9 @@ async function handleDeleteProject(project?: any) {
     if (!secondConfirm) return;
 
     try {
-      const { remove, exists } = await import("@tauri-apps/plugin-fs");
-      if (await exists(localPath)) {
-        await remove(localPath, { recursive: true });
-        toast("🗑️ 项目本地物理文件夹及存档文件已从磁盘中永久删除");
-      }
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("delete_project_local_folder", { path: localPath });
+      toast("🗑️ 项目本地物理文件夹及存档文件已从磁盘中永久删除");
     } catch (e) {
       console.error("[TASK] Failed to delete local project folder", e);
       toast("本地物理文件夹删除失败，请检查目录权限或手动删除。");

@@ -11,6 +11,7 @@ import TargetManager from "@/components/task/TargetManager.vue";
 import ActionManager from "@/components/task/ActionManager.vue";
 import ServeManager from "@/components/task/ServeManager.vue";
 import KeepManager from "@/components/task/KeepManager.vue";
+import CalendarManager from "@/components/task/CalendarManager.vue";
 import DashboardManager from "@/components/task/DashboardManager.vue";
 import TaskRoadmap from "@/components/task/TaskRoadmap.vue";
 import { useTaskStore } from "@/stores/taskStore";
@@ -1090,6 +1091,7 @@ onUnmounted(() => {
               <ActionManager v-else-if="activeModule === 'action'" />
               <ServeManager v-else-if="activeModule === 'serve'" />
               <KeepManager v-else-if="activeModule === 'keep'" />
+              <CalendarManager v-else-if="activeModule === 'calendar'" />
             </div>
           </div>
 

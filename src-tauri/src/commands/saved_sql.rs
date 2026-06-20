@@ -85,6 +85,15 @@ pub async fn open_saved_sql_storage_dir(
 }
 
 #[tauri::command]
+pub async fn delete_project_local_folder(path: String) -> Result<(), String> {
+    let target_path = PathBuf::from(path.trim());
+    if target_path.exists() && target_path.is_dir() {
+        std::fs::remove_dir_all(&target_path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn sync_saved_sql_directory(request: SavedSqlSyncRequest) -> Result<(), String> {
     let target_dir = PathBuf::from(request.target_dir.trim());
     if target_dir.as_os_str().is_empty() {
