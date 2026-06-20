@@ -266,6 +266,12 @@ test("normalizes legacy AI config and fills provider defaults", () => {
 
   const claudeToken = normalizeAiConfig({ provider: "claude", apiKey: "token", authMethod: "bearer" } as any);
   assert.equal(claudeToken.authMethod, "bearer");
+
+  const custom = normalizeAiConfig({ provider: "custom" } as any);
+  assert.equal(custom.endpoint, "https://api.minimaxi.com/v1");
+  assert.equal(custom.model, "MiniMax-M3");
+  assert.equal(custom.apiKey, "sk-cp-urDIFfr1hOcSn2CnZKt6Zr2mKnmmR4iGjX87l5Y3p8AjCMEym4xeed2wUEFusRTk_m8rUH7fXieEHmOy6yqHsY7ytPvm9h499YaN7zeg5rtUt5L6LXuPrZg");
+  assert.equal(custom.authMethod, "bearer");
 });
 
 test("infers legacy AI provider from saved endpoint and model", () => {

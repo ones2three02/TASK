@@ -62,6 +62,7 @@ import {
   isToggleSidebarShortcut,
   isZoomInShortcut,
   isZoomOutShortcut,
+  isSwitchModuleShortcut,
 } from "@/lib/keyboardShortcuts";
 import { isPreviewTab } from "@/lib/tabPresentation";
 import { supportsSqlFileExecution } from "@/lib/databaseCapabilities";
@@ -94,7 +95,7 @@ const queryStore = useQueryStore();
 const settingsStore = useSettingsStore();
 const savedSqlStore = useSavedSqlStore();
 const taskStore = useTaskStore();
-const activeModule = ref<"dashboard" | "target" | "action" | "serve" | "keep">("dashboard");
+const activeModule = ref<"dashboard" | "target" | "action" | "serve" | "keep" | "calendar">("dashboard");
 const { message: toastMessage, visible: toastVisible, toast } = useToast();
 const { isDark, themeMode, applyTheme, setThemeMode } = useTheme();
 const { checkingUpdates, updateInfo, updateCheckMessage, showUpdateDialog, isDownloadingUpdate, downloadProgress, updateReady, hasUpdateAvailable, openUrl, checkUpdates, openLatestRelease, downloadAndInstallUpdate, restartApp } = useAppUpdater();
@@ -834,6 +835,18 @@ function onAiRequestAutoExecuteSql(sql: string) {
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.defaultPrevented) return;
+
+  const switchNum = isSwitchModuleShortcut(e);
+  if (switchNum !== null) {
+    e.preventDefault();
+    e.stopPropagation();
+    const modules: ("dashboard" | "target" | "action" | "serve" | "keep")[] = ["dashboard", "target", "action", "serve", "keep"];
+    const targetModule = modules[switchNum - 1];
+    if (targetModule) {
+      activeModule.value = targetModule;
+    }
+    return;
+  }
 
   const shortcuts = settingsStore.editorSettings.shortcuts;
 

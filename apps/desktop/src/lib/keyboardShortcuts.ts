@@ -150,3 +150,13 @@ export function isBrowserReloadShortcut(event: ShortcutLikeEvent): boolean {
   if (key === "F5") return true;
   return key === "r" && (!!event.metaKey || !!event.ctrlKey);
 }
+
+export function isSwitchModuleShortcut(event: ShortcutLikeEvent): number | null {
+  if (event.isComposing || event.altKey || event.shiftKey) return null;
+  if (!event.metaKey && !event.ctrlKey) return null;
+  const key = normalizeKey(event.key);
+  if (key >= "1" && key <= "5") {
+    return parseInt(key, 10);
+  }
+  return null;
+}

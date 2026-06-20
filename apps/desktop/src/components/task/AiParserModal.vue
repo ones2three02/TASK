@@ -5,6 +5,7 @@ import { useTaskStore } from "@/stores/taskStore";
 import { parseRequirementWithAi, type ParsedRequirementResult, type RequirementReferenceDocument } from "@/lib/aiParser";
 import { useToast } from "@/composables/useToast";
 import { X, Sparkles, Loader2, CheckCircle, Circle, Target, ListTodo, AlertTriangle, ChevronRight, Upload, FileText, Trash2, Handshake, Archive } from "@lucide/vue";
+import { initializeProjectFolders } from "@/lib/taskFileSync";
 
 const props = defineProps<{
   open: boolean;
@@ -114,6 +115,12 @@ async function startAiParse() {
 function handleImport() {
   if (!parsedResult.value) return;
 
+  // Initialize physical folders if mapped to a local path
+  const activeProj = taskStore.projects.find((p) => p.id === taskStore.activeProjectId);
+  if (activeProj?.localPath) {
+    void initializeProjectFolders(activeProj.localPath);
+  }
+
   let targetsImported = 0;
   let actionsImported = 0;
   let servesImported = 0;
@@ -164,7 +171,10 @@ function handleImport() {
   // 3. Import selected actions
   parsedResult.value.actions.forEach((a, idx) => {
     if (selectedActions.value[idx]) {
-      taskStore.addAction(a.title, a.description, a.priority, a.dueDate || undefined, "todo", a.serveTitle ? serveIdByTitle.get(a.serveTitle) : undefined);
+      const devItems = (a.devItems || []).map((title) => ({ title, completed: false }));
+      const testItems = (a.testItems || []).map((title) => ({ title, completed: false }));
+      const outputItems = (a.outputItems || []).map((title) => ({ title, completed: false }));
+      taskStore.addAction(a.title, a.description, a.priority, a.dueDate || undefined, "todo", a.serveTitle ? serveIdByTitle.get(a.serveTitle) : undefined, false, "", "", undefined, "", devItems, testItems, outputItems);
       actionsImported++;
     }
   });
@@ -257,14 +267,16 @@ function formatFileSize(size: number) {
 
 function getPriorityColor(priority: string) {
   switch (priority) {
-    case "high":
-      return "bg-red-500";
-    case "medium":
-      return "bg-amber-500";
-    case "low":
-      return "bg-emerald-500";
+    case "P0":
+      return "bg-red-600 border-red-700 text-white";
+    case "P1":
+      return "bg-orange-500 border-orange-600 text-white";
+    case "P2":
+      return "bg-blue-500 border-blue-600 text-white";
+    case "P3":
+      return "bg-slate-400 border-slate-500 text-white";
     default:
-      return "bg-slate-500";
+      return "bg-slate-500 border-slate-600 text-white";
   }
 }
 </script>
@@ -439,7 +451,7 @@ function getPriorityColor(priority: string) {
                   <div class="flex items-center justify-between gap-2">
                     <h5 class="font-medium text-sm text-foreground" :class="{ 'opacity-60': !selectedActions[idx] }">{{ a.title }}</h5>
                     <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border shrink-0 text-white/90" :class="getPriorityColor(a.priority)">
-                      {{ a.priority === "high" ? "高" : a.priority === "medium" ? "中" : "低" }}
+                      {{ a.priority }}
                     </span>
                   </div>
                   <p class="text-xs text-muted-foreground mt-1 leading-relaxed" :class="{ 'opacity-55': !selectedActions[idx] }">{{ a.description }}</p>

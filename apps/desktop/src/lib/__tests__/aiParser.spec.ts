@@ -34,7 +34,7 @@ const validRequirementJson = JSON.stringify({
     {
       title: "梳理需求",
       description: "整理参考文档并拆分行动。",
-      priority: "high",
+      priority: "P1",
       serveTitle: "项目规划方案",
       dueDate: "",
     },
@@ -83,7 +83,7 @@ describe("aiParser", () => {
     {
       "title": "梳理需求",
       "description": "整理参考文档并拆分行动。",
-      "priority": "high",
+      "priority": "P1",
       "serveTitle": "项目规划方案",
       "dueDate": ""
     }
@@ -111,7 +111,7 @@ describe("aiParser", () => {
 `);
 
     expect(result.targets[0]?.title).toBe("上线 TASK 项目规划");
-    expect(result.actions[0]?.priority).toBe("high");
+    expect(result.actions[0]?.priority).toBe("P1");
     expect(result.serves[0]?.acceptanceChecklist).toContain("交付物明确");
     expect(result.keeps[0]?.type).toBe("document");
   });

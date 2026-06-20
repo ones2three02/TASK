@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTaskStore, type Target } from "@/stores/taskStore";
-import { Plus, Target as TargetIcon, Calendar, Trash2, Edit, CheckCircle2, Circle, AlertCircle, X, Sparkles } from "@lucide/vue";
+import { Plus, Target as TargetIcon, Calendar, Trash2, Edit, CheckCircle2, Circle, AlertCircle, X, Sparkles, ArrowUpRight } from "@lucide/vue";
 import AiParserModal from "@/components/task/AiParserModal.vue";
+import { useToast } from "@/composables/useToast";
 
 const showAiModal = ref(false);
 
@@ -175,6 +176,40 @@ function deleteTarget(id: string) {
   }
 }
 
+const { toast } = useToast();
+
+function deriveActionFromMilestone(target: Target, milestone: any) {
+  const actionTitle = `[🎯${target.title}] ${milestone.title}`;
+  const actionDesc = `派生自项目目标「${target.title}」下的里程碑：“${milestone.title}”。`;
+
+  const exists = taskStore.actions.some((a) => a.projectId === target.projectId && a.title === actionTitle);
+  if (exists) {
+    toast("看板中已存在相同的派生行动卡片，请勿重复派生");
+    return;
+  }
+
+  taskStore.addAction(
+    actionTitle,
+    actionDesc,
+    "P2",
+    undefined,
+    "todo",
+    undefined, // serveId
+    false, // blocked
+    "", // blockerReason
+    "", // evidence
+    undefined, // supersededById
+    "", // discardedReason
+    [], // devItems
+    [], // testItems
+    [], // outputItems
+    target.id,
+    milestone.id,
+  );
+
+  toast(`🚀 派生成功！已添加看板卡片: ${actionTitle}`);
+}
+
 function toggleMilestone(target: Target, milestoneId: string) {
   const targetCopy = { ...target };
   const milestone = targetCopy.milestones.find((m) => m.id === milestoneId);
@@ -194,6 +229,15 @@ function toggleSuccessCriterion(target: Target, criterionId: string) {
   const criterion = targetCopy.successCriteria?.find((c) => c.id === criterionId);
   if (criterion) {
     criterion.completed = !criterion.completed;
+    taskStore.updateTarget(targetCopy);
+  }
+}
+
+function toggleRisk(target: Target, riskId: string) {
+  const targetCopy = { ...target };
+  const risk = targetCopy.risks?.find((r) => r.id === riskId);
+  if (risk) {
+    risk.completed = !risk.completed;
     taskStore.updateTarget(targetCopy);
   }
 }
@@ -241,7 +285,11 @@ function getChecklistProgress(items: ChecklistDraft[] = []) {
             <Sparkles class="h-4 w-4" />
             AI 智能拆解
           </button>
-          <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1" @click="openAddDialog">
+          <button v-if="projectTargets.length > 0" class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1 cursor-pointer" @click="openEditDialog(projectTargets[0])">
+            <Edit class="h-4 w-4" />
+            修改章程
+          </button>
+          <button v-else class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1 cursor-pointer" @click="openAddDialog">
             <Plus class="h-4 w-4" />
             建立章程
           </button>
@@ -261,7 +309,7 @@ function getChecklistProgress(items: ChecklistDraft[] = []) {
     </div>
 
     <!-- Targets List -->
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-2" v-if="projectTargets.length > 0">
+    <div class="grid grid-cols-1 gap-4 max-w-4xl mx-auto w-full" v-if="projectTargets.length > 0">
       <div v-for="target in projectTargets" :key="target.id" class="group relative flex flex-col gap-4 p-5 rounded-xl border bg-background/40 hover:bg-muted/10 transition-all duration-300 shadow-sm hover:shadow-md border-border/80">
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
@@ -302,11 +350,25 @@ function getChecklistProgress(items: ChecklistDraft[] = []) {
             <span class="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-500">风险假设 {{ target.risks?.length ?? 0 }} 项</span>
           </div>
           <div v-if="target.successCriteria?.length" class="grid gap-1">
-            <button v-for="criterion in target.successCriteria.slice(0, 2)" :key="criterion.id" class="flex items-start gap-2 text-muted-foreground text-left py-1 hover:bg-muted/40 rounded px-1 transition-colors w-full min-w-0" @click="toggleSuccessCriterion(target, criterion.id)">
+            <button v-for="criterion in target.successCriteria" :key="criterion.id" class="flex items-start gap-2 text-muted-foreground text-left py-1 hover:bg-muted/40 rounded px-1 transition-colors w-full min-w-0" @click="toggleSuccessCriterion(target, criterion.id)">
               <CheckCircle2 v-if="criterion.completed" class="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
               <Circle v-else class="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 mt-0.5" />
               <span :class="{ 'line-through text-muted-foreground/60': criterion.completed }" class="flex-1 whitespace-normal break-words leading-normal">
                 {{ criterion.title }}
+              </span>
+            </button>
+          </div>
+          <!-- Risks -->
+          <div v-if="target.risks?.length" class="grid gap-1 border-t border-border/20 pt-2 mt-1">
+            <div class="text-[10px] font-semibold uppercase tracking-wider text-amber-500 mb-1 flex items-center gap-1">
+              <AlertCircle class="h-3 w-3" />
+              风险假设
+            </div>
+            <button v-for="risk in target.risks" :key="risk.id" class="flex items-start gap-2 text-muted-foreground text-left py-1 hover:bg-muted/40 rounded px-1 transition-colors w-full min-w-0" @click="toggleRisk(target, risk.id)">
+              <CheckCircle2 v-if="risk.completed" class="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+              <Circle v-else class="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 mt-0.5" />
+              <span :class="{ 'line-through text-muted-foreground/60': risk.completed }" class="flex-1 whitespace-normal break-words leading-normal">
+                {{ risk.title }}
               </span>
             </button>
           </div>
@@ -320,13 +382,20 @@ function getChecklistProgress(items: ChecklistDraft[] = []) {
           </div>
 
           <div class="grid gap-2 max-h-40 overflow-y-auto pr-1">
-            <button v-for="m in target.milestones" :key="m.id" class="flex items-start gap-2 text-xs py-1.5 px-2.5 rounded bg-muted/30 hover:bg-muted/60 text-left transition-colors w-full min-w-0" @click="toggleMilestone(target, m.id)">
-              <CheckCircle2 v-if="m.completed" class="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-              <Circle v-else class="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-              <span :class="{ 'line-through text-muted-foreground/60': m.completed }" class="flex-1 whitespace-normal break-words leading-normal">
-                {{ m.title }}
-              </span>
-            </button>
+            <div v-for="m in target.milestones" :key="m.id" class="group flex items-center justify-between gap-2 text-xs py-1 px-2.5 rounded bg-muted/30 hover:bg-muted/50 transition-colors w-full min-w-0">
+              <button class="flex items-start gap-2 text-left flex-1 min-w-0 py-1.5 cursor-pointer" @click="toggleMilestone(target, m.id)">
+                <CheckCircle2 v-if="m.completed" class="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                <Circle v-else class="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                <span :class="{ 'line-through text-muted-foreground/60': m.completed }" class="flex-1 whitespace-normal break-words leading-normal">
+                  {{ m.title }}
+                </span>
+              </button>
+
+              <!-- Derive Action Button -->
+              <button title="派生看板任务" class="h-6 w-6 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary flex items-center justify-center cursor-pointer shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="deriveActionFromMilestone(target, m)">
+                <ArrowUpRight class="h-3.5 w-3.5" />
+              </button>
+            </div>
             <div v-if="target.milestones.length === 0" class="text-xs text-muted-foreground/50 italic py-2 text-center">暂无里程碑，点击编辑目标来增加。</div>
           </div>
 

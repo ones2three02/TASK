@@ -1,7 +1,7 @@
 import { uuid } from "@/lib/utils";
 
-export type TaskActionStatus = "todo" | "in_progress" | "done";
-export type TaskPriority = "low" | "medium" | "high";
+export type TaskActionStatus = "todo" | "in_progress" | "done" | "discarded";
+export type TaskPriority = "P0" | "P1" | "P2" | "P3";
 export type ServeStatus = "draft" | "active" | "delivered" | "accepted" | "changes_requested";
 export type AcceptanceStatus = "pending" | "accepted" | "changes_requested";
 export type KeepType = "document" | "link" | "archive" | "evidence" | "version" | "retrospective";
@@ -67,6 +67,13 @@ export interface TaskAction {
   blocked?: boolean;
   blockerReason?: string;
   evidence?: string;
+  supersededById?: string;
+  discardedReason?: string;
+  devItems?: ChecklistItem[];
+  testItems?: ChecklistItem[];
+  outputItems?: ChecklistItem[];
+  targetId?: string;
+  milestoneId?: string;
 }
 
 export interface TaskServe {
@@ -196,6 +203,13 @@ export function normalizeAction(action: TaskAction): TaskAction {
     blocked: action.blocked === true,
     blockerReason: normalizeOptionalString(action.blockerReason),
     evidence: normalizeActionEvidence(action.evidence),
+    supersededById: normalizeOptionalString(action.supersededById),
+    discardedReason: normalizeOptionalString(action.discardedReason),
+    devItems: normalizeChecklistItems(action.devItems),
+    testItems: normalizeChecklistItems(action.testItems),
+    outputItems: normalizeChecklistItems(action.outputItems),
+    targetId: normalizeOptionalString(action.targetId),
+    milestoneId: normalizeOptionalString(action.milestoneId),
   };
 }
 
@@ -252,9 +266,9 @@ export function calculateActionStats(actions: TaskAction[], today = new Date().t
     inProgress: actions.filter((action) => action.status === "in_progress").length,
     done: actions.filter((action) => action.status === "done").length,
     overdue: overdueActions.length,
-    highPriority: actions.filter((action) => action.priority === "high").length,
-    mediumPriority: actions.filter((action) => action.priority === "medium").length,
-    lowPriority: actions.filter((action) => action.priority === "low").length,
+    highPriority: actions.filter((action) => action.priority === "P0" || action.priority === "P1").length,
+    mediumPriority: actions.filter((action) => action.priority === "P2").length,
+    lowPriority: actions.filter((action) => action.priority === "P3").length,
     percent: actions.length === 0 ? 0 : Math.round((actions.filter((action) => action.status === "done").length / actions.length) * 100),
   };
 }
@@ -465,6 +479,11 @@ export function buildProjectRetrospective(project: TaskProject, targets: TaskTar
     "## Keep 资产沉淀",
     `存档数量：${keepStats.total}，文档：${keepStats.documents}，链接：${keepStats.links}，归档包：${keepStats.archives}。`,
     ...keeps.map((keep) => `- ${keep.name}：${keep.type}`),
+    "",
+    "## 本项目最终意义与个人成长 (Keep)",
+    "- **核心技术沉淀**：我们在本项目中积累了哪些可复用的技术资产/避坑经验？",
+    "- **个人能力收获**：通过解决这些问题，我的技术广度或深度得到了怎样的锻炼？",
+    "- **结项最终价值**：这个项目做完后，对我后续开发或职业路径的最大意义是什么？",
     "",
     "## 经验教训",
     "- 哪些目标定义足够清楚？",

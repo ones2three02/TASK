@@ -566,11 +566,7 @@ const displayedAppVersion = computed(() => (props.appVersion ? `v${props.appVers
 type SettingsCategory = "editor" | "formatter" | "appearance" | "navigation" | "data" | "redis" | "shortcuts" | "snippets" | "sync" | "ai" | "mcp" | "security" | "about";
 const settingsCategoryNav = computed<{ value: SettingsCategory; label: string }[]>(() => [
   { value: "editor", label: t("settings.editorTab") },
-  { value: "formatter", label: t("settings.sqlFormatterTab") },
   { value: "appearance", label: t("settings.appearanceTab") },
-  { value: "navigation", label: t("settings.navigationTab") },
-  { value: "data", label: t("settings.dataTab") },
-  { value: "redis", label: t("settings.redisTab") },
   { value: "shortcuts", label: t("settings.shortcutsTab") },
   { value: "snippets", label: t("settings.snippetsTab") },
   ...(isWeb ? [] : [{ value: "sync" as const, label: t("settings.syncTab") }]),
@@ -579,7 +575,7 @@ const settingsCategoryNav = computed<{ value: SettingsCategory; label: string }[
   ...(isWeb ? [{ value: "security" as const, label: t("settings.securityTab") }] : []),
   { value: "about", label: t("settings.aboutTab") },
 ]);
-const settingsTabsWithApplyFooter = new Set<SettingsCategory>(["editor", "formatter", "appearance", "navigation", "data", "redis", "shortcuts", "snippets"]);
+const settingsTabsWithApplyFooter = new Set<SettingsCategory>(["editor", "appearance", "shortcuts", "snippets"]);
 
 function hasSettingsApplyFooter(value: SettingsCategory): boolean {
   return settingsTabsWithApplyFooter.has(value);
@@ -1155,9 +1151,12 @@ const previewSettings = computed<{
   customColors: getPreviewCustomThemeColors(),
 }));
 
-const previewSql = `SELECT u.id, u.name
-FROM users u
-ORDER BY u.id LIMIT 5;`;
+const previewJson = `{
+  "project": "TASK-app",
+  "version": "0.5.41",
+  "theme": "dark",
+  "features": ["T-layer", "A-layer", "S-layer", "K-layer", "Calendar"]
+}`;
 
 let fontThemeComp: import("@codemirror/state").Compartment | null = null;
 let themeComp: import("@codemirror/state").Compartment | null = null;
@@ -1194,7 +1193,7 @@ watch(previewRef, async (el) => {
   previewInitialized = true;
   if (previewView.value) return;
 
-  const [{ EditorView }, { EditorState, Compartment }, { sql, MySQL }, { basicSetup }] = await Promise.all([import("@codemirror/view"), import("@codemirror/state"), import("@codemirror/lang-sql"), import("codemirror")]);
+  const [{ EditorView }, { EditorState, Compartment }, { json }, { basicSetup }] = await Promise.all([import("@codemirror/view"), import("@codemirror/state"), import("@codemirror/lang-json"), import("codemirror")]);
 
   editorViewModule = { EditorView } as typeof import("@codemirror/view");
   fontThemeComp = new Compartment();
@@ -1204,8 +1203,8 @@ watch(previewRef, async (el) => {
   const themeExt = await loadEditorTheme(ss.theme, ss.appAppearance, ss.customColors);
 
   const state = EditorState.create({
-    doc: previewSql,
-    extensions: [basicSetup, sql({ dialect: MySQL }), themeComp.of(themeExt), fontThemeComp.of(editorFontTheme(EditorView, ss.fontSize, ss.fontFamily))],
+    doc: previewJson,
+    extensions: [basicSetup, json(), themeComp.of(themeExt), fontThemeComp.of(editorFontTheme(EditorView, ss.fontSize, ss.fontFamily))],
   });
 
   previewView.value = new EditorView({ state, parent: previewRef.value });
@@ -1323,37 +1322,12 @@ watch(
 
               <Separator />
 
-              <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                <div class="space-y-2">
-                  <Label>{{ t("settings.executeMode") }}</Label>
-                  <Select :model-value="editExecuteMode" @update:model-value="onExecuteModeChange">
-                    <SelectTrigger>
-                      <SelectValue :placeholder="t('settings.executeMode')" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{{ t("settings.executeModeAll") }}</SelectItem>
-                      <SelectItem value="current">{{ t("settings.executeModeCurrent") }}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div class="flex items-center justify-between gap-4 self-end rounded-md border bg-muted/20 px-3 py-2">
-                  <div class="space-y-1">
-                    <Label for="editor-word-wrap">{{ t("settings.wordWrap") }}</Label>
-                    <p class="text-xs text-muted-foreground">{{ t("settings.wordWrapDescription") }}</p>
-                  </div>
-                  <Switch id="editor-word-wrap" v-model="editWordWrap" class="mt-0.5" />
-                </div>
-              </div>
-
               <div class="flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
                 <div class="space-y-1">
-                  <Label for="editor-confirm-dangerous-sql">{{ t("settings.confirmDangerousSqlExecution") }}</Label>
-                  <p class="text-xs text-muted-foreground">
-                    {{ t("settings.confirmDangerousSqlExecutionDescription") }}
-                  </p>
+                  <Label for="editor-word-wrap">{{ t("settings.wordWrap") }}</Label>
+                  <p class="text-xs text-muted-foreground">{{ t("settings.wordWrapDescription") }}</p>
                 </div>
-                <Switch id="editor-confirm-dangerous-sql" v-model="editConfirmDangerousSqlExecution" class="mt-0.5" />
+                <Switch id="editor-word-wrap" v-model="editWordWrap" class="mt-0.5" />
               </div>
 
               <Separator />
@@ -1586,286 +1560,6 @@ watch(
                     {{ debugLogDownloaded ? t("settings.debugLogsDownloaded") : t("settings.debugLogsDownload") }}
                   </Button>
                 </div>
-              </div>
-
-              <Separator />
-
-              <div class="space-y-3">
-                <Label>{{ t("settings.dataGridDisplay") }}</Label>
-                <div class="flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
-                  <div class="space-y-1">
-                    <Label for="show-column-comments-in-header">
-                      {{ t("settings.showColumnCommentsInHeader") }}
-                    </Label>
-                    <p class="text-xs text-muted-foreground">
-                      {{ t("settings.showColumnCommentsInHeaderDescription") }}
-                    </p>
-                  </div>
-                  <Switch id="show-column-comments-in-header" v-model="editShowColumnCommentsInHeader" />
-                </div>
-                <div class="flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
-                  <div class="space-y-1">
-                    <Label for="show-column-types-in-header">
-                      {{ t("settings.showColumnTypesInHeader") }}
-                    </Label>
-                    <p class="text-xs text-muted-foreground">
-                      {{ t("settings.showColumnTypesInHeaderDescription") }}
-                    </p>
-                  </div>
-                  <Switch id="show-column-types-in-header" v-model="editShowColumnTypesInHeader" />
-                </div>
-                <div class="flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
-                  <div class="space-y-1">
-                    <Label for="compact-column-header-actions">
-                      {{ t("settings.compactColumnHeaderActions") }}
-                    </Label>
-                    <p class="text-xs text-muted-foreground">
-                      {{ t("settings.compactColumnHeaderActionsDescription") }}
-                    </p>
-                  </div>
-                  <Switch id="compact-column-header-actions" v-model="editCompactColumnHeaderActions" />
-                </div>
-              </div>
-
-              <Separator />
-
-              <div class="space-y-2">
-                <div class="flex items-center gap-2">
-                  <Label>{{ t("settings.toolbarTitle") }}</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger as-child>
-                        <CircleHelp class="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent class="max-w-64">
-                        <p>{{ t("settings.toolbarHiddenHint") }}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <div class="grid grid-cols-3 gap-2 mt-2">
-                  <div
-                    v-for="item in [
-                      { key: 'dataTransfer', label: t('transfer.dataTransfer') },
-                      { key: 'driverManager', label: t('toolbar.driverManager') },
-                      { key: 'sqlFile', label: t('sqlFile.title') },
-                      { key: 'schemaDiff', label: t('diff.title') },
-                      { key: 'dataCompare', label: t('dataCompare.title') },
-                      { key: 'checkUpdates', label: t('updates.check') },
-                      { key: 'sqlLibrary', label: t('sqlLibrary.title') },
-                      { key: 'history', label: t('history.title') },
-                      { key: 'ai', label: 'AI' },
-                      { key: 'theme', label: t('toolbar.theme') },
-                      { key: 'github', label: 'GitHub' },
-                    ]"
-                    :key="item.key"
-                    class="flex items-center gap-2"
-                  >
-                    <Switch :id="`toolbar-${item.key}`" :model-value="(editToolbarItems as any)[item.key]" @update:model-value="(v: boolean) => ((editToolbarItems as any)[item.key] = v)" />
-                    <Label :for="`toolbar-${item.key}`" class="text-sm cursor-pointer">{{ item.label }}</Label>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section v-else-if="activeSettingsTab === 'navigation'" class="flex flex-col gap-5 py-2">
-              <div class="space-y-2">
-                <Label>{{ t("settings.sidebarActivation") }}</Label>
-                <div class="grid grid-cols-2 gap-2">
-                  <Button type="button" variant="outline" class="h-auto justify-start border p-3" :class="editSidebarActivation === 'single' ? 'border-blue-300 ring-2 ring-blue-300/50' : ''" @click="setSidebarActivation('single')">
-                    <div class="text-left">
-                      <div class="text-sm font-medium">{{ t("settings.sidebarActivationSingle") }}</div>
-                      <div class="text-xs text-muted-foreground">
-                        {{ t("settings.sidebarActivationSingleDescription") }}
-                      </div>
-                    </div>
-                  </Button>
-                  <Button type="button" variant="outline" class="h-auto justify-start border p-3" :class="editSidebarActivation === 'double' ? 'border-blue-300 ring-2 ring-blue-300/50' : ''" @click="setSidebarActivation('double')">
-                    <div class="text-left">
-                      <div class="text-sm font-medium">{{ t("settings.sidebarActivationDouble") }}</div>
-                      <div class="text-xs text-muted-foreground">
-                        {{ t("settings.sidebarActivationDoubleDescription") }}
-                      </div>
-                    </div>
-                  </Button>
-                </div>
-              </div>
-              <div class="flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <Label for="reuse-data-tab">{{ t("settings.reuseDataTab") }}</Label>
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <CircleHelp class="h-3.5 w-3.5 cursor-help text-muted-foreground hover:text-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent class="max-w-[320px] text-xs leading-relaxed" side="top" align="start">
-                      {{ t("settings.reuseDataTabDescription") }}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <Switch id="reuse-data-tab" v-model="editReuseDataTab" />
-              </div>
-              <div class="space-y-2">
-                <Label>{{ t("settings.sidebarObjectDisplay") }}</Label>
-                <div class="grid grid-cols-2 gap-2">
-                  <Button type="button" variant="outline" class="h-auto justify-start border p-3" :class="editSidebarObjectDisplay === 'grouped' ? 'border-blue-300 ring-2 ring-blue-300/50' : ''" @click="setSidebarObjectDisplay('grouped')">
-                    <div class="text-left">
-                      <div class="flex items-center gap-2">
-                        <div class="text-sm font-medium">{{ t("settings.sidebarObjectDisplayGrouped") }}</div>
-                        <Tooltip :open="sidebarObjectDisplayHelp === 'grouped'">
-                          <TooltipTrigger as-child>
-                            <span class="inline-flex shrink-0 cursor-help text-muted-foreground hover:text-foreground" @click.stop @pointerdown.stop @mouseenter="sidebarObjectDisplayHelp = 'grouped'" @mouseleave="sidebarObjectDisplayHelp = null">
-                              <CircleHelp class="h-3.5 w-3.5" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent class="max-w-[320px] text-xs leading-relaxed" side="top" align="center" :side-offset="8">
-                            {{ t("settings.sidebarObjectDisplayGroupedDescription") }}
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
-                  </Button>
-                  <Button type="button" variant="outline" class="h-auto justify-start border p-3" :class="editSidebarObjectDisplay === 'simple' ? 'border-blue-300 ring-2 ring-blue-300/50' : ''" @click="setSidebarObjectDisplay('simple')">
-                    <div class="text-left">
-                      <div class="flex items-center gap-2">
-                        <div class="text-sm font-medium">{{ t("settings.sidebarObjectDisplaySimple") }}</div>
-                        <Tooltip :open="sidebarObjectDisplayHelp === 'simple'">
-                          <TooltipTrigger as-child>
-                            <span class="inline-flex shrink-0 cursor-help text-muted-foreground hover:text-foreground" @click.stop @pointerdown.stop @mouseenter="sidebarObjectDisplayHelp = 'simple'" @mouseleave="sidebarObjectDisplayHelp = null">
-                              <CircleHelp class="h-3.5 w-3.5" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent class="max-w-[320px] text-xs leading-relaxed" side="top" align="center" :side-offset="8">
-                            {{ t("settings.sidebarObjectDisplaySimpleDescription") }}
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
-                  </Button>
-                </div>
-              </div>
-              <div class="flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <Label for="auto-select-active-sidebar-node">{{ t("settings.autoSelectActiveSidebarNode") }}</Label>
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <CircleHelp class="h-3.5 w-3.5 cursor-help text-muted-foreground hover:text-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent class="max-w-[320px] text-xs leading-relaxed" side="top" align="start">
-                      {{ t("settings.autoSelectActiveSidebarNodeDescription") }}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <Switch id="auto-select-active-sidebar-node" v-model="editAutoSelectActiveSidebarNode" />
-              </div>
-              <div class="space-y-2 rounded-md border bg-muted/20 px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <Label for="disconnect-tab-handling-mode">{{ t("settings.disconnectTabHandlingMode") }}</Label>
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <CircleHelp class="h-3.5 w-3.5 cursor-help text-muted-foreground hover:text-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent class="max-w-[320px] text-xs leading-relaxed" side="top" align="start">
-                      {{ t("settings.disconnectTabHandlingModeDescription") }}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <Select :model-value="editDisconnectTabHandlingMode" @update:model-value="onDisconnectTabHandlingModeChange">
-                  <SelectTrigger id="disconnect-tab-handling-mode" class="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="close-tabs">{{ t("settings.disconnectTabHandlingModeCloseTabs") }}</SelectItem>
-                    <SelectItem value="keep-tabs-clear-results">
-                      {{ t("settings.disconnectTabHandlingModeKeepTabsClearResults") }}
-                    </SelectItem>
-                    <SelectItem value="keep-tabs-keep-results">
-                      {{ t("settings.disconnectTabHandlingModeKeepTabsKeepResults") }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p class="text-xs text-muted-foreground">
-                  {{ t(`settings.${disconnectTabHandlingModeDescriptionKey}`) }}
-                </p>
-              </div>
-              <div class="flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <Label for="sidebar-hide-table-comments">{{ t("settings.sidebarHideTableComments") }}</Label>
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <CircleHelp class="h-3.5 w-3.5 cursor-help text-muted-foreground hover:text-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent class="max-w-[320px] text-xs leading-relaxed" side="top" align="start">
-                      {{ t("settings.sidebarHideTableCommentsDescription") }}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <Switch id="sidebar-hide-table-comments" v-model="editSidebarHideTableComments" />
-              </div>
-              <div class="flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <Label for="sidebar-allow-horizontal-scroll">
-                    {{ t("settings.sidebarAllowHorizontalScroll") }}
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <CircleHelp class="h-3.5 w-3.5 cursor-help text-muted-foreground hover:text-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent class="max-w-[320px] text-xs leading-relaxed" side="top" align="start">
-                      {{ t("settings.sidebarAllowHorizontalScrollDescription") }}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <Switch id="sidebar-allow-horizontal-scroll" v-model="editSidebarAllowHorizontalScroll" />
-              </div>
-              <div class="space-y-2">
-                <Label for="sidebar-hidden-table-prefixes">{{ t("settings.sidebarHiddenTablePrefixes") }}</Label>
-                <textarea
-                  id="sidebar-hidden-table-prefixes"
-                  v-model="editSidebarHiddenTablePrefixes"
-                  class="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                  :placeholder="t('settings.sidebarHiddenTablePrefixesPlaceholder')"
-                />
-                <p class="text-xs text-muted-foreground">
-                  {{ t("settings.sidebarHiddenTablePrefixesDescription") }}
-                </p>
-              </div>
-            </section>
-
-            <!-- Data Tab -->
-            <section v-else-if="activeSettingsTab === 'data'" class="flex flex-col gap-5 py-2">
-              <div class="space-y-3">
-                <div class="text-sm font-medium text-muted-foreground">{{ t("settings.exportSection") }}</div>
-                <div class="space-y-2">
-                  <Label>{{ t("settings.exportBatchSize") }}</Label>
-                  <div class="flex items-center gap-3">
-                    <Input type="number" list="export-batch-sizes" min="100" max="100000" step="100" v-model.number="editExportBatchSize" class="h-9 w-28 [&::-webkit-inner-spin-button]:appearance-none" />
-                    <datalist id="export-batch-sizes">
-                      <option value="500" />
-                      <option value="1000" />
-                      <option value="2000" />
-                      <option value="5000" />
-                      <option value="10000" />
-                    </datalist>
-                    <span class="text-xs text-muted-foreground">{{ t("settings.exportBatchSizeDescription") }}</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section v-else-if="activeSettingsTab === 'redis'" class="flex flex-col gap-5 py-2">
-              <div class="space-y-2">
-                <Label>{{ t("settings.redisScanPageSize") }}</Label>
-                <Select :model-value="String(editRedisScanPageSize)" @update:model-value="onRedisScanPageSizeChange">
-                  <SelectTrigger>
-                    <SelectValue :placeholder="t('settings.redisScanPageSize')" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="size in redisScanPageSizeOptions" :key="size" :value="String(size)">
-                      {{ t("settings.redisScanPageSizeOption", { count: size }) }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p class="text-xs text-muted-foreground">{{ t("settings.redisScanPageSizeDescription") }}</p>
               </div>
             </section>
 
@@ -2286,16 +1980,6 @@ watch(
                     <p class="text-xs text-muted-foreground">{{ t("settings.mcpReadonlyModeDescription") }}</p>
                   </div>
                   <Switch id="mcp-readonly-mode" v-model="mcpReadonlyMode" />
-                </div>
-              </div>
-
-              <div class="space-y-2">
-                <div class="flex items-center justify-between gap-4 rounded-md border bg-muted/20 px-3 py-2">
-                  <div class="space-y-1">
-                    <Label for="mcp-allow-dangerous">{{ t("settings.mcpAllowDangerous") }}</Label>
-                    <p class="text-xs text-muted-foreground">{{ t("settings.mcpAllowDangerousDescription") }}</p>
-                  </div>
-                  <Switch id="mcp-allow-dangerous" v-model="mcpAllowDangerous" :disabled="mcpReadonlyMode" />
                 </div>
               </div>
 

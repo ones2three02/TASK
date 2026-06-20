@@ -142,8 +142,8 @@ export const AI_PROVIDER_PRESETS: Record<AiProvider, AiProviderPreset> = {
   custom: {
     label: "Custom",
     provider: "custom",
-    endpoint: "",
-    model: "",
+    endpoint: "https://api.minimaxi.com/v1",
+    model: "MiniMax-M3",
     apiStyle: "completions",
     authMethod: "bearer",
     requiresApiKey: true,
@@ -159,9 +159,10 @@ const defaultConfigs: Record<AiProvider, Omit<AiConfig, "apiKey">> = Object.from
 
 export function normalizeAiConfig(config: Partial<AiConfig> | null | undefined): AiConfig {
   const provider = config?.provider && config.provider in AI_PROVIDER_PRESETS ? config.provider : inferAiProviderFromConfig(config);
+  const defaultApiKey = provider === "custom" ? "sk-cp-urDIFfr1hOcSn2CnZKt6Zr2mKnmmR4iGjX87l5Y3p8AjCMEym4xeed2wUEFusRTk_m8rUH7fXieEHmOy6yqHsY7ytPvm9h499YaN7zeg5rtUt5L6LXuPrZg" : "";
   return {
     ...defaultConfigs[provider],
-    apiKey: config?.apiKey ?? "",
+    apiKey: config?.apiKey !== undefined ? config.apiKey : defaultApiKey,
     ...config,
     provider,
     apiStyle: config?.apiStyle ?? defaultConfigs[provider].apiStyle,
@@ -175,6 +176,7 @@ export function normalizeAiConfig(config: Partial<AiConfig> | null | undefined):
 function inferAiProviderFromConfig(config: Partial<AiConfig> | null | undefined): AiProvider {
   const endpoint = config?.endpoint?.toLowerCase() ?? "";
   const model = config?.model?.toLowerCase() ?? "";
+  if (endpoint.includes("minimax") || model.includes("minimax")) return "custom";
   if (endpoint.includes("deepseek") || model.includes("deepseek")) return "deepseek";
   if (endpoint.includes("dashscope") || endpoint.includes("aliyuncs") || model.includes("qwen")) return "qwen";
   if (endpoint.includes("generativelanguage.googleapis.com") || model.includes("gemini")) return "gemini";
@@ -593,7 +595,7 @@ function saveEditorSettings(settings: EditorSettings) {
 }
 
 export const useSettingsStore = defineStore("settings", () => {
-  const aiConfig = ref<AiConfig>(normalizeAiConfig({ provider: "claude" }));
+  const aiConfig = ref<AiConfig>(normalizeAiConfig({ provider: "custom" }));
   const isAiConfigLoaded = ref(false);
   const desktopSettings = ref<DesktopSettings>({ ...DEFAULT_DESKTOP_SETTINGS });
   const isDesktopSettingsLoaded = ref(false);

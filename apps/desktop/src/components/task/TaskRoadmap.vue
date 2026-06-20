@@ -4,11 +4,11 @@ import { useTaskStore } from "@/stores/taskStore";
 import { Target as TargetIcon, ListTodo as ActionIcon, HeartHandshake as ServeIcon, Archive as KeepIcon, Check, ChevronRight } from "@lucide/vue";
 
 const props = defineProps<{
-  activeModule: "target" | "action" | "serve" | "keep";
+  activeModule: "target" | "action" | "serve" | "keep" | "calendar" | "dashboard";
 }>();
 
 const emit = defineEmits<{
-  selectModule: [value: "target" | "action" | "serve" | "keep"];
+  selectModule: [value: "target" | "action" | "serve" | "keep" | "calendar" | "dashboard"];
 }>();
 
 const store = useTaskStore();

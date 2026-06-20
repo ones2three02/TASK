@@ -16,7 +16,7 @@ test("parses requirement JSON wrapped in markdown fences", () => {
     {
       "title": "梳理人员字段",
       "description": "明确人员基础信息字段、来源表和同步频率。",
-      "priority": "high"
+      "priority": "P1"
     }
   ]
 }
@@ -24,7 +24,7 @@ test("parses requirement JSON wrapped in markdown fences", () => {
 
   assert.equal(result.targets[0].title, "同步飞书多维表格");
   assert.deepEqual(result.targets[0].successCriteria, []);
-  assert.equal(result.actions[0].priority, "high");
+  assert.equal(result.actions[0].priority, "P1");
   assert.deepEqual(result.serves, []);
   assert.deepEqual(result.keeps, []);
 });
@@ -33,7 +33,7 @@ test("extracts the first balanced JSON object from model chatter", () => {
   const result = cleanAndParseRequirementJson(`下面是拆解结果：
 {
   "targets": [{"title": "建立同步闭环", "description": "保障数据准确同步。", "milestones": ["字段映射", "权限校验"]}],
-  "actions": [{"title": "确认飞书 API 权限", "description": "申请并验证多维表格写入权限。", "priority": "medium"}]
+  "actions": [{"title": "确认飞书 API 权限", "description": "申请并验证多维表格写入权限。", "priority": "P2"}]
 }
 以上内容供参考。`);
 
@@ -55,7 +55,7 @@ test("parses full TASK four-layer requirement planning output", () => {
   "actions": [{
     "title": "确认飞书 API 权限",
     "description": "申请并验证多维表格写入权限。",
-    "priority": "medium",
+    "priority": "P2",
     "serveTitle": "飞书同步方案交付",
     "dueDate": "2026-06-30"
   }],

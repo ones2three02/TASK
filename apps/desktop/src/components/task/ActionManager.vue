@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import { useTaskStore, type Action } from "@/stores/taskStore";
 import { useSettingsStore, AI_PROVIDER_PRESETS } from "@/stores/settingsStore";
 import { useToast } from "@/composables/useToast";
-import { suggestServeKeepWithAi } from "@/lib/aiParser";
-import { Plus, ListTodo, Calendar, Trash2, Edit, ArrowRight, ArrowLeft, MoreHorizontal, X, Trophy, Handshake, Archive, Loader2, Sparkles, CheckCircle2, Circle } from "@lucide/vue";
+import { uuid } from "@/lib/utils";
+import { suggestServeKeepWithAi, splitActionWithAi } from "@/lib/aiParser";
+import { Plus, ListTodo, Calendar, Trash2, Edit, ArrowRight, ArrowLeft, MoreHorizontal, X, Trophy, Handshake, Archive, Loader2, Sparkles, CheckCircle2, Circle, Target as TargetIcon, ChevronDown, ChevronRight, HelpCircle } from "@lucide/vue";
 
 const taskStore = useTaskStore();
 const today = new Date().toISOString().slice(0, 10);
 const statusFilter = ref<"all" | "todo" | "in_progress" | "done">("all");
-const priorityFilter = ref<"all" | "low" | "medium" | "high">("all");
+const priorityFilter = ref<"all" | "P0" | "P1" | "P2" | "P3">("all");
 const dateFilter = ref<"all" | "overdue" | "next7" | "none">("all");
 const lifecycleFilter = ref<"all" | "unlinked" | "blocked" | "withEvidence">("all");
 
@@ -50,59 +51,46 @@ const doneActions = computed(() => filteredProjectActions.value.filter((a) => a.
 const settingsStore = useSettingsStore();
 const { toast } = useToast();
 
-// Celebrate & AI S/K Suggestion state
+// Celebrate state
 const showCelebrateDialog = ref(false);
-const celebrateLoading = ref(false);
 const celebratedProjectId = ref("");
-const suggestedServe = ref<{ title: string; client: string; deliverable: string; description: string } | null>(null);
-const suggestedKeeps = ref<{ name: string; type: "document" | "link"; content: string; selected: boolean }[]>([]);
 
 // Watch if all actions in current project are finished
 watch(
   () => [projectActions.value.length, doneActions.value.length, taskStore.activeProjectId],
-  async (newVal) => {
+  (newVal) => {
     const [total, done, activeProjId] = newVal as [number, number, string];
     if (total > 0 && done === total && celebratedProjectId.value !== activeProjId) {
       celebratedProjectId.value = activeProjId;
       showCelebrateDialog.value = true;
-
-      const preset = AI_PROVIDER_PRESETS[settingsStore.aiConfig.provider];
-      const isAiConfigured = !!settingsStore.aiConfig.endpoint && !!settingsStore.aiConfig.model && (!preset.requiresApiKey || !!settingsStore.aiConfig.apiKey);
-
-      if (isAiConfigured) {
-        celebrateLoading.value = true;
-        suggestedServe.value = null;
-        suggestedKeeps.value = [];
-        try {
-          const activeProj = taskStore.projects.find((p) => p.id === activeProjId);
-          const res = await suggestServeKeepWithAi(
-            settingsStore.aiConfig,
-            { name: activeProj?.name || "我的项目", description: activeProj?.description || "" },
-            projectActions.value.map((a) => ({ title: a.title, description: a.description || "" })),
-          );
-          suggestedServe.value = res.serve;
-          suggestedKeeps.value = res.keep.map((k) => ({ ...k, selected: true }));
-        } catch (e) {
-          console.error("AI S/K auto suggest error:", e);
-        } finally {
-          celebrateLoading.value = false;
-        }
-      }
     }
   },
 );
 
-function acceptCelebrateSuggestions() {
-  if (suggestedServe.value) {
-    taskStore.addServe(suggestedServe.value.title, suggestedServe.value.description, suggestedServe.value.deliverable, suggestedServe.value.client, "delivered");
-  }
-  suggestedKeeps.value.forEach((k) => {
-    if (k.selected) {
-      taskStore.addKeep(k.name, k.type as any, k.content);
+const aiSplitting = ref(false);
+
+async function handleAiSplitAction() {
+  if (!formTitle.value.trim()) return;
+  aiSplitting.value = true;
+  try {
+    const result = await splitActionWithAi(settingsStore.aiConfig, formTitle.value.trim(), formDescription.value.trim());
+
+    if (result.devItems && result.devItems.length > 0) {
+      formDevItems.value = result.devItems.map((title) => ({ id: uuid(), title, completed: false }));
     }
-  });
-  toast("已为您自动生成服务交付总结 (S) 和归档资产记录 (K)！", 3000);
-  showCelebrateDialog.value = false;
+    if (result.testItems && result.testItems.length > 0) {
+      formTestItems.value = result.testItems.map((title) => ({ id: uuid(), title, completed: false }));
+    }
+    if (result.outputItems && result.outputItems.length > 0) {
+      formOutputItems.value = result.outputItems.map((title) => ({ id: uuid(), title, completed: false }));
+    }
+    toast("✨ AI 任务拆解成功！");
+  } catch (e: any) {
+    console.error("AI split action failed", e);
+    toast(`AI 拆解失败: ${e?.message || e}`);
+  } finally {
+    aiSplitting.value = false;
+  }
 }
 
 // Dialog state
@@ -111,27 +99,152 @@ const isEdit = ref(false);
 const editId = ref("");
 const formTitle = ref("");
 const formDescription = ref("");
-const formPriority = ref<"low" | "medium" | "high">("medium");
+const formPriority = ref<"P0" | "P1" | "P2" | "P3">("P2");
 const formDueDate = ref("");
-const formStatus = ref<"todo" | "in_progress" | "done">("todo");
+const formStatus = ref<"todo" | "in_progress" | "done" | "discarded">("todo");
 const formServeId = ref("");
 const formBlocked = ref(false);
 const formBlockerReason = ref("");
 const formEvidence = ref("");
+const formDiscardedReason = ref("");
+const formSupersededById = ref("");
+const showDiscardedList = ref(false);
 
-function openAddDialog(status: "todo" | "in_progress" | "done" = "todo") {
+const activeLifecycleTab = ref<"dev" | "test" | "output">("dev");
+
+function adjustTextareaHeight(e: Event) {
+  const el = e.target as HTMLTextAreaElement;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
+function initAllTextareaHeights() {
+  nextTick(() => {
+    const textareas = document.querySelectorAll(".lifecycle-textarea");
+    textareas.forEach((ta) => {
+      const el = ta as HTMLTextAreaElement;
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    });
+  });
+}
+
+watch(activeLifecycleTab, () => {
+  initAllTextareaHeights();
+});
+
+const formDevItems = ref<{ id: string; title: string; completed: boolean }[]>([]);
+const formTestItems = ref<{ id: string; title: string; completed: boolean }[]>([]);
+const formOutputItems = ref<{ id: string; title: string; completed: boolean }[]>([]);
+const formTargetId = ref("");
+const formMilestoneId = ref("");
+
+const activeProjectTargets = computed(() => {
+  return taskStore.targets.filter((t) => t.projectId === taskStore.activeProjectId);
+});
+
+const selectedTargetMilestones = computed(() => {
+  if (!formTargetId.value) return [];
+  const target = taskStore.targets.find((t) => t.id === formTargetId.value);
+  return target ? target.milestones : [];
+});
+
+function addFormDevItem() {
+  formDevItems.value.push({ id: uuid(), title: "", completed: false });
+}
+function removeFormDevItem(id: string) {
+  formDevItems.value = formDevItems.value.filter((item) => item.id !== id);
+}
+
+function addFormTestItem() {
+  formTestItems.value.push({ id: uuid(), title: "", completed: false });
+}
+function removeFormTestItem(id: string) {
+  formTestItems.value = formTestItems.value.filter((item) => item.id !== id);
+}
+
+function addFormOutputItem() {
+  formOutputItems.value.push({ id: uuid(), title: "", completed: false });
+}
+function removeFormOutputItem(id: string) {
+  formOutputItems.value = formOutputItems.value.filter((item) => item.id !== id);
+}
+
+function sanitizeChecklist(items: { id: string; title: string; completed: boolean }[]) {
+  return items.map((i) => ({ ...i, title: i.title.trim() })).filter((i) => i.title.length > 0);
+}
+
+const discardedActions = computed(() => {
+  return projectActions.value.filter((a) => a.status === "discarded");
+});
+
+const activeProjectActionsExceptSelf = computed(() => {
+  return taskStore.actions.filter((a) => a.projectId === taskStore.activeProjectId && a.id !== editId.value && a.status !== "discarded");
+});
+
+function getSupersededTitle(id?: string) {
+  if (!id) return "";
+  return taskStore.actions.find((a) => a.id === id)?.title || "未知行动";
+}
+
+function convertActionToKeep() {
+  if (!editId.value) return;
+  const action = taskStore.actions.find((a) => a.id === editId.value);
+  if (!action) return;
+
+  const keepName = prompt("请输入要沉淀的知识文档名称：", `避坑笔记 - ${action.title.replace(/^\[.*?\]\s*/, "")}`);
+  if (keepName === null) return;
+  if (!keepName.trim()) {
+    toast("知识名称不能为空");
+    return;
+  }
+
+  let keepContent = `## 1. 知识沉淀背景\n- **来源行动**: ${action.title}\n- **行动描述**: ${action.description || "无"}\n\n` + `## 2. 问题分析与解决方案\n- **攻克的技术难点/解决方案**:\n*(请在此记录如何解决该问题的细节及核心代码/配置)*\n\n`;
+
+  if (action.devItems && action.devItems.length > 0) {
+    keepContent += `## 3. 开发实现明细\n`;
+    action.devItems.forEach((i) => {
+      keepContent += `- [${i.completed ? "x" : " "}] ${i.title}\n`;
+    });
+    keepContent += `\n`;
+  }
+
+  if (action.evidence) {
+    keepContent += `## 4. 运行/自测证据结论\n- ${action.evidence}\n`;
+  }
+
+  taskStore.addKeep(keepName.trim(), "document", keepContent, action.serveId, action.id);
+  const activeProj = taskStore.projects.find((p) => p.id === taskStore.activeProjectId);
+  if (activeProj?.localPath) {
+    toast(`🎉 成功沉淀为知识！已同步至本地 4_KEEP/knowledge/${keepName.trim().replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]/g, "_")}.md`);
+  } else {
+    toast(`🎉 成功添加 Keep 知识资产：“${keepName}”`);
+  }
+  showDialog.value = false;
+}
+
+function openAddDialog(status: "todo" | "in_progress" | "done" | "discarded" = "todo") {
   isEdit.value = false;
   editId.value = "";
   formTitle.value = "";
   formDescription.value = "";
-  formPriority.value = "medium";
+  formPriority.value = "P2";
   formDueDate.value = "";
   formStatus.value = status;
   formServeId.value = "";
   formBlocked.value = false;
   formBlockerReason.value = "";
   formEvidence.value = "";
+  formDiscardedReason.value = "";
+  formSupersededById.value = "";
+  formDevItems.value = [];
+  formTestItems.value = [];
+  formOutputItems.value = [];
+  formTargetId.value = "";
+  formMilestoneId.value = "";
+  activeLifecycleTab.value = "dev";
   showDialog.value = true;
+  initAllTextareaHeights();
 }
 
 function openEditDialog(action: Action) {
@@ -146,7 +259,16 @@ function openEditDialog(action: Action) {
   formBlocked.value = action.blocked || false;
   formBlockerReason.value = action.blockerReason || "";
   formEvidence.value = action.evidence || "";
+  formDiscardedReason.value = action.discardedReason || "";
+  formSupersededById.value = action.supersededById || "";
+  formDevItems.value = (action.devItems ?? []).map((i) => ({ ...i }));
+  formTestItems.value = (action.testItems ?? []).map((i) => ({ ...i }));
+  formOutputItems.value = (action.outputItems ?? []).map((i) => ({ ...i }));
+  formTargetId.value = action.targetId || "";
+  formMilestoneId.value = action.milestoneId || "";
+  activeLifecycleTab.value = "dev";
   showDialog.value = true;
+  initAllTextareaHeights();
 }
 
 function submitForm() {
@@ -155,6 +277,11 @@ function submitForm() {
   const serveId = formServeId.value || undefined;
   const blockerReason = formBlocked.value ? formBlockerReason.value.trim() : "";
   const evidence = formEvidence.value.trim();
+  const devItems = sanitizeChecklist(formDevItems.value);
+  const testItems = sanitizeChecklist(formTestItems.value);
+  const outputItems = sanitizeChecklist(formOutputItems.value);
+  const supersededById = formStatus.value === "discarded" ? formSupersededById.value || undefined : undefined;
+  const discardedReason = formStatus.value === "discarded" ? formDiscardedReason.value.trim() : "";
 
   if (isEdit.value) {
     const existing = taskStore.actions.find((a) => a.id === editId.value);
@@ -168,10 +295,34 @@ function submitForm() {
       existing.blocked = formBlocked.value;
       existing.blockerReason = blockerReason;
       existing.evidence = evidence;
+      existing.discardedReason = discardedReason;
+      existing.supersededById = supersededById;
+      existing.devItems = devItems;
+      existing.testItems = testItems;
+      existing.outputItems = outputItems;
+      existing.targetId = formTargetId.value || undefined;
+      existing.milestoneId = formMilestoneId.value || undefined;
       taskStore.updateAction(existing);
     }
   } else {
-    taskStore.addAction(formTitle.value.trim(), formDescription.value.trim(), formPriority.value, formDueDate.value || undefined, formStatus.value, serveId, formBlocked.value, blockerReason, evidence);
+    taskStore.addAction(
+      formTitle.value.trim(),
+      formDescription.value.trim(),
+      formPriority.value,
+      formDueDate.value || undefined,
+      formStatus.value,
+      serveId,
+      formBlocked.value,
+      blockerReason,
+      evidence,
+      supersededById,
+      discardedReason,
+      devItems,
+      testItems,
+      outputItems,
+      formTargetId.value || undefined,
+      formMilestoneId.value || undefined,
+    );
   }
   showDialog.value = false;
 }
@@ -195,26 +346,21 @@ function moveAction(action: Action, direction: "next" | "prev") {
 }
 
 // Visuals for Priority
-function getPriorityBadge(priority: "low" | "medium" | "high") {
+function getPriorityBadge(priority: "P0" | "P1" | "P2" | "P3") {
   switch (priority) {
-    case "high":
-      return "bg-red-500/10 text-red-500 border-red-500/20";
-    case "medium":
-      return "bg-amber-500/10 text-amber-500 border-amber-500/20";
-    case "low":
-      return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+    case "P0":
+      return "bg-red-500/15 text-red-500 border-red-500/30";
+    case "P1":
+      return "bg-orange-500/15 text-orange-500 border-orange-500/30";
+    case "P2":
+      return "bg-blue-500/15 text-blue-500 border-blue-500/30";
+    case "P3":
+      return "bg-slate-500/15 text-slate-500 border-slate-500/30";
   }
 }
 
-function getPriorityLabel(priority: "low" | "medium" | "high") {
-  switch (priority) {
-    case "high":
-      return "高";
-    case "medium":
-      return "中";
-    case "low":
-      return "低";
-  }
+function getPriorityLabel(priority: "P0" | "P1" | "P2" | "P3") {
+  return priority;
 }
 
 function isActionOverdue(action: Action) {
@@ -226,6 +372,11 @@ function getActionServeTitle(action: Action) {
   return taskStore.serves.find((serve) => serve.id === action.serveId)?.title || "关联交付项已删除";
 }
 
+function getActionTargetTitle(targetId?: string) {
+  if (!targetId) return "";
+  return taskStore.targets.find((target) => target.id === targetId)?.title || "关联目标已删除";
+}
+
 function hasActionEvidence(action: Action) {
   return !!action.evidence?.trim();
 }
@@ -233,6 +384,27 @@ function hasActionEvidence(action: Action) {
 function getSummary(text?: string) {
   const trimmed = text?.trim() || "";
   return trimmed.length > 44 ? `${trimmed.slice(0, 44)}...` : trimmed;
+}
+
+function getActionChecklistStats(action: Action) {
+  const devTotal = action.devItems?.length ?? 0;
+  const devDone = action.devItems?.filter((i) => i.completed).length ?? 0;
+
+  const testTotal = action.testItems?.length ?? 0;
+  const testDone = action.testItems?.filter((i) => i.completed).length ?? 0;
+
+  const outTotal = action.outputItems?.length ?? 0;
+  const outDone = action.outputItems?.filter((i) => i.completed).length ?? 0;
+
+  return {
+    devTotal,
+    devDone,
+    testTotal,
+    testDone,
+    outTotal,
+    outDone,
+    hasStats: devTotal > 0 || testTotal > 0 || outTotal > 0,
+  };
 }
 </script>
 
@@ -269,9 +441,10 @@ function getSummary(text?: string) {
           优先级筛选
           <select v-model="priorityFilter" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
             <option value="all">全部优先级</option>
-            <option value="high">高优先级</option>
-            <option value="medium">中优先级</option>
-            <option value="low">低优先级</option>
+            <option value="P0">P0 - Blocker</option>
+            <option value="P1">P1 - High</option>
+            <option value="P2">P2 - Medium</option>
+            <option value="P3">P3 - Low</option>
           </select>
         </label>
 
@@ -331,9 +504,27 @@ function getSummary(text?: string) {
               <p class="text-xs text-muted-foreground line-clamp-2 leading-relaxed" v-if="action.description">
                 {{ action.description }}
               </p>
-              <div v-if="getActionServeTitle(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
-                <Handshake class="h-3 w-3 shrink-0" />
-                <span class="truncate">{{ getActionServeTitle(action) }}</span>
+              <!-- Checklist stats indicators -->
+              <div v-if="getActionChecklistStats(action).hasStats" class="flex flex-wrap items-center gap-1.5 mt-1">
+                <span v-if="getActionChecklistStats(action).devTotal > 0" class="inline-flex items-center gap-1 text-[9px] font-medium text-blue-500 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded">
+                  💻 Dev {{ getActionChecklistStats(action).devDone }}/{{ getActionChecklistStats(action).devTotal }}
+                </span>
+                <span v-if="getActionChecklistStats(action).testTotal > 0" class="inline-flex items-center gap-1 text-[9px] font-medium text-purple-500 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">
+                  🧪 Test {{ getActionChecklistStats(action).testDone }}/{{ getActionChecklistStats(action).testTotal }}
+                </span>
+                <span v-if="getActionChecklistStats(action).outTotal > 0" class="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                  📦 Out {{ getActionChecklistStats(action).outDone }}/{{ getActionChecklistStats(action).outTotal }}
+                </span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <div v-if="getActionTargetTitle(action.targetId)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                  <TargetIcon class="h-3 w-3 shrink-0 text-emerald-500" />
+                  <span class="truncate">目标: {{ getActionTargetTitle(action.targetId) }}</span>
+                </div>
+                <div v-if="getActionServeTitle(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                  <Handshake class="h-3 w-3 shrink-0" />
+                  <span class="truncate">{{ getActionServeTitle(action) }}</span>
+                </div>
               </div>
               <div v-if="action.blocked" class="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-600">
                 <div class="font-semibold">阻塞中</div>
@@ -398,9 +589,27 @@ function getSummary(text?: string) {
               <p class="text-xs text-muted-foreground line-clamp-2 leading-relaxed" v-if="action.description">
                 {{ action.description }}
               </p>
-              <div v-if="getActionServeTitle(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
-                <Handshake class="h-3 w-3 shrink-0" />
-                <span class="truncate">{{ getActionServeTitle(action) }}</span>
+              <!-- Checklist stats indicators -->
+              <div v-if="getActionChecklistStats(action).hasStats" class="flex flex-wrap items-center gap-1.5 mt-1">
+                <span v-if="getActionChecklistStats(action).devTotal > 0" class="inline-flex items-center gap-1 text-[9px] font-medium text-blue-500 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded">
+                  💻 Dev {{ getActionChecklistStats(action).devDone }}/{{ getActionChecklistStats(action).devTotal }}
+                </span>
+                <span v-if="getActionChecklistStats(action).testTotal > 0" class="inline-flex items-center gap-1 text-[9px] font-medium text-purple-500 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">
+                  🧪 Test {{ getActionChecklistStats(action).testDone }}/{{ getActionChecklistStats(action).testTotal }}
+                </span>
+                <span v-if="getActionChecklistStats(action).outTotal > 0" class="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                  📦 Out {{ getActionChecklistStats(action).outDone }}/{{ getActionChecklistStats(action).outTotal }}
+                </span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <div v-if="getActionTargetTitle(action.targetId)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                  <TargetIcon class="h-3 w-3 shrink-0 text-emerald-500" />
+                  <span class="truncate">目标: {{ getActionTargetTitle(action.targetId) }}</span>
+                </div>
+                <div v-if="getActionServeTitle(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                  <Handshake class="h-3 w-3 shrink-0" />
+                  <span class="truncate">{{ getActionServeTitle(action) }}</span>
+                </div>
               </div>
               <div v-if="action.blocked" class="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-600">
                 <div class="font-semibold">阻塞中</div>
@@ -467,9 +676,27 @@ function getSummary(text?: string) {
               <p class="text-xs text-muted-foreground/60 line-clamp-2 leading-relaxed" v-if="action.description">
                 {{ action.description }}
               </p>
-              <div v-if="getActionServeTitle(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
-                <Handshake class="h-3 w-3 shrink-0" />
-                <span class="truncate">{{ getActionServeTitle(action) }}</span>
+              <!-- Checklist stats indicators -->
+              <div v-if="getActionChecklistStats(action).hasStats" class="flex flex-wrap items-center gap-1.5 mt-1 opacity-70">
+                <span v-if="getActionChecklistStats(action).devTotal > 0" class="inline-flex items-center gap-1 text-[9px] font-medium text-blue-500 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded">
+                  💻 Dev {{ getActionChecklistStats(action).devDone }}/{{ getActionChecklistStats(action).devTotal }}
+                </span>
+                <span v-if="getActionChecklistStats(action).testTotal > 0" class="inline-flex items-center gap-1 text-[9px] font-medium text-purple-500 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">
+                  🧪 Test {{ getActionChecklistStats(action).testDone }}/{{ getActionChecklistStats(action).testTotal }}
+                </span>
+                <span v-if="getActionChecklistStats(action).outTotal > 0" class="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                  📦 Out {{ getActionChecklistStats(action).outDone }}/{{ getActionChecklistStats(action).outTotal }}
+                </span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <div v-if="getActionTargetTitle(action.targetId)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                  <TargetIcon class="h-3 w-3 shrink-0 text-emerald-500" />
+                  <span class="truncate">目标: {{ getActionTargetTitle(action.targetId) }}</span>
+                </div>
+                <div v-if="getActionServeTitle(action)" class="inline-flex w-fit max-w-full items-center gap-1 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                  <Handshake class="h-3 w-3 shrink-0" />
+                  <span class="truncate">{{ getActionServeTitle(action) }}</span>
+                </div>
               </div>
               <div v-if="action.blocked" class="rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-600">
                 <div class="font-semibold">阻塞中</div>
@@ -503,40 +730,168 @@ function getSummary(text?: string) {
       </div>
     </div>
 
-    <!-- Dialog Modal -->
-    <div v-if="showDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div class="w-full max-w-[520px] max-h-[90vh] overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
-        <button class="absolute top-4 right-4 h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground" @click="showDialog = false">
+    <!-- Discarded Actions Archive (Collapsible) -->
+    <div v-if="discardedActions.length > 0" class="mt-6 rounded-xl border border-red-500/20 bg-red-500/5 p-4 flex flex-col gap-3">
+      <button class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-red-500/80 cursor-pointer" @click="showDiscardedList = !showDiscardedList">
+        <span class="flex items-center gap-1.5">
+          <Archive class="h-4 w-4 animate-pulse" />
+          已废弃/被替代的行动历史 ({{ discardedActions.length }})
+        </span>
+        <span class="text-xs font-bold">{{ showDiscardedList ? "收起 ▲" : "展开 ▼" }}</span>
+      </button>
+
+      <div v-show="showDiscardedList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2 animate-in fade-in duration-200">
+        <div v-for="action in discardedActions" :key="action.id" class="rounded-xl border border-red-500/10 bg-background/60 p-4 shadow-sm relative flex flex-col gap-2">
+          <div class="flex items-start justify-between gap-4">
+            <h4 class="font-medium text-sm leading-snug line-through text-muted-foreground">{{ action.title }}</h4>
+            <div class="flex gap-1.5 shrink-0">
+              <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer" @click="openEditDialog(action)">
+                <Edit class="h-3.5 w-3.5" />
+              </button>
+              <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 cursor-pointer" @click="deleteAction(action.id)">
+                <Trash2 class="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          <p v-if="action.description" class="text-xs text-muted-foreground/80 line-clamp-2 leading-relaxed">{{ action.description }}</p>
+
+          <div v-if="action.discardedReason" class="text-[11px] text-red-500 bg-red-500/5 border border-red-500/10 rounded-md p-1.5 leading-normal"><strong>废弃原因：</strong>{{ action.discardedReason }}</div>
+
+          <div v-if="getSupersededTitle(action.supersededById)" class="text-[10px] text-indigo-500 font-semibold flex items-center gap-1">
+            <ArrowRight class="h-3 w-3 shrink-0" />
+            替代行动：{{ getSupersededTitle(action.supersededById) }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dialog Drawer Backdrop -->
+    <div v-if="showDialog" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-opacity duration-300" @click="showDialog = false"></div>
+
+    <!-- Dialog Drawer Container -->
+    <div v-if="showDialog" class="fixed inset-y-0 right-0 z-50 w-full max-w-[500px] border-l border-border bg-background shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-300">
+      <!-- Header -->
+      <div class="flex items-center justify-between p-6 border-b border-border/60 shrink-0">
+        <h3 class="text-base font-semibold text-foreground">{{ isEdit ? "修改行动详情" : "发起新行动" }}</h3>
+        <button class="h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer" @click="showDialog = false">
           <X class="h-4 w-4" />
         </button>
+      </div>
 
-        <h3 class="text-base font-semibold">{{ isEdit ? "修改行动详情" : "发起新行动" }}</h3>
+      <!-- Scrollable Form Content -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- Title -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-foreground">行动名称</label>
+          <input
+            v-model="formTitle"
+            type="text"
+            placeholder="例如：对接第三方API接口"
+            class="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
 
-        <div class="flex flex-col gap-4">
-          <!-- Title -->
+        <!-- Description -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-foreground">具体任务描述</label>
+          <textarea
+            v-model="formDescription"
+            placeholder="行动具体的执行内容、边界和负责人等..."
+            rows="3"
+            class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+          />
+        </div>
+
+        <!-- Priority with Tooltip -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-foreground flex items-center gap-1">
+              优先级
+              <span class="group relative cursor-pointer text-muted-foreground hover:text-primary">
+                <span class="text-[10px] border border-muted-foreground/30 rounded-full h-4 w-4 inline-flex items-center justify-center font-mono font-bold">i</span>
+                <!-- Tooltip content -->
+                <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-popover border text-[11px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed">
+                  <strong class="text-red-500 block mb-1">🔴 P0 - 阻塞特急:</strong> 核心流程阻塞，需即刻解决或给出替代方案。<br />
+                  <strong class="text-orange-500 block mb-1">🟠 P1 - 关键高优:</strong> 本迭代/里程碑必须完成的首要任务。<br />
+                  <strong class="text-blue-500 block mb-1">🔵 P2 - 重要中优:</strong> 例行需求开发，正常按计划推进。<br />
+                  <strong class="text-slate-500 block mb-1">⚪ P3 - 低优建议:</strong> 体验优化、零星重构或无时限想法。
+                </span>
+              </span>
+            </label>
+          </div>
+          <div class="grid grid-cols-4 gap-2">
+            <button
+              v-for="p in ['P0', 'P1', 'P2', 'P3'] as const"
+              :key="p"
+              type="button"
+              class="h-9 rounded-md border text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer"
+              :class="formPriority === p ? getPriorityBadge(p) + ' border-current' : 'border-border hover:bg-muted text-muted-foreground'"
+              @click="formPriority = p"
+            >
+              {{ p }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Meta Grid -->
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <!-- Due Date -->
           <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">行动名称</label>
-            <input
-              v-model="formTitle"
-              type="text"
-              placeholder="例如：对接第三方API接口"
-              class="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
+            <label class="text-xs font-semibold text-foreground">截止日期（可选）</label>
+            <input v-model="formDueDate" type="date" class="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
           </div>
 
-          <!-- Description -->
+          <!-- Action Status -->
           <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">具体任务描述</label>
+            <label class="text-xs font-semibold text-foreground">行动状态</label>
+            <select v-model="formStatus" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              <option value="todo">待办</option>
+              <option value="in_progress">进行中</option>
+              <option value="done">已完成</option>
+              <option value="discarded">已废弃/代替</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Discarded Reason & Lineage (Shows when discarded is selected) -->
+        <div v-if="formStatus === 'discarded'" class="space-y-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3 animate-in fade-in duration-150">
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-red-500">变更/废弃原因说明</label>
             <textarea
-              v-model="formDescription"
-              placeholder="行动具体的执行内容、边界和负责人等..."
-              rows="3"
-              class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+              v-model="formDiscardedReason"
+              placeholder="说明废弃本行动的原因或相关背景变更..."
+              rows="2"
+              class="w-full rounded-md border border-red-500/30 bg-background px-3 py-2 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
             />
           </div>
+          <div class="space-y-1.5" v-if="activeProjectActionsExceptSelf.length > 0">
+            <label class="text-xs font-medium text-muted-foreground">替代的新行动 (可选)</label>
+            <select v-model="formSupersededById" class="h-9 w-full rounded-md border border-input bg-background px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              <option value="">暂无替代行动</option>
+              <option v-for="act in activeProjectActionsExceptSelf" :key="act.id" :value="act.id">{{ act.title }}</option>
+            </select>
+          </div>
+        </div>
 
+        <!-- Blocked and Reason -->
+        <div class="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
+          <label class="flex items-center gap-2 text-xs font-semibold text-foreground">
+            <input v-model="formBlocked" type="checkbox" class="h-4 w-4 rounded border-input accent-primary" />
+            标记为阻塞中
+          </label>
+          <textarea
+            v-model="formBlockerReason"
+            :disabled="!formBlocked"
+            placeholder="说明阻塞原因、等待对象或解除条件..."
+            rows="2"
+            class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none disabled:cursor-not-allowed disabled:opacity-50"
+          />
+        </div>
+
+        <!-- Deliverables and Targets metadata -->
+        <div class="space-y-4 rounded-lg border border-border/40 bg-muted/5 p-4">
           <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">关联 S 交付项（可选）</label>
+            <label class="text-xs font-semibold text-foreground">关联 S 交付项（可选）</label>
             <select v-model="formServeId" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
               <option value="">不关联交付项</option>
               <option v-for="serve in projectServes" :key="serve.id" :value="serve.id">{{ serve.title }}</option>
@@ -544,80 +899,169 @@ function getSummary(text?: string) {
             <p v-if="projectServes.length === 0" class="text-[11px] text-muted-foreground">当前项目暂无 S 交付项，可先保持不关联。</p>
           </div>
 
-          <!-- Priority -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">优先级</label>
-            <div class="grid grid-cols-3 gap-2">
-              <button
-                v-for="p in ['low', 'medium', 'high'] as const"
-                :key="p"
-                type="button"
-                class="h-9 rounded-md border text-xs font-medium flex items-center justify-center transition-colors"
-                :class="formPriority === p ? getPriorityBadge(p) + ' border-current' : 'border-border hover:bg-muted text-muted-foreground'"
-                @click="formPriority = p"
-              >
-                {{ getPriorityLabel(p) }}
-              </button>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-foreground">关联 Target 目标（可选）</label>
+              <select v-model="formTargetId" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" @change="formMilestoneId = ''">
+                <option value="">不关联目标</option>
+                <option v-for="target in activeProjectTargets" :key="target.id" :value="target.id">
+                  {{ target.title }}
+                </option>
+              </select>
             </div>
-          </div>
 
-          <!-- Due Date -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">截止日期（可选）</label>
-            <input v-model="formDueDate" type="date" class="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
-          </div>
-
-          <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">行动状态</label>
-            <div class="grid grid-cols-3 gap-2">
-              <button
-                v-for="s in ['todo', 'in_progress', 'done'] as const"
-                :key="s"
-                type="button"
-                class="h-9 rounded-md border text-xs font-medium flex items-center justify-center transition-colors"
-                :class="formStatus === s ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground'"
-                @click="formStatus = s"
-              >
-                {{ s === "todo" ? "准备发起" : s === "in_progress" ? "进行中" : "已完成" }}
-              </button>
+            <div class="space-y-1.5">
+              <label class="text-xs font-semibold text-foreground">关联里程碑（可选）</label>
+              <select v-model="formMilestoneId" :disabled="!formTargetId" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <option value="">不关联里程碑</option>
+                <option v-for="m in selectedTargetMilestones" :key="m.id" :value="m.id">
+                  {{ m.title }}
+                </option>
+              </select>
             </div>
-          </div>
-
-          <div class="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
-            <label class="flex items-center gap-2 text-xs font-medium text-foreground">
-              <input v-model="formBlocked" type="checkbox" class="h-4 w-4 rounded border-input accent-primary" />
-              标记为阻塞中
-            </label>
-            <textarea
-              v-model="formBlockerReason"
-              :disabled="!formBlocked"
-              placeholder="说明阻塞原因、等待对象或解除条件..."
-              rows="2"
-              class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-
-          <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">完成证据（可选）</label>
-            <textarea
-              v-model="formEvidence"
-              placeholder="记录验收链接、截图说明、交付文档或关键结果..."
-              rows="2"
-              class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-            />
           </div>
         </div>
 
-        <div class="flex justify-end gap-2 border-t pt-3 border-border/40">
-          <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted transition-colors" @click="showDialog = false">取消</button>
-          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md" :disabled="!formTitle.trim()" @click="submitForm">确定发起</button>
+        <!-- Tabs for Dev, Test, Output Sections -->
+        <div class="space-y-3 mt-2 border rounded-lg p-3 bg-muted/5 border-border/40">
+          <div class="flex items-center justify-between border-b pb-2 border-border/50">
+            <h4 class="text-xs font-semibold text-foreground flex items-center gap-1.5 flex-1 min-w-0">
+              <ListTodo class="h-3.5 w-3.5 text-primary shrink-0" />
+              <span class="truncate">任务生命周期细化</span>
+            </h4>
+            <div class="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                class="inline-flex h-6 items-center justify-center rounded border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-500 px-2 text-[10px] font-medium transition-all gap-1 cursor-pointer"
+                @click="handleAiSplitAction"
+                :disabled="aiSplitting || !formTitle.trim()"
+              >
+                <Sparkles v-if="!aiSplitting" class="h-3 w-3" />
+                <Loader2 v-else class="h-3 w-3 animate-spin" />
+                {{ aiSplitting ? "AI 拆解中..." : "AI 智能拆解" }}
+              </button>
+              <div class="flex bg-muted p-0.5 rounded-md text-[11px] border border-border/20">
+                <button type="button" class="px-2.5 py-1 rounded-sm font-medium transition-all cursor-pointer" :class="activeLifecycleTab === 'dev' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="activeLifecycleTab = 'dev'">
+                  💻 开发 ({{ formDevItems.length }})
+                </button>
+                <button type="button" class="px-2.5 py-1 rounded-sm font-medium transition-all cursor-pointer" :class="activeLifecycleTab === 'test' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="activeLifecycleTab = 'test'">
+                  🧪 测试 ({{ formTestItems.length }})
+                </button>
+                <button type="button" class="px-2.5 py-1 rounded-sm font-medium transition-all cursor-pointer" :class="activeLifecycleTab === 'output' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'" @click="activeLifecycleTab = 'output'">
+                  📦 产出 ({{ formOutputItems.length }})
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dev Tab Content -->
+          <div v-show="activeLifecycleTab === 'dev'" class="space-y-2 pt-1 animate-in fade-in duration-150">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] text-muted-foreground">定义细化开发步骤，回车可连续新增</span>
+              <button type="button" class="text-[10px] text-primary hover:underline flex items-center gap-0.5 cursor-pointer font-medium" @click="addFormDevItem">+ 添加开发步骤</button>
+            </div>
+            <div class="space-y-2">
+              <div v-for="item in formDevItems" :key="item.id" class="flex items-start gap-2">
+                <input v-model="item.completed" type="checkbox" class="h-4 w-4 rounded accent-primary shrink-0 mt-1.5" />
+                <textarea
+                  v-model="item.title"
+                  rows="1"
+                  placeholder="开发内容，如：完成数据库表设计"
+                  class="lifecycle-textarea flex-1 min-h-[28px] max-h-[150px] resize-none rounded border border-input bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring leading-normal align-middle"
+                  @input="adjustTextareaHeight"
+                  @keydown.enter.prevent="addFormDevItem"
+                />
+                <button type="button" class="text-muted-foreground hover:text-red-500 shrink-0 mt-1 cursor-pointer" @click="removeFormDevItem(item.id)">
+                  <Trash2 class="h-3 w-3" />
+                </button>
+              </div>
+              <div v-if="formDevItems.length === 0" class="text-[11px] text-muted-foreground italic text-center py-2 bg-muted/10 rounded-lg">暂无开发步骤，可回车连续新增</div>
+            </div>
+          </div>
+
+          <!-- Test Tab Content -->
+          <div v-show="activeLifecycleTab === 'test'" class="space-y-2 pt-1 animate-in fade-in duration-150">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] text-muted-foreground">定义自测与验证用例，回车可连续新增</span>
+              <button type="button" class="text-[10px] text-primary hover:underline flex items-center gap-0.5 cursor-pointer font-medium" @click="addFormTestItem">+ 添加测试用例</button>
+            </div>
+            <div class="space-y-2">
+              <div v-for="item in formTestItems" :key="item.id" class="flex items-start gap-2">
+                <input v-model="item.completed" type="checkbox" class="h-4 w-4 rounded accent-primary shrink-0 mt-1.5" />
+                <textarea
+                  v-model="item.title"
+                  rows="1"
+                  placeholder="自测试项，如：测试接口异常返回"
+                  class="lifecycle-textarea flex-1 min-h-[28px] max-h-[150px] resize-none rounded border border-input bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring leading-normal align-middle"
+                  @input="adjustTextareaHeight"
+                  @keydown.enter.prevent="addFormTestItem"
+                />
+                <button type="button" class="text-muted-foreground hover:text-red-500 shrink-0 mt-1 cursor-pointer" @click="removeFormTestItem(item.id)">
+                  <Trash2 class="h-3 w-3" />
+                </button>
+              </div>
+              <div v-if="formTestItems.length === 0" class="text-[11px] text-muted-foreground italic text-center py-2 bg-muted/10 rounded-lg">暂无自测试项，可回车连续新增</div>
+            </div>
+          </div>
+
+          <!-- Output Tab Content -->
+          <div v-show="activeLifecycleTab === 'output'" class="space-y-2 pt-1 animate-in fade-in duration-150">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] text-muted-foreground">定义交付的预期物理/技术产出，回车可连续新增</span>
+              <button type="button" class="text-[10px] text-primary hover:underline flex items-center gap-0.5 cursor-pointer font-medium" @click="addFormOutputItem">+ 添加预期产出</button>
+            </div>
+            <div class="space-y-2">
+              <div v-for="item in formOutputItems" :key="item.id" class="flex items-start gap-2">
+                <input v-model="item.completed" type="checkbox" class="h-4 w-4 rounded accent-primary shrink-0 mt-1.5" />
+                <textarea
+                  v-model="item.title"
+                  rows="1"
+                  placeholder="如：接口说明文档 markdown"
+                  class="lifecycle-textarea flex-1 min-h-[28px] max-h-[150px] resize-none rounded border border-input bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring leading-normal align-middle"
+                  @input="adjustTextareaHeight"
+                  @keydown.enter.prevent="addFormOutputItem"
+                />
+                <button type="button" class="text-muted-foreground hover:text-red-500 shrink-0 mt-1 cursor-pointer" @click="removeFormOutputItem(item.id)">
+                  <Trash2 class="h-3 w-3" />
+                </button>
+              </div>
+              <div v-if="formOutputItems.length === 0" class="text-[11px] text-muted-foreground italic text-center py-2 bg-muted/10 rounded-lg">暂无预期产出，可回车连续新增</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Evidence -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-foreground">完成证据（可选）</label>
+          <textarea
+            v-model="formEvidence"
+            placeholder="记录验收链接、截图说明、交付文档或关键结果..."
+            rows="2"
+            class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+          />
+        </div>
+      </div>
+
+      <!-- Sticky Footer -->
+      <div class="flex justify-between items-center p-6 border-t border-border/60 bg-muted/5 shrink-0">
+        <div>
+          <button v-if="isEdit" type="button" class="h-9 inline-flex items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500 text-purple-500 hover:text-white px-3 text-xs font-medium transition-all gap-1 cursor-pointer" @click="convertActionToKeep">
+            <Archive class="h-3.5 w-3.5" />
+            💡 随时沉淀为知识 (Keep)
+          </button>
+        </div>
+        <div class="flex gap-2">
+          <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted transition-colors cursor-pointer" @click="showDialog = false">取消</button>
+          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md cursor-pointer" :disabled="!formTitle.trim()" @click="submitForm">
+            {{ isEdit ? "保存修改" : "确定发起" }}
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Celebration and AI S/K Auto-suggestion Dialog -->
+    <!-- Celebration Dialog -->
     <div v-if="showCelebrateDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div class="w-full max-w-[550px] rounded-xl border bg-background p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
+      <div class="w-full max-w-[450px] rounded-xl border bg-background p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
         <button class="absolute top-4 right-4 h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground" @click="showCelebrateDialog = false">
           <X class="h-4 w-4" />
         </button>
@@ -627,82 +1071,21 @@ function getSummary(text?: string) {
             <Trophy class="h-6 w-6 animate-bounce" />
           </div>
           <h3 class="text-base font-bold text-foreground">恭喜！项目所有行动已全部达成</h3>
-          <p class="text-xs text-muted-foreground max-w-sm">您已完成了当前项目看板中的所有计划行动。这标志着项目已经顺利进入交付与沉淀阶段！</p>
-        </div>
-
-        <!-- AI Loading -->
-        <div v-if="celebrateLoading" class="py-8 flex flex-col items-center justify-center gap-2 border border-dashed rounded-lg bg-muted/10">
-          <Loader2 class="h-5 w-5 text-indigo-500 animate-spin" />
-          <span class="text-xs text-muted-foreground">AI 正在根据您完成的任务，智能提炼 S & K 归档建议...</span>
-        </div>
-
-        <!-- AI Result Presentation -->
-        <div v-else-if="suggestedServe" class="space-y-4 overflow-y-auto max-h-[50vh] pr-1">
-          <div class="space-y-2.5 bg-muted/20 p-4 rounded-lg border border-border/40">
-            <h4 class="text-xs font-semibold flex items-center gap-1.5 text-amber-500">
-              <Handshake class="h-4 w-4" />
-              S (Serve) 自动提炼交付服务
-            </h4>
-
-            <div class="space-y-2 text-xs">
-              <div class="grid grid-cols-[80px_1fr] gap-1">
-                <span class="text-muted-foreground font-medium">交付总结:</span>
-                <span class="font-semibold text-foreground">{{ suggestedServe.title }}</span>
-              </div>
-              <div class="grid grid-cols-[80px_1fr] gap-1">
-                <span class="text-muted-foreground font-medium">服务对象:</span>
-                <span class="font-medium text-foreground">{{ suggestedServe.client }}</span>
-              </div>
-              <div class="grid grid-cols-[80px_1fr] gap-1">
-                <span class="text-muted-foreground font-medium">交付产出:</span>
-                <span class="font-medium text-foreground">{{ suggestedServe.deliverable }}</span>
-              </div>
-              <div class="grid grid-cols-[80px_1fr] gap-1">
-                <span class="text-muted-foreground font-medium">服务价值:</span>
-                <p class="text-muted-foreground italic leading-relaxed">{{ suggestedServe.description }}</p>
-              </div>
+          <p class="text-xs text-muted-foreground leading-relaxed max-w-sm">您已完成了当前看板中的所有计划行动！这标志着项目的开发阶段已经圆满结束。接下来：</p>
+          <div class="text-left text-xs bg-muted/20 p-3 rounded-lg border border-border/40 w-full space-y-2 mt-2">
+            <div class="flex items-start gap-2">
+              <span class="text-primary font-bold">1.</span>
+              <span>前往 **S - SERVE 交付** 阶段，一键初始化五大标准核心交付文档，并汇总测试报告。</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <span class="text-primary font-bold">2.</span>
+              <span>前往 **K - KEEP 留存** 阶段，进行结项复盘反思，沉淀您的个人成长与技术收获。</span>
             </div>
           </div>
-
-          <div class="space-y-2 bg-muted/20 p-4 rounded-lg border border-border/40">
-            <h4 class="text-xs font-semibold flex items-center gap-1.5 text-purple-500">
-              <Archive class="h-4 w-4" />
-              K (Keep) 推荐沉淀项目资产
-            </h4>
-
-            <div class="space-y-2">
-              <div v-for="(k, idx) in suggestedKeeps" :key="idx" class="flex items-start gap-2.5 py-1 px-1.5 rounded hover:bg-muted/30 text-xs">
-                <button type="button" class="mt-0.5 text-muted-foreground hover:text-purple-500 shrink-0" @click="k.selected = !k.selected">
-                  <CheckCircle2 v-if="k.selected" class="h-4 w-4 text-purple-500" />
-                  <Circle v-else class="h-4 w-4" />
-                </button>
-                <div class="min-w-0 flex-1">
-                  <div class="font-medium text-foreground flex items-center gap-1.5">
-                    {{ k.name }}
-                    <span class="text-[9px] uppercase px-1 py-0.2 rounded bg-purple-500/10 text-purple-500 border border-purple-500/10">
-                      {{ k.type === "link" ? "快捷链接" : "知识文档" }}
-                    </span>
-                  </div>
-                  <div class="text-[10px] text-muted-foreground mt-0.5 font-mono truncate">{{ k.content }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- No AI configured -->
-        <div v-else class="p-4 rounded-lg border border-border/60 bg-muted/10 text-center text-xs text-muted-foreground leading-relaxed">
-          <p>🎉 所有行动均已完成！</p>
-          <p class="text-[11px] opacity-80 mt-1.5">若配置了 AI 秘钥，系统在您完成任务时会自动提炼并映射生成 S（服务）与 K（留存）资产建议。您可以现在手动前往对应模块进行总结归档。</p>
         </div>
 
         <div class="flex justify-end gap-2 border-t pt-3 border-border/40 shrink-0">
-          <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted transition-colors" @click="showCelebrateDialog = false">直接关闭</button>
-
-          <button v-if="suggestedServe" class="h-9 inline-flex items-center justify-center rounded-lg bg-emerald-500 hover:bg-emerald-500/90 text-white px-5 text-sm font-medium transition-all shadow-md gap-1.5" @click="acceptCelebrateSuggestions">
-            <Sparkles class="h-4 w-4" />
-            一键采纳并同步到 S & K
-          </button>
+          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md" @click="showCelebrateDialog = false">太棒了，去交付与复盘</button>
         </div>
       </div>
     </div>

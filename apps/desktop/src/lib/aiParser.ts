@@ -14,9 +14,12 @@ export interface ParsedRequirementResult {
   actions: {
     title: string;
     description: string;
-    priority: "high" | "medium" | "low";
+    priority: "P0" | "P1" | "P2" | "P3";
     serveTitle: string;
     dueDate: string;
+    devItems?: string[];
+    testItems?: string[];
+    outputItems?: string[];
   }[];
   serves: {
     title: string;
@@ -45,7 +48,7 @@ const SYSTEM_PROMPT = `你是一个专业的软件工程架构师和敏捷项目
 请严格遵循以下规则输出：
 1. 必须输出且仅输出一个合法的 JSON 对象，不要有任何 Markdown 包裹 (不要使用 \`\`\`json 标记)，不要有任何前言、后记或解释。
 2. 目标 (Targets) 是项目章程，每个目标必须包含 title、description、scope、outOfScope、successCriteria、risks 和 2-3 个 milestones。
-3. 行动 (Actions) 是执行控制卡片，每个行动必须包含 title、description、priority，可用 serveTitle 关联某个 Serve 的 title。
+3. 行动 (Actions) 是执行控制卡片，每个行动必须包含 title、description、priority，同时必须细化其内部微生命周期，包含开发步骤 (devItems)、测试用例 (testItems)、预期产出 (outputItems)。可用 serveTitle 关联某个 Serve 的 title。
 4. 交付 (Serves) 是交付计划与验收中心，每个交付必须包含 title、description、deliverable、client、plannedAt、acceptanceChecklist。
 5. 沉淀 (Keeps) 是建议归档资产，每项必须包含 name、type、content，可用 relatedServeTitle 关联某个 Serve 的 title；type 必须是 "document"、"link"、"archive"、"evidence"、"version"、"retrospective" 之一。
 6. JSON 的格式必须严格为：
@@ -65,9 +68,12 @@ const SYSTEM_PROMPT = `你是一个专业的软件工程架构师和敏捷项目
     {
       "title": "行动名称",
       "description": "行动细节描述",
-      "priority": "high" | "medium" | "low",
+      "priority": "P0" | "P1" | "P2" | "P3",
       "serveTitle": "关联的交付计划名称",
-      "dueDate": "YYYY-MM-DD 或空字符串"
+      "dueDate": "YYYY-MM-DD 或空字符串",
+      "devItems": ["开发任务步骤A", "开发任务步骤B"],
+      "testItems": ["自测/单测用例A", "异常边界测试B"],
+      "outputItems": ["产出物A (例如某文档或配置文件)", "产出物B"]
     }
   ],
   "serves": [
@@ -119,7 +125,7 @@ const REFERENCE_PROMPT_PER_DOCUMENT_LIMIT = 6_000;
 const COMPACT_REFERENCE_PROMPT_CHAR_BUDGET = 4_000;
 const COMPACT_REFERENCE_PROMPT_PER_DOCUMENT_LIMIT = 2_000;
 const SERVE_KEEP_SUGGESTION_MAX_TOKENS = 4096;
-const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
+const VALID_PRIORITIES = new Set(["P0", "P1", "P2", "P3"]);
 const VALID_KEEP_TYPES = new Set(["document", "link", "archive", "evidence", "version", "retrospective"]);
 
 export async function parseRequirementWithAi(config: AiConfig, requirementText: string, referenceDocuments: RequirementReferenceDocument[] = []): Promise<ParsedRequirementResult> {
@@ -405,14 +411,17 @@ function normalizeAction(action: unknown, index: number): ParsedRequirementResul
     throw new Error(`第 ${index + 1} 个 action 不是对象。`);
   }
 
-  const priority = typeof action.priority === "string" && VALID_PRIORITIES.has(action.priority) ? action.priority : "medium";
+  const priority = typeof action.priority === "string" && VALID_PRIORITIES.has(action.priority) ? action.priority : "P2";
 
   return {
     title: readRequiredString(action, "title", `第 ${index + 1} 个 action`),
     description: readRequiredString(action, "description", `第 ${index + 1} 个 action`),
-    priority: priority as "high" | "medium" | "low",
+    priority: priority as "P0" | "P1" | "P2" | "P3",
     serveTitle: readOptionalString(action, "serveTitle"),
     dueDate: readOptionalString(action, "dueDate"),
+    devItems: readStringArray(action.devItems),
+    testItems: readStringArray(action.testItems),
+    outputItems: readStringArray(action.outputItems),
   };
 }
 
@@ -508,4 +517,116 @@ ${completedActions.map((a, i) => `${i + 1}. ${a.title} - ${a.description || ""}`
   });
 
   return JSON.parse(extractJsonCandidate(textContent));
+}
+
+export interface ActionSplitResult {
+  devItems: string[];
+  testItems: string[];
+  outputItems: string[];
+}
+
+export async function splitActionWithAi(config: AiConfig, actionTitle: string, actionDescription: string): Promise<ActionSplitResult> {
+  const prompt = `你是一个专业的软件工程专家和敏捷研发教练。
+我们当前有一个行动任务（Action），其信息如下：
+任务标题：${actionTitle}
+任务描述：${actionDescription || "无"}
+
+为了帮助开发者高效、规范地执行此行动，请对该行动进行任务微生命周期拆解，细化为以下三个方面的具体检查项列表：
+1. 开发步骤 (devItems)：实现该功能所需的分步编码或配置步骤（如：搭建数据库表、实现API控制器、编写业务逻辑等，生成 3-5 条）。
+2. 测试用例 (testItems)：开发者自测、单测或联调阶段的要点（如：测试入参校验、测试边界条件、验证核心链路等，生成 2-3 条）。
+3. 交付产出 (outputItems)：该行动开发完成后需归档或产出的具体成果（如：合并的代码、API接口文档、配置文件等，生成 1-2 条）。
+
+请严格输出且仅输出一个合法的 JSON，不要使用 Markdown \`\`\`json 包裹，不要包含任何多余文字或前言后记。
+格式必须为：
+{
+  "devItems": ["开发任务 A", "开发任务 B"],
+  "testItems": ["自测项 A", "自测项 B"],
+  "outputItems": ["产出物 A"]
+}`;
+
+  const textContent = await aiComplete({
+    config,
+    systemPrompt: "你是一个专业的敏捷拆包大师，只能输出无包裹的干净 JSON。",
+    messages: [{ role: "user", content: prompt }],
+    maxTokens: 2048,
+    temperature: 0.1,
+  });
+
+  try {
+    return JSON.parse(extractJsonCandidate(textContent));
+  } catch (e) {
+    console.error("Failed to parse splitActionWithAi JSON:", textContent, e);
+    return { devItems: [], testItems: [], outputItems: [] };
+  }
+}
+
+export async function generateKeepContentWithAi(config: AiConfig, action: "continue" | "summary" | "outline" | "polish", content: string, extraPrompt?: string): Promise<string> {
+  let systemPrompt = "你是一个优秀的文案编辑和技术文档专家。";
+  let prompt = "";
+
+  if (action === "continue") {
+    prompt = `请根据以下已有内容，继续通顺、自然地在后面续写一段合适的技术文档内容，保持语气和排版一致。请只输出续写的内容，不要重复原有的正文。
+已有正文如下：
+---
+${content}
+---
+${extraPrompt ? `用户额外提示：${extraPrompt}` : ""}`;
+  } else if (action === "summary") {
+    prompt = `请对以下技术文档内容进行总结，精炼出一份 200 字以内的 Markdown 格式内容摘要：
+---
+${content}
+---`;
+  } else if (action === "outline") {
+    prompt = `请根据以下提供的主题/描述信息，结合软件工程的最佳实践，生成一份详细的 Markdown 文档大纲（包含多级标题）：
+主题说明：${content}
+${extraPrompt ? `要求/偏好：${extraPrompt}` : ""}`;
+  } else if (action === "polish") {
+    prompt = `请对以下 Markdown 技术文档进行一键润色、纠错以及排版格式优化，使其逻辑更加清晰、用词更加专业、排版符合 Markdown 规范。请直接返回修改润色后的全部正文：
+---
+${content}
+---
+${extraPrompt ? `润色偏好：${extraPrompt}` : ""}`;
+  }
+
+  return await aiComplete({
+    config,
+    systemPrompt,
+    messages: [{ role: "user", content: prompt }],
+    maxTokens: 4096,
+    temperature: 0.3,
+  });
+}
+
+export async function suggestAcceptanceCriteriaWithAi(config: AiConfig, title: string, description: string, deliverable: string, client: string): Promise<string[]> {
+  const prompt = `你是一个专业的敏捷质量保障 (QA) 专家和交付负责人。
+我们当前有一个正在进行交付的交付计划 (Serve)：
+标题：${title}
+描述：${description || "无"}
+交付产出物：${deliverable}
+需求方/服务客户：${client}
+
+为了保证交付结果能够被客户顺利验收，请建议 3-5 条关键的验收条款（Acceptance Checklist Item），例如功能的完整性指标、质量性能要求、交付清单核对等。每条条款在一行里以中文简单清晰表述。
+
+请输出且仅输出一个合法的 JSON 字符串数组，不要使用 Markdown 包裹。
+格式必须为：
+[
+  "验收条件1: 验证核心功能...",
+  "验收条件2: 交付物文档完整...",
+  "验收条件3: 确保..."
+]`;
+
+  const textContent = await aiComplete({
+    config,
+    systemPrompt: "你是一个敏捷质量验收专家，只输出 JSON 数组，无需其他文字。",
+    messages: [{ role: "user", content: prompt }],
+    maxTokens: 2048,
+    temperature: 0.2,
+  });
+
+  try {
+    return JSON.parse(extractJsonCandidate(textContent));
+  } catch (e) {
+    console.error("Failed to parse suggestAcceptanceCriteriaWithAi JSON:", textContent, e);
+    return [];
+  }
 }
