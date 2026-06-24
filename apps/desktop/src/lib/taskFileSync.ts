@@ -560,3 +560,49 @@ export async function processMarkdownImages(markdownContent: string, sourceMdFil
 
   return newContent;
 }
+
+/**
+ * 保存项目插图到本地物理路径 4_KEEP/assets/illustration.jpg
+ */
+export async function saveIllustrationToLocal(projectPath: string, base64Data: string) {
+  if (!base64Data || !base64Data.startsWith("data:")) return;
+  const fs = await getFs();
+  if (!fs) return;
+
+  try {
+    const assetsDir = `${projectPath}/4_KEEP/assets`;
+    await ensureDir(assetsDir);
+
+    const base64Content = base64Data.split(",")[1];
+    if (!base64Content) return;
+
+    const binaryString = atob(base64Content);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const filePath = `${assetsDir}/illustration.jpg`;
+    await fs.writeFile(filePath, bytes);
+    console.log(`[TASK] Successfully saved illustration to local: ${filePath}`);
+  } catch (e) {
+    console.error("[TASK] Failed to save illustration to local folder", e);
+  }
+}
+
+/**
+ * 从本地物理路径删除插画文件
+ */
+export async function removeIllustrationFromLocal(projectPath: string) {
+  const fs = await getFs();
+  if (!fs) return;
+  try {
+    const filePath = `${projectPath}/4_KEEP/assets/illustration.jpg`;
+    if (await fs.exists(filePath)) {
+      await fs.remove(filePath);
+    }
+  } catch (e) {
+    console.error("[TASK] Failed to remove local illustration file", e);
+  }
+}

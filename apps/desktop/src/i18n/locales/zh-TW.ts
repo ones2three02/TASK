@@ -1,4 +1,4 @@
-﻿export default {
+export default {
   app: {
     name: "TASK",
   },
@@ -868,13 +868,13 @@
     append: "追加到編輯器",
     apply: "套用到編輯器",
     clear: "清空對話",
-    welcome: "告訴我你想查詢什麼，我會寫出 SQL",
+    welcome: "我是您的 TASK 專案 AI 助手，有什麼可以幫您？",
     newChat: "新對話",
     thinking: "思考中……",
     reasoningProcess: "思考過程",
     stopGenerating: "停止產生",
-    tableMentionEmpty: "沒有相符的資料表",
-    tableMentionPlaceholderHint: "輸入 {'@'} 可提及資料表作為脈絡",
+    tableMentionEmpty: "沒有相符的項目",
+    tableMentionPlaceholderHint: "（AI 將結合目前專案的目標和行動進行規劃）",
     tableMentionTypes: {
       table: "資料表",
       view: "檢視",

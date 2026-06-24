@@ -15,6 +15,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { connectionIconType } from "@/lib/connectionPresentation";
 import DatabaseIcon from "@/components/icons/DatabaseIcon.vue";
 import { useQueryStore } from "@/stores/queryStore";
+import { useTaskStore } from "@/stores/taskStore";
 import { useToast } from "@/composables/useToast";
 import { buildAiContext, runAgentStream, type AiAction } from "@/lib/ai";
 import type { AgentEvent } from "@/lib/tauri";
@@ -480,7 +481,6 @@ async function send() {
   const text = prompt.value.trim();
   if ((!text && !selectedMentions.value.length) || isGenerating.value) return;
 
-  if (!props.connection || !props.tab) return;
   if (!settings.isConfigured()) {
     toast(t("ai.noConfig"));
     return;
@@ -503,9 +503,47 @@ async function send() {
   currentSessionId.value = sessionId;
   const agentEvents: AgentEvent[] = [];
   try {
-    const context = await buildAiContext(props.tab, props.connection, {
-      mentionedTables,
-    });
+    let context;
+    if (props.connection && props.tab) {
+      context = await buildAiContext(props.tab, props.connection, {
+        mentionedTables,
+      });
+    } else {
+      const conn = connectionStore.connections[0];
+      context = {
+        connectionId: conn?.id || "",
+        connectionName: conn?.name || "TASK",
+        databaseType: (conn?.db_type || "sqlite") as any,
+        database: conn?.database || "task_local",
+        currentSql: "",
+        tables: [],
+        truncated: false,
+      };
+    }
+
+    // Inject current active project context
+    const taskStore = useTaskStore();
+    const activeProj = taskStore.projects.find((p) => p.id === taskStore.activeProjectId);
+    if (activeProj) {
+      const projTargets = taskStore.targets.filter((t) => t.projectId === activeProj.id);
+      const projActions = taskStore.actions.filter((a) => a.projectId === activeProj.id);
+      (context as any).projectContext = {
+        projectName: activeProj.name,
+        projectDesc: activeProj.description,
+        targets: projTargets.map((t) => ({
+          title: t.title,
+          description: t.description,
+          status: t.status,
+        })),
+        actions: projActions.map((a) => ({
+          title: a.title,
+          description: a.description,
+          status: a.status,
+          priority: a.priority,
+        })),
+      };
+    }
+
     const history: AiMessage[] = messages.value.slice(0, -2).map((m) => ({
       role: m.role,
       content: m.content,
@@ -581,7 +619,7 @@ async function send() {
         action: requestedAction,
         instruction: displayText,
         assistantContent: msg?.content || "",
-        connection: props.connection,
+        connection: props.connection || connectionStore.connections[0],
       });
       if (msg && requestedMode === "agent") msg.agentSteps = buildAiAgentStepItems(agentPlan);
       if (agentPlan.handoffSql) emit("requestAutoExecuteSql", agentPlan.handoffSql);
@@ -629,14 +667,15 @@ function clearMessages() {
 }
 
 async function persistConversation() {
-  if (!messages.value.length || !props.connection) return;
+  if (!messages.value.length) return;
+  const conn = props.connection || connectionStore.connections[0];
   if (!conversationId.value) conversationId.value = uuid();
   const first = messages.value.find((m) => m.role === "user");
   await saveAiConversation({
     id: conversationId.value,
     title: first ? first.content.slice(0, 50) : "Untitled",
-    connectionName: props.connection.name,
-    database: props.tab?.database || "",
+    connectionName: conn?.name || "TASK",
+    database: props.tab?.database || "task_local",
     messages: messages.value.map((m) => ({
       role: m.role,
       content: m.content,

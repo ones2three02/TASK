@@ -131,7 +131,7 @@ const steps = computed(() => [
     title: "TARGET 目标",
     icon: TargetIcon,
     status: targetStatus.value,
-    color: "from-emerald-500 to-teal-600",
+    color: "from-emerald-500 to-teal-600 text-white",
     glowColor: "rgba(16,185,129,0.45)",
     activeRing: "ring-emerald-500/30 border-emerald-500 text-emerald-400",
   },
@@ -141,7 +141,7 @@ const steps = computed(() => [
     title: "ACTION 行动",
     icon: ActionIcon,
     status: actionStatus.value,
-    color: "from-indigo-500 to-blue-600",
+    color: "from-indigo-500 to-blue-600 text-white",
     glowColor: "rgba(99,102,241,0.45)",
     activeRing: "ring-indigo-500/30 border-indigo-500 text-indigo-400",
   },
@@ -151,7 +151,7 @@ const steps = computed(() => [
     title: "SERVE 交付",
     icon: ServeIcon,
     status: serveStatus.value,
-    color: "from-rose-500 to-pink-600",
+    color: "from-rose-500 to-pink-600 text-white",
     glowColor: "rgba(244,63,94,0.45)",
     activeRing: "ring-rose-500/30 border-rose-500 text-rose-400",
   },
@@ -161,7 +161,7 @@ const steps = computed(() => [
     title: "KEEP 留存",
     icon: KeepIcon,
     status: keepStatus.value,
-    color: "from-amber-500 to-orange-600",
+    color: "from-amber-500 to-orange-600 text-white",
     glowColor: "rgba(245,158,11,0.45)",
     activeRing: "ring-amber-500/30 border-amber-500 text-amber-400",
   },
@@ -199,7 +199,7 @@ function getLineClass(idx: number) {
     <div class="flex items-center flex-wrap gap-2 md:gap-3">
       <div v-for="(step, idx) in steps" :key="step.id" class="flex items-center">
         <!-- Interactive Step Node -->
-        <div class="group relative flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-300" :class="[activeModule === step.id ? 'bg-muted/60 shadow-inner' : 'hover:bg-muted/30']" @click="emit('selectModule', step.id)">
+        <div class="group relative flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-200 active:scale-[0.97] cursor-pointer" :class="[activeModule === step.id ? 'bg-muted/60 shadow-inner' : 'hover:bg-muted/30']" @click="emit('selectModule', step.id)">
           <!-- Glowing Node Bubble -->
           <div
             class="h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 relative border shrink-0"

@@ -37,6 +37,12 @@ export interface AiContext {
   tables: AiSchemaTable[];
   schemaScope?: "focused_table" | "database";
   truncated: boolean;
+  projectContext?: {
+    projectName: string;
+    projectDesc: string;
+    targets: { title: string; description: string; status: string }[];
+    actions: { title: string; description: string; status: string; priority: string }[];
+  };
 }
 
 export interface AiRequestInput {
@@ -133,12 +139,50 @@ export function extractSql(text: string): string {
 }
 
 export function buildSystemPrompt(action: AiAction, context: AiContext, mode: AiAssistantMode = "ask"): string {
+  const isZh = isChineseLocale(currentLocale());
+
+  if (context.projectContext) {
+    const lines: string[] = [
+      isZh ? "你是 TASK 内置的 AI 规划助手。你应当用中文回复。" : "You are TASK's built-in AI planning assistant. Reply in Chinese by default or match the user's language.",
+      isZh ? "你负责帮助用户管理和规划其项目的目标 (Target)、行动 (Action)、交付 (Serve) 以及留存文档 (Keep)。" : "You help the user manage and plan project Targets, Actions, Serves, and Keep documentation.",
+      isZh
+        ? "请结合用户提供的当前项目状态（包括当前目标和任务列表），提供专业的项目管理、任务拆解、验收标准制定或文档编写建议。"
+        : "Based on the provided project context (including active targets and actions), provide professional advice on project management, task breakdown, acceptance criteria, or documentation writing.",
+      isZh ? "绝对不要在回答中生成无关的数据库 SQL 代码，除非用户明确向你咨询 SQL 编写。保持言简意赅、条理清晰。" : "Never generate database SQL blocks unless specifically asked to write SQL queries. Keep your responses structured, clean, and concise.",
+      "",
+      "【TASK 项目上下文信息】",
+      `当前激活项目: ${context.projectContext.projectName}`,
+      `项目描述: ${context.projectContext.projectDesc || "无"}`,
+      "",
+      "项目目标列表 (Target):",
+      context.projectContext.targets.length > 0 ? context.projectContext.targets.map((t, idx) => `${idx + 1}. [${t.status === "completed" ? "已完成" : "进行中"}] ${t.title} - ${t.description}`).join("\n") : "(无)",
+      "",
+      "项目行动列表 (Action):",
+      context.projectContext.actions.length > 0 ? context.projectContext.actions.map((a, idx) => `${idx + 1}. [${a.status}] [${a.priority}] ${a.title} - ${a.description}`).join("\n") : "(无)",
+      "----------------------------------",
+    ];
+
+    if (action === "generate") {
+      lines.push(isZh ? "【拆解任务指令】请将用户描述的目标或项目，拆解为清晰的里程碑、关键目标 (Target) 和具体的行动清单 (Action)。输出格式要求：条理清晰，列出关键点。" : "Breakdown the user's request into targets and actions.");
+    } else if (action === "explain") {
+      lines.push(isZh ? "【分析行动指令】用户粘贴了具体的行动或任务内容，请评估其复杂性、依赖关系、关键交付物和潜在难点。" : "Explain and analyze the action's complexity and dependencies.");
+    } else if (action === "optimize") {
+      lines.push(isZh ? "【细化计划指令】请优化或重写用户的步骤或流程，使其执行路径更加顺畅、里程碑更清晰、具备高可操作性。" : "Optimize the planning and execution steps.");
+    } else if (action === "fix") {
+      lines.push(isZh ? "【制定验收指令】请为该任务或行动生成详细的成功验收标准 (Acceptance Criteria)，要求可量化、可验证。" : "Generate measurable acceptance criteria.");
+    } else if (action === "convert") {
+      lines.push(isZh ? "【生成文档指令】请根据用户提供的内容草拟结构完整的 Markdown 知识库文档，包含目的、核心方案或流程描述。" : "Draft a clean markdown knowledge base document.");
+    } else if (action === "sampleData") {
+      lines.push(isZh ? "【创意脑暴指令】请展开头脑风暴，针对当前项目的痛点或方向，给出有创意的方案或常见模板参考。" : "Brainstorm creative solutions and plans.");
+    }
+
+    return lines.filter(Boolean).join("\n");
+  }
+
   const schema = formatSchema(context);
   const resultPreview = context.lastResultPreview ? `\nLast result preview:\n${context.lastResultPreview}\n` : "";
   const lastError = context.lastError ? `\nLast error:\n${context.lastError}\n` : "";
   const schemaScope = context.schemaScope ?? "database";
-
-  const isZh = isChineseLocale(currentLocale());
 
   const lines: string[] = [...buildBasePromptLines(isZh), ...buildModePromptLines(mode, isZh), ...buildActionPromptLines(action, isZh)];
 

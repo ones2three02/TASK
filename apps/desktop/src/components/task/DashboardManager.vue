@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useTaskStore } from "@/stores/taskStore";
 import { calculateProjectOverview } from "@/lib/taskPlanning";
 import { Activity, AlertTriangle, Archive, ArrowRight, CheckCircle2, Handshake, ListTodo, Target, TrendingUp } from "@lucide/vue";
+import ProjectIllustration from "./ProjectIllustration.vue";
+import IllustrationModal from "./IllustrationModal.vue";
+
+const showIllustrationModal = ref(false);
 
 const emit = defineEmits<{
   selectModule: [module: "target" | "action" | "serve" | "keep"];
@@ -93,36 +97,48 @@ function getQualityGateTarget(stage: "target" | "action" | "serve" | "keep") {
   <div class="flex-1 min-w-0 overflow-y-auto bg-background/50 p-6 flex flex-col gap-6">
     <div v-if="overview && activeProject" class="flex flex-col gap-6">
       <section class="rounded-xl border bg-muted/10 p-5">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div class="min-w-0">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <Activity class="h-4 w-4 text-primary" />
               项目总览
             </div>
-            <h2 class="mt-2 truncate text-2xl font-semibold text-foreground">{{ activeProject.name }}</h2>
-            <p class="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            <h2 class="mt-2 text-2xl font-semibold text-foreground break-words">{{ activeProject.name }}</h2>
+            <p class="mt-2.5 max-w-3xl text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
               {{ activeProject.description || "当前项目还没有填写背景说明。" }}
             </p>
           </div>
 
-          <div class="min-w-[220px] rounded-lg border bg-background/60 p-4">
-            <div class="flex items-center justify-between text-xs text-muted-foreground">
-              <span>闭环完成度</span>
-              <TrendingUp class="h-4 w-4 text-primary" />
+          <div class="flex flex-col sm:flex-row gap-4 shrink-0 w-full lg:w-auto">
+            <!-- Project Illustration Preview Card -->
+            <div class="w-full sm:w-[240px]">
+              <ProjectIllustration :projectId="activeProject.id" @manage="showIllustrationModal = true" />
             </div>
-            <div class="mt-2 flex items-end gap-2">
-              <span class="text-3xl font-semibold tabular-nums">{{ overview.overallPercent }}%</span>
-              <span class="pb-1 text-xs text-muted-foreground">T/A/S/K 加权</span>
-            </div>
-            <div class="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-              <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${overview.overallPercent}%` }" />
+
+            <!-- Overall Progress Card -->
+            <div class="w-full sm:w-[220px] rounded-lg border bg-background/60 p-4 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>闭环完成度</span>
+                  <TrendingUp class="h-4 w-4 text-primary" />
+                </div>
+                <div class="mt-2 flex items-end gap-2">
+                  <span class="text-3xl font-semibold tabular-nums">{{ overview.overallPercent }}%</span>
+                  <span class="pb-1 text-xs text-muted-foreground">T/A/S/K 加权</span>
+                </div>
+              </div>
+              <div class="mt-4">
+                <div class="h-2 overflow-hidden rounded-full bg-muted">
+                  <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${overview.overallPercent}%` }" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <button v-for="stage in stageCards" :key="stage.id" class="rounded-xl border bg-background/50 p-4 text-left transition-colors hover:bg-muted/20" @click="emit('selectModule', stage.id)">
+        <button v-for="stage in stageCards" :key="stage.id" class="rounded-xl border bg-background/50 p-4 text-left transition-all hover:bg-muted/20 active:scale-[0.98] cursor-pointer" @click="emit('selectModule', stage.id)">
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-2">
               <component :is="stage.icon" class="h-4 w-4" :class="stage.color" />
@@ -156,7 +172,7 @@ function getQualityGateTarget(stage: "target" | "action" | "serve" | "keep") {
         </div>
 
         <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <button v-for="gate in qualityGateCards" :key="gate.id" class="rounded-lg border p-3 text-left transition-colors hover:bg-muted/20" :class="getQualityGateClass(gate.severity)" @click="emit('selectModule', getQualityGateTarget(gate.stage))">
+          <button v-for="gate in qualityGateCards" :key="gate.id" class="rounded-lg border p-3 text-left transition-all hover:bg-muted/20 active:scale-[0.98] cursor-pointer" :class="getQualityGateClass(gate.severity)" @click="emit('selectModule', getQualityGateTarget(gate.stage))">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <div class="text-sm font-semibold text-foreground">{{ gate.title }}</div>
@@ -172,7 +188,7 @@ function getQualityGateTarget(stage: "target" | "action" | "serve" | "keep") {
         <div class="rounded-xl border bg-background/50 p-5">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">行动状态</h3>
-            <button class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" @click="emit('selectModule', 'action')">
+            <button class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline cursor-pointer active:scale-95 transition-all" @click="emit('selectModule', 'action')">
               进入看板
               <ArrowRight class="h-3.5 w-3.5" />
             </button>
@@ -195,27 +211,36 @@ function getQualityGateTarget(stage: "target" | "action" | "serve" | "keep") {
               <div class="text-xs text-muted-foreground">高优先级</div>
               <div class="mt-1 text-xl font-semibold">{{ overview.actionStats.highPriority }}</div>
             </div>
-            <div class="rounded-lg border bg-red-500/5 p-3 text-red-500">
+            <div class="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-red-500 font-medium">
               <div class="text-xs">已逾期</div>
-              <div class="mt-1 text-xl font-semibold">{{ overview.actionStats.overdue }}</div>
+              <div class="mt-1 text-xl font-semibold flex items-center gap-1.5">
+                {{ overview.actionStats.overdue }}
+                <span v-if="overview.actionStats.overdue > 0" class="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              </div>
             </div>
           </div>
         </div>
 
         <div class="rounded-xl border bg-background/50 p-5">
           <div class="flex items-center gap-2">
-            <AlertTriangle v-if="overview.actionStats.overdue > 0" class="h-4 w-4 text-red-500" />
+            <AlertTriangle v-if="overview.actionStats.overdue > 0" class="h-4 w-4 text-red-500 animate-pulse" />
             <CheckCircle2 v-else class="h-4 w-4 text-emerald-500" />
             <h3 class="text-sm font-semibold">下一步建议</h3>
           </div>
           <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
             {{ overview.recommendation.message }}
           </p>
-          <button class="mt-4 inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95" @click="emit('selectModule', overview.recommendation.stage === 'dashboard' ? 'target' : overview.recommendation.stage)">
+          <button
+            class="mt-4 inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all active:scale-[0.97] cursor-pointer"
+            @click="emit('selectModule', overview.recommendation.stage === 'dashboard' ? 'target' : overview.recommendation.stage)"
+          >
             去处理
           </button>
         </div>
       </section>
     </div>
+
+    <!-- Illustration Customizer Modal -->
+    <IllustrationModal v-if="activeProject" :open="showIllustrationModal" :projectId="activeProject.id" @close="showIllustrationModal = false" />
   </div>
 </template>

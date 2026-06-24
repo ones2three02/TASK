@@ -38,6 +38,9 @@ export interface TaskProject {
   name: string;
   description: string;
   createdAt: string;
+  illustrationUrl?: string;
+  illustrationPrompt?: string;
+  illustrationDesc?: string;
 }
 
 export interface TaskTarget {

@@ -57,13 +57,7 @@ function onToolbarDblClick() {
 <template>
   <div class="h-10 flex items-center justify-between px-3 border-b bg-muted/30 shrink-0 overflow-hidden" :class="{ 'pl-[208px]': shouldReserveMacTrafficLightInset(isMac, isFullscreen, isDesktop) }" data-tauri-drag-region @dblclick="onToolbarDblClick">
     <!-- Brand / Title -->
-    <div class="flex items-center gap-2 select-none" data-tauri-drag-region>
-      <div class="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
-        <ClipboardCheck class="h-4 w-4" />
-      </div>
-      <span class="text-sm font-bold tracking-wider text-foreground">TASK</span>
-      <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border/40 select-none">{{ displayVersion }}</span>
-    </div>
+    <div class="flex items-center gap-2 select-none" data-tauri-drag-region></div>
 
     <!-- Central spacer -->
     <div class="flex-1 h-full" data-tauri-drag-region />

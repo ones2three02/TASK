@@ -204,7 +204,7 @@ function getPriorityBadgeClass(prio: string) {
     case "P2":
       return "bg-blue-500/10 text-blue-500 border-blue-500/20";
     default:
-      return "bg-muted text-muted-foreground border-border/40";
+      return "bg-muted text-muted-foreground border-border/40 border-dashed";
   }
 }
 
@@ -234,17 +234,48 @@ function getActionStatusClass(status: string) {
           <div>
             <h2 class="text-lg font-semibold flex items-center gap-2">日历日程看板</h2>
             <p class="text-xs text-muted-foreground mt-0.5">直观规划行动与交付，时间线掌控项目脉络。</p>
+            <div class="flex flex-wrap items-center gap-3.5 mt-2 text-[10px] text-muted-foreground/90 select-none">
+              <span class="font-bold flex items-center gap-0.5"> 优先级说明: </span>
+              <span class="group relative flex items-center gap-1 cursor-help">
+                <span class="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                P0 阻塞特急
+                <span class="absolute top-full left-0 mt-1.5 w-48 p-2 bg-popover border text-[9px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed font-normal">
+                  🔴 核心流程被阻塞，属于影响面极大的崩溃级缺陷或紧急技术痛点，需即刻解决。
+                </span>
+              </span>
+              <span class="group relative flex items-center gap-1 cursor-help">
+                <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                P1 关键高优
+                <span class="absolute top-full left-0 mt-1.5 w-48 p-2 bg-popover border text-[9px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed font-normal">
+                  🟠 本迭代或当前交付里程碑必须在期限内交付的重难点/核心业务逻辑行动。
+                </span>
+              </span>
+              <span class="group relative flex items-center gap-1 cursor-help">
+                <span class="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+                P2 重要中优
+                <span class="absolute top-full left-0 mt-1.5 w-48 p-2 bg-popover border text-[9px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed font-normal">
+                  🔵 常规业务需求或辅助开发行动，按原计划版本迭代步骤平稳开发。
+                </span>
+              </span>
+              <span class="group relative flex items-center gap-1 cursor-help">
+                <span class="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
+                P3 低优建议
+                <span class="absolute top-full left-0 mt-1.5 w-48 p-2 bg-popover border text-[9px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed font-normal">
+                  ⚪ 零星用户体验细节优化、非紧急重构，或适合闲暇时进行的技术储备与灵感。
+                </span>
+              </span>
+            </div>
           </div>
         </div>
 
         <!-- Month Navigation -->
         <div class="flex items-center gap-1 bg-muted/30 p-1 rounded-lg border border-border/60">
-          <button class="h-8 w-8 rounded-md flex items-center justify-center hover:bg-background transition-colors cursor-pointer" @click="prevMonth">
+          <button class="h-8 w-8 rounded-md flex items-center justify-center hover:bg-background active:scale-90 transition-all cursor-pointer" @click="prevMonth">
             <ChevronLeft class="h-4 w-4" />
           </button>
-          <button class="h-8 px-3 rounded-md text-xs font-semibold hover:bg-background transition-colors cursor-pointer" @click="selectToday">今日</button>
-          <span class="text-xs font-semibold px-3 min-w-[90px] text-center"> {{ year }} 年 {{ monthNames[month] }} </span>
-          <button class="h-8 w-8 rounded-md flex items-center justify-center hover:bg-background transition-colors cursor-pointer" @click="nextMonth">
+          <button class="h-8 px-3 rounded-md text-xs font-semibold hover:bg-background active:scale-95 transition-all cursor-pointer" @click="selectToday">今日</button>
+          <span class="text-xs font-semibold px-3 min-w-[90px] text-center font-mono"> {{ year }} 年 {{ monthNames[month] }} </span>
+          <button class="h-8 w-8 rounded-md flex items-center justify-center hover:bg-background active:scale-90 transition-all cursor-pointer" @click="nextMonth">
             <ChevronRight class="h-4 w-4" />
           </button>
         </div>
@@ -282,17 +313,17 @@ function getActionStatusClass(status: string) {
           <div
             v-for="cell in calendarDays"
             :key="cell.dateKey"
-            class="border-r border-b border-border/40 p-2 flex flex-col gap-1 min-h-0 transition-all hover:bg-muted/10 cursor-pointer"
-            :class="[cell.isCurrentMonth ? 'bg-background/25' : 'bg-muted/5 opacity-40', isSameDay(cell.date, selectedDate) ? 'ring-1 ring-primary/40 bg-primary/5 z-10' : '']"
+            class="border-r border-b border-border/40 p-2 flex flex-col gap-1 min-h-0 transition-all hover:bg-muted/10 active:scale-[0.985] cursor-pointer"
+            :class="[cell.isCurrentMonth ? 'bg-background/25' : 'bg-muted/5 opacity-40', isSameDay(cell.date, selectedDate) ? 'ring-1 ring-primary/45 bg-zinc-100/50 dark:bg-zinc-800/40 z-10 shadow-inner' : '']"
             @click="selectDay(cell.date)"
           >
             <!-- Day number & indicators -->
             <div class="flex items-center justify-between text-xs shrink-0">
-              <span class="h-5 w-5 rounded-full flex items-center justify-center font-semibold" :class="cell.isToday ? 'bg-primary text-primary-foreground font-bold shadow' : 'text-foreground/80'">
+              <span class="h-5 w-5 rounded-full flex items-center justify-center font-semibold" :class="cell.isToday ? 'bg-zinc-950 dark:bg-zinc-50 text-white dark:text-zinc-950 font-bold shadow' : 'text-foreground/80'">
                 {{ cell.date.getDate() }}
               </span>
               <!-- Dots / Count badge -->
-              <span v-if="(actionsByDate[cell.dateKey]?.length || 0) + (servesByDate[cell.dateKey]?.length || 0) > 0" class="text-[9px] bg-muted/80 text-muted-foreground px-1.5 py-0.5 rounded font-bold">
+              <span v-if="(actionsByDate[cell.dateKey]?.length || 0) + (servesByDate[cell.dateKey]?.length || 0) > 0" class="text-[9px] bg-zinc-100 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-200/60 dark:border-zinc-800/60 font-bold">
                 {{ (actionsByDate[cell.dateKey]?.length || 0) + (servesByDate[cell.dateKey]?.length || 0) }}
               </span>
             </div>
@@ -330,7 +361,7 @@ function getActionStatusClass(status: string) {
             <h3 class="font-semibold text-sm">当日任务详情</h3>
             <p class="text-[10px] text-muted-foreground mt-0.5">{{ selectedDate.getFullYear() }}年{{ selectedDate.getMonth() + 1 }}月{{ selectedDate.getDate() }}日</p>
           </div>
-          <button class="h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted text-primary hover:text-primary-foreground border border-primary/20 hover:bg-primary transition-all cursor-pointer" title="在此日期新建行动任务" @click="openAddAction">
+          <button class="h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted text-primary hover:text-primary-foreground border border-primary/20 hover:bg-primary transition-all cursor-pointer active:scale-95" title="在此日期新建行动任务" @click="openAddAction">
             <Plus class="h-4 w-4" />
           </button>
         </div>
@@ -344,7 +375,7 @@ function getActionStatusClass(status: string) {
               S - 交付里程碑 ({{ selectedDayServes.length }})
             </h4>
             <div class="flex flex-col gap-2">
-              <div v-for="serve in selectedDayServes" :key="serve.id" class="p-3 rounded-lg border bg-purple-500/5 border-purple-500/20 flex flex-col gap-1.5">
+              <div v-for="serve in selectedDayServes" :key="serve.id" class="p-3 rounded-lg border bg-purple-500/5 border-purple-500/20 flex flex-col gap-1.5 active:scale-[0.98] transition-all">
                 <div class="text-xs font-semibold text-purple-400">{{ serve.title }}</div>
                 <div class="text-[10px] text-muted-foreground leading-relaxed">{{ serve.description }}</div>
                 <div class="flex items-center justify-between text-[9px] mt-1">
@@ -368,9 +399,9 @@ function getActionStatusClass(status: string) {
             </div>
 
             <div v-else class="flex flex-col gap-2">
-              <div v-for="action in selectedDayActions" :key="action.id" class="p-3 rounded-lg border bg-background/50 border-border/80 flex items-start gap-2.5 transition-all hover:bg-muted/10">
+              <div v-for="action in selectedDayActions" :key="action.id" class="p-3 rounded-lg border bg-background/50 border-border/80 flex items-start gap-2.5 transition-all hover:bg-muted/10 active:scale-[0.98]">
                 <!-- Toggle complete checkbox -->
-                <button type="button" class="mt-0.5 text-muted-foreground hover:text-primary transition-colors cursor-pointer shrink-0" @click="toggleActionStatus(action)">
+                <button type="button" class="mt-0.5 text-muted-foreground hover:text-primary transition-colors cursor-pointer shrink-0 active:scale-90" @click="toggleActionStatus(action)">
                   <CheckSquare v-if="action.status === 'done'" class="h-4 w-4 text-emerald-500" />
                   <Square v-else class="h-4 w-4" />
                 </button>

@@ -584,7 +584,7 @@ async function aggregateActionsToReport(serve: Serve) {
           <div class="shrink-0 flex items-center gap-2">
             <button
               title="一键提取并汇总看板中所有 Actions 的自测用例成果"
-              class="h-9 px-3.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer font-semibold shadow-sm"
+              class="h-9 px-3.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg text-xs flex items-center gap-1.5 transition-all active:scale-[0.97] cursor-pointer font-semibold shadow-sm"
               @click="aggregateActionsToReport(currentServe)"
             >
               <FileCheck class="h-4 w-4" />
@@ -624,16 +624,16 @@ async function aggregateActionsToReport(serve: Serve) {
 
               <div class="flex items-center gap-1.5 border-t border-border/20 pt-2.5 mt-1 shrink-0 justify-end">
                 <template v-if="isDocumentGenerated(currentServe, docType.type)">
-                  <button type="button" class="h-7 px-2 bg-primary/5 hover:bg-primary/10 border border-primary/20 text-primary text-[10px] font-semibold rounded cursor-pointer flex items-center gap-0.5 transition-colors" @click="openMarkdownEditor(currentServe, docType.type)">
+                  <button type="button" class="h-7 px-2 bg-primary/5 hover:bg-primary/10 border border-primary/20 text-primary text-[10px] font-semibold rounded cursor-pointer flex items-center gap-0.5 transition-all active:scale-95" @click="openMarkdownEditor(currentServe, docType.type)">
                     <Eye class="h-3 w-3" /> 在线编辑
                   </button>
-                  <button type="button" class="h-7 px-2 hover:bg-muted border text-[10px] font-medium text-muted-foreground hover:text-foreground rounded cursor-pointer flex items-center gap-0.5 transition-colors" @click="importExternalDocument(currentServe, docType.type)">
+                  <button type="button" class="h-7 px-2 hover:bg-muted border text-[10px] font-medium text-muted-foreground hover:text-foreground rounded cursor-pointer flex items-center gap-0.5 transition-all active:scale-95" @click="importExternalDocument(currentServe, docType.type)">
                     <Paperclip class="h-3 w-3" /> 覆盖
                   </button>
                 </template>
                 <template v-else>
-                  <button type="button" class="h-7 px-3 bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] font-semibold rounded cursor-pointer transition-colors" @click="generateDeliverableTemplate(currentServe, docType.type)">+ 初始化</button>
-                  <button type="button" class="h-7 px-2 hover:bg-muted border text-[10px] font-medium text-muted-foreground hover:text-foreground rounded cursor-pointer flex items-center gap-0.5 transition-colors" @click="importExternalDocument(currentServe, docType.type)">
+                  <button type="button" class="h-7 px-3 bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] font-semibold rounded cursor-pointer transition-all active:scale-95" @click="generateDeliverableTemplate(currentServe, docType.type)">+ 初始化</button>
+                  <button type="button" class="h-7 px-2 hover:bg-muted border text-[10px] font-medium text-muted-foreground hover:text-foreground rounded cursor-pointer flex items-center gap-0.5 transition-all active:scale-95" @click="importExternalDocument(currentServe, docType.type)">
                     <Paperclip class="h-3 w-3" /> 导入
                   </button>
                 </template>
@@ -651,7 +651,7 @@ async function aggregateActionsToReport(serve: Serve) {
             </span>
             <button
               type="button"
-              class="inline-flex h-6 items-center justify-center rounded border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-500 px-2 text-[10px] font-medium transition-all gap-1 cursor-pointer"
+              class="inline-flex h-6 items-center justify-center rounded border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-500 px-2 text-[10px] font-semibold transition-all active:scale-95 gap-1 cursor-pointer"
               @click="handleAiRecommendAcceptance"
               :disabled="aiRecommending"
             >
@@ -680,7 +680,7 @@ async function aggregateActionsToReport(serve: Serve) {
             已归档交付凭证与记录 ({{ currentServe.evidence.length }} 条)
           </div>
           <div class="flex flex-wrap gap-2">
-            <div v-for="ev in currentServe.evidence" :key="ev.id" class="px-2.5 py-1 bg-muted rounded-full border border-border/40 text-[10px] text-muted-foreground font-medium flex items-center gap-1.5">
+            <div v-for="ev in currentServe.evidence" :key="ev.id" class="px-2.5 py-1 bg-muted rounded-full border border-border/40 text-[10px] text-muted-foreground font-medium flex items-center gap-1.5 animate-in fade-in duration-200">
               <span>📎</span>
               <span class="truncate max-w-[200px]" :title="ev.title">{{ ev.title }}</span>
               <span class="text-muted-foreground/40 font-mono scale-90">{{ ev.content.replace(/^\.\//, "") }}</span>

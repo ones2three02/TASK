@@ -268,7 +268,7 @@ function formatFileSize(size: number) {
 function getPriorityColor(priority: string) {
   switch (priority) {
     case "P0":
-      return "bg-red-600 border-red-700 text-white";
+      return "bg-red-600 border-red-700 text-white font-bold";
     case "P1":
       return "bg-orange-500 border-orange-600 text-white";
     case "P2":
@@ -323,7 +323,7 @@ function getPriorityColor(priority: string) {
               </div>
               <p class="text-[11px] text-muted-foreground">支持上传 txt、md、json、csv，AI 会结合这些资料拆解项目。文件在本地读取，解析时文本会发送给当前 AI 服务。</p>
             </div>
-            <button class="h-8 inline-flex items-center justify-center rounded-lg border bg-background px-3 text-xs font-medium hover:bg-muted transition-colors gap-1.5 shrink-0" type="button" :disabled="loading" @click="referenceInputRef?.click()">
+            <button class="h-8 inline-flex items-center justify-center rounded-lg border bg-background px-3 text-xs font-medium hover:bg-muted active:scale-95 transition-all gap-1.5 shrink-0 cursor-pointer" type="button" :disabled="loading" @click="referenceInputRef?.click()">
               <Upload class="h-3.5 w-3.5" />
               上传文档
             </button>
@@ -342,7 +342,7 @@ function getPriorityColor(priority: string) {
                   <div class="text-xs font-medium truncate">{{ document.name }}</div>
                   <div class="text-[10px] text-muted-foreground">{{ formatFileSize(document.size) }} · {{ document.content.length.toLocaleString() }} 字符<span v-if="document.truncated"> · 已截断</span></div>
                 </div>
-                <button class="h-7 w-7 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10" type="button" :disabled="loading" @click="removeReferenceDocument(document.id)">
+                <button class="h-7 w-7 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 active:scale-90 transition-all" type="button" :disabled="loading" @click="removeReferenceDocument(document.id)">
                   <Trash2 class="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -360,7 +360,7 @@ function getPriorityColor(priority: string) {
             <AlertTriangle class="h-4 w-4 mt-0.5 shrink-0" />
             <div class="text-xs">
               <div class="font-semibold">AI 模块未配置 API Key</div>
-              <p class="text-[11px] opacity-90 mt-0.5">需要配置服务密码（OpenAI, Claude, Qwen, DeepSeek 或本地 Ollama）才能发起分析。</p>
+              <p class="text-[11px] opacity-90 mt-0.5">需要配置服务密码（OpenAI, Claude, Qwen, DeepSeek 或本地 Ollama）才能发起 analysis。</p>
             </div>
           </div>
           <div class="flex items-center gap-2 w-full sm:w-auto">
@@ -371,7 +371,7 @@ function getPriorityColor(priority: string) {
         <!-- Configuration status hint -->
         <div v-else class="text-xs text-muted-foreground flex items-center justify-between bg-muted/20 px-3 py-2 rounded-lg border">
           <span class="flex items-center gap-1.5">
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span class="h-1.5 w-1.5 rounded-full bg-zinc-950 dark:bg-zinc-50" />
             当前 AI 引擎：<strong class="text-foreground capitalize">{{ settingsStore.aiConfig.provider }}</strong> (模型: <code class="bg-muted px-1.5 py-0.5 rounded text-[10px]">{{ settingsStore.aiConfig.model }}</code
             >)
           </span>
@@ -385,8 +385,12 @@ function getPriorityColor(priority: string) {
 
         <!-- Trigger buttons -->
         <div class="flex justify-end gap-2 border-t pt-4 border-border/40 shrink-0">
-          <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted transition-colors" @click="emit('close')" :disabled="loading">取消</button>
-          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-indigo-500 hover:bg-indigo-500/90 text-white px-5 text-sm font-medium transition-all shadow-md gap-1.5" :disabled="!hasParseInput || loading || (!isAiConfigured && !quickApiKey)" @click="startAiParse">
+          <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted active:scale-95 transition-all cursor-pointer" @click="emit('close')" :disabled="loading">取消</button>
+          <button
+            class="h-9 inline-flex items-center justify-center rounded-lg bg-zinc-950 dark:bg-zinc-50 hover:bg-zinc-900 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 px-5 text-sm font-medium transition-all active:scale-[0.97] shadow-md gap-1.5 cursor-pointer"
+            :disabled="!hasParseInput || loading || (!isAiConfigured && !quickApiKey)"
+            @click="startAiParse"
+          >
             <Loader2 v-if="loading" class="h-4 w-4 animate-spin" />
             <Sparkles v-else class="h-4 w-4" />
             {{ loading ? "AI 正在全力拆解中..." : "开始 AI 拆解项目" }}
@@ -406,7 +410,7 @@ function getPriorityColor(priority: string) {
             <div class="space-y-3">
               <div v-for="(t, idx) in parsedResult?.targets" :key="idx" class="p-4 rounded-lg border bg-muted/10 border-border/60 flex flex-col gap-2 relative">
                 <div class="flex items-start gap-2.5">
-                  <button class="mt-0.5 text-muted-foreground hover:text-emerald-500 shrink-0" @click="selectedTargets[idx] = !selectedTargets[idx]">
+                  <button class="mt-0.5 text-muted-foreground hover:text-emerald-500 shrink-0 active:scale-90 transition-all cursor-pointer" @click="selectedTargets[idx] = !selectedTargets[idx]">
                     <CheckCircle v-if="selectedTargets[idx]" class="h-4.5 w-4.5 text-emerald-500" />
                     <Circle v-else class="h-4.5 w-4.5" />
                   </button>
@@ -442,7 +446,7 @@ function getPriorityColor(priority: string) {
 
             <div class="space-y-3">
               <div v-for="(a, idx) in parsedResult?.actions" :key="idx" class="p-4 rounded-lg border bg-muted/10 border-border/60 flex items-start gap-2.5 relative">
-                <button class="mt-0.5 text-muted-foreground hover:text-indigo-500 shrink-0" @click="selectedActions[idx] = !selectedActions[idx]">
+                <button class="mt-0.5 text-muted-foreground hover:text-indigo-500 shrink-0 active:scale-90 transition-all cursor-pointer" @click="selectedActions[idx] = !selectedActions[idx]">
                   <CheckCircle v-if="selectedActions[idx]" class="h-4.5 w-4.5 text-indigo-500" />
                   <Circle v-else class="h-4.5 w-4.5" />
                 </button>
@@ -450,7 +454,7 @@ function getPriorityColor(priority: string) {
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center justify-between gap-2">
                     <h5 class="font-medium text-sm text-foreground" :class="{ 'opacity-60': !selectedActions[idx] }">{{ a.title }}</h5>
-                    <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border shrink-0 text-white/90" :class="getPriorityColor(a.priority)">
+                    <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border shrink-0" :class="getPriorityColor(a.priority)">
                       {{ a.priority }}
                     </span>
                   </div>
@@ -472,7 +476,7 @@ function getPriorityColor(priority: string) {
 
             <div class="space-y-3">
               <div v-for="(s, idx) in parsedResult?.serves" :key="idx" class="p-4 rounded-lg border bg-muted/10 border-border/60 flex items-start gap-2.5">
-                <button class="mt-0.5 text-muted-foreground hover:text-amber-500 shrink-0" @click="selectedServes[idx] = !selectedServes[idx]">
+                <button class="mt-0.5 text-muted-foreground hover:text-amber-500 shrink-0 active:scale-90 transition-all cursor-pointer" @click="selectedServes[idx] = !selectedServes[idx]">
                   <CheckCircle v-if="selectedServes[idx]" class="h-4.5 w-4.5 text-amber-500" />
                   <Circle v-else class="h-4.5 w-4.5" />
                 </button>
@@ -499,7 +503,7 @@ function getPriorityColor(priority: string) {
 
             <div class="space-y-3">
               <div v-for="(k, idx) in parsedResult?.keeps" :key="idx" class="p-4 rounded-lg border bg-muted/10 border-border/60 flex items-start gap-2.5">
-                <button class="mt-0.5 text-muted-foreground hover:text-purple-500 shrink-0" @click="selectedKeeps[idx] = !selectedKeeps[idx]">
+                <button class="mt-0.5 text-muted-foreground hover:text-purple-500 shrink-0 active:scale-90 transition-all cursor-pointer" @click="selectedKeeps[idx] = !selectedKeeps[idx]">
                   <CheckCircle v-if="selectedKeeps[idx]" class="h-4.5 w-4.5 text-purple-500" />
                   <Circle v-else class="h-4.5 w-4.5" />
                 </button>
@@ -519,9 +523,9 @@ function getPriorityColor(priority: string) {
 
         <!-- Trigger buttons -->
         <div class="flex justify-between items-center border-t pt-4 border-border/40 shrink-0 mt-auto">
-          <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted transition-colors" @click="step = 'input'">返回修改</button>
+          <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted active:scale-95 transition-all cursor-pointer" @click="step = 'input'">返回修改</button>
 
-          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-emerald-500 hover:bg-emerald-500/90 text-white px-5 text-sm font-medium transition-all shadow-md gap-1.5" @click="handleImport">导入到项目 (T/A/S/K)</button>
+          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-emerald-500 hover:bg-emerald-500/90 text-white px-5 text-sm font-bold transition-all active:scale-[0.97] shadow-md gap-1.5 cursor-pointer" @click="handleImport">导入到项目 (T/A/S/K)</button>
         </div>
       </div>
     </div>

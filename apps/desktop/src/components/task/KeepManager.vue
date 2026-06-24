@@ -256,13 +256,24 @@ async function importTechnicalDocument() {
   }
 }
 
-function deleteKeep(id: string) {
-  if (confirm("确定要删除这个存档记录吗？")) {
-    taskStore.deleteKeep(id);
-    if (selectedKeepForView.value?.id === id) {
+const showDeleteConfirm = ref(false);
+const keepToDelete = ref<Keep | null>(null);
+
+function requestDeleteKeep(keep: Keep) {
+  keepToDelete.value = keep;
+  showDeleteConfirm.value = true;
+}
+
+function confirmDeleteKeep() {
+  if (keepToDelete.value) {
+    taskStore.deleteKeep(keepToDelete.value.id);
+    if (selectedKeepForView.value?.id === keepToDelete.value.id) {
       selectedKeepForView.value = null;
     }
+    toast(`🗑️ 已成功删除知识资产：“${keepToDelete.value.name}”`);
+    keepToDelete.value = null;
   }
+  showDeleteConfirm.value = false;
 }
 
 async function handleTextareaPaste(event: ClipboardEvent, targetType: "document" | "retrospective") {
@@ -609,10 +620,10 @@ function getKeepLabel(type: KeepType) {
                 <span class="mt-1 inline-flex rounded border px-1.5 py-0.5 text-[9px] font-semibold" :class="getKeepBadgeClass(keep.type)">{{ getKeepLabel(keep.type) }}</span>
               </div>
               <div class="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground" @click.stop="openDocEditor(keep)">
+                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-transform active:scale-90 cursor-pointer" @click.stop="openDocEditor(keep)">
                   <Edit class="h-3 w-3" />
                 </button>
-                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500" @click.stop="deleteKeep(keep.id)">
+                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-transform active:scale-90 cursor-pointer" @click.stop="requestDeleteKeep(keep)">
                   <Trash2 class="h-3 w-3" />
                 </button>
               </div>
@@ -659,10 +670,10 @@ function getKeepLabel(type: KeepType) {
               </div>
 
               <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-4 right-4">
-                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground" @click.stop="openEditDialog(keep)">
+                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-transform active:scale-90 cursor-pointer" @click.stop="openEditDialog(keep)">
                   <Edit class="h-3 w-3" />
                 </button>
-                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500" @click.stop="deleteKeep(keep.id)">
+                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-transform active:scale-90 cursor-pointer" @click.stop="requestDeleteKeep(keep)">
                   <Trash2 class="h-3 w-3" />
                 </button>
               </div>
@@ -692,10 +703,10 @@ function getKeepLabel(type: KeepType) {
                 <span class="mt-1 inline-flex rounded border px-1.5 py-0.5 text-[9px] font-semibold" :class="getKeepBadgeClass(keep.type)">{{ getKeepLabel(keep.type) }}</span>
               </div>
               <div class="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground" @click.stop="openEditDialog(keep)">
+                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground transition-transform active:scale-90 cursor-pointer" @click.stop="openEditDialog(keep)">
                   <Edit class="h-3 w-3" />
                 </button>
-                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500" @click.stop="deleteKeep(keep.id)">
+                <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-transform active:scale-90 cursor-pointer" @click.stop="requestDeleteKeep(keep)">
                   <Trash2 class="h-3 w-3" />
                 </button>
               </div>
@@ -961,6 +972,44 @@ function getKeepLabel(type: KeepType) {
               保存并写入本地
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Beautiful custom delete confirmation dialog -->
+    <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+      <div class="w-full max-w-[460px] rounded-3xl border border-zinc-100 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
+        <button class="absolute top-5 right-5 h-8 w-8 rounded-full inline-flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer transition-colors active:scale-95" @click="showDeleteConfirm = false">
+          <X class="h-4.5 w-4.5" />
+        </button>
+
+        <div class="flex items-start gap-4">
+          <div class="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-800/80 shrink-0 flex items-center justify-center">
+            <Trash2 class="h-5 w-5 text-zinc-600 dark:text-zinc-300" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-6">确定要删除此知识资产吗？</h3>
+            <p class="text-[13px] text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed font-normal">
+              您即将删除存档记录 <span class="font-bold text-zinc-900 dark:text-zinc-200">「{{ keepToDelete?.name }}」</span>。此操作将彻底删除此存档及其内容。
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-zinc-50/80 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/60 rounded-xl p-3.5 mt-1 flex items-center gap-2">
+          <span class="h-1.5 w-1.5 rounded-full bg-zinc-900 dark:bg-zinc-100 animate-pulse"></span>
+          <p class="text-zinc-800 dark:text-zinc-200 font-bold text-[13px] leading-relaxed pl-1 text-left">注意：存档记录删除后将无法恢复！</p>
+        </div>
+
+        <div class="border-t border-zinc-100 dark:border-zinc-800/60 my-1"></div>
+
+        <div class="flex justify-end gap-3 pt-1">
+          <button
+            class="h-10 inline-flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors active:scale-97 cursor-pointer text-zinc-900 dark:text-zinc-100"
+            @click="showDeleteConfirm = false"
+          >
+            取消
+          </button>
+          <button class="h-10 inline-flex items-center justify-center rounded-xl bg-zinc-950 dark:bg-zinc-50 hover:bg-zinc-900 dark:hover:bg-zinc-200 px-5 text-sm font-bold text-white dark:text-zinc-950 transition-all active:scale-97 cursor-pointer" @click="confirmDeleteKeep">确定删除</button>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, watch, computed } from "vue";
 import { uuid } from "@/lib/utils";
-import { parseCharterToTarget, syncTargetsToLocal, syncActionsToLocal, syncServesToLocal, syncKeepsToLocal, initializeProjectFolders } from "@/lib/taskFileSync";
+import { parseCharterToTarget, syncTargetsToLocal, syncActionsToLocal, syncServesToLocal, syncKeepsToLocal, initializeProjectFolders, saveIllustrationToLocal, removeIllustrationFromLocal } from "@/lib/taskFileSync";
 import { normalizeAction, normalizeKeep, normalizeServe, normalizeTarget, type AcceptanceStatus, type ChecklistItem, type EvidenceItem, type KeepType, type ServeStatus, type TaskProjectSnapshot } from "@/lib/taskPlanning";
 
 type ChecklistItemInput = { id?: string; title: string; completed: boolean };
@@ -13,6 +13,9 @@ export interface Project {
   description: string;
   createdAt: string;
   localPath?: string;
+  illustrationUrl?: string;
+  illustrationPrompt?: string;
+  illustrationDesc?: string;
 }
 
 export interface Target {
@@ -103,6 +106,13 @@ export const useTaskStore = defineStore("task", () => {
       await syncActionsToLocal(proj.localPath, projActions);
       await syncServesToLocal(proj.localPath, projServes);
       await syncKeepsToLocal(proj.localPath, projKeeps);
+
+      // Sync project illustration image physically
+      if (proj.illustrationUrl) {
+        await saveIllustrationToLocal(proj.localPath, proj.illustrationUrl);
+      } else {
+        await removeIllustrationFromLocal(proj.localPath);
+      }
     } catch (e) {
       console.error("[TASK] local sync failed", e);
     }
@@ -268,6 +278,14 @@ export const useTaskStore = defineStore("task", () => {
     if (activeProjectId.value === id) {
       activeProjectId.value = projects.value[0]?.id || "";
       localStorage.setItem("task-active-project-id", activeProjectId.value);
+    }
+  }
+
+  function updateProject(updated: Project) {
+    const index = projects.value.findIndex((p) => p.id === updated.id);
+    if (index !== -1) {
+      projects.value[index] = { ...updated };
+      saveProjects();
     }
   }
 
@@ -632,6 +650,7 @@ export const useTaskStore = defineStore("task", () => {
     keeps,
     loadAll,
     addProject,
+    updateProject,
     addProjectSnapshot,
     deleteProject,
     addTarget,
