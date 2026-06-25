@@ -447,38 +447,38 @@ function getActionChecklistStats(action: Action) {
           <h2 class="text-xl font-semibold flex items-center gap-2">
             <ListTodo class="h-5 w-5 text-indigo-500" />
             A - ACTION 执行控制
+            <span class="group relative inline-flex items-center">
+              <HelpCircle class="h-4 w-4 text-muted-foreground/60 hover:text-foreground cursor-help transition-colors" />
+              <span
+                class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-popover border border-border text-xs text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[100] leading-relaxed font-normal normal-case"
+              >
+                行动围绕 S 交付项推进，可按需关联交付项、管理阻塞与记录完成证据。
+              </span>
+            </span>
           </h2>
-          <p class="text-xs text-muted-foreground mt-1">行动围绕 S 交付项推进，可按需关联交付项、管理阻塞与记录完成证据。</p>
-          <div class="flex flex-wrap items-center gap-3.5 mt-2 text-[10px] text-muted-foreground/90 select-none">
-            <span class="font-bold flex items-center gap-0.5"> 优先级说明: </span>
-            <span class="group relative flex items-center gap-1 cursor-help">
-              <span class="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
-              P0 阻塞特急
-              <span class="absolute bottom-full left-0 mb-1.5 w-48 p-2 bg-popover border text-[9px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed font-normal">
-                🔴 核心流程被阻塞，属于影响面极大的崩溃级缺陷或紧急技术痛点，需即刻解决。
-              </span>
-            </span>
-            <span class="group relative flex items-center gap-1 cursor-help">
-              <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
-              P1 关键高优
-              <span class="absolute bottom-full left-0 mb-1.5 w-48 p-2 bg-popover border text-[9px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed font-normal">
-                🟠 本迭代或当前交付里程碑必须在期限内交付的重难点/核心业务逻辑行动。
-              </span>
-            </span>
-            <span class="group relative flex items-center gap-1 cursor-help">
-              <span class="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-              P2 重要中优
-              <span class="absolute bottom-full left-0 mb-1.5 w-48 p-2 bg-popover border text-[9px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed font-normal">
-                🔵 常规业务需求或辅助开发行动，按原计划版本迭代步骤平稳开发。
-              </span>
-            </span>
-            <span class="group relative flex items-center gap-1 cursor-help">
-              <span class="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
-              P3 低优建议
-              <span class="absolute bottom-full left-0 mb-1.5 w-48 p-2 bg-popover border text-[9px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed font-normal">
-                ⚪ 零星用户体验细节优化、非紧急重构，或适合闲暇时进行的技术储备与灵感。
-              </span>
-            </span>
+          <!-- 优先级说明改为了悬浮气泡查看 -->
+          <div class="group relative inline-flex items-center gap-1.5 mt-2 text-[10px] text-muted-foreground/80 cursor-help select-none">
+            <HelpCircle class="h-3.5 w-3.5 text-muted-foreground/60" />
+            <span>查看优先级说明</span>
+            <div class="absolute left-0 bottom-full mb-1.5 w-72 p-3 bg-popover border text-[10px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed font-normal flex flex-col gap-2">
+              <div class="font-bold border-b border-border pb-1 mb-1">优先级说明</div>
+              <div class="flex items-start gap-1.5">
+                <span class="h-1.5 w-1.5 rounded-full bg-red-500 mt-1 shrink-0"></span>
+                <div><strong>P0 阻塞特急:</strong> 核心流程被阻塞，属于影响面极大的崩溃级缺陷或紧急技术痛点，需即刻解决。</div>
+              </div>
+              <div class="flex items-start gap-1.5">
+                <span class="h-1.5 w-1.5 rounded-full bg-orange-500 mt-1 shrink-0"></span>
+                <div><strong>P1 关键高优:</strong> 本迭代或当前交付里程碑必须在期限内交付的重难点/核心业务逻辑行动。</div>
+              </div>
+              <div class="flex items-start gap-1.5">
+                <span class="h-1.5 w-1.5 rounded-full bg-blue-500 mt-1 shrink-0"></span>
+                <div><strong>P2 重要中优:</strong> 常规业务需求或辅助开发行动，按原计划版本迭代步骤平稳开发。</div>
+              </div>
+              <div class="flex items-start gap-1.5">
+                <span class="h-1.5 w-1.5 rounded-full bg-slate-500 mt-1 shrink-0"></span>
+                <div><strong>P3 低优建议:</strong> 零星用户体验细节优化、非紧急重构，或适合闲暇时进行的技术储备与灵感。</div>
+              </div>
+            </div>
           </div>
         </div>
         <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1" @click="openAddDialog('todo')">

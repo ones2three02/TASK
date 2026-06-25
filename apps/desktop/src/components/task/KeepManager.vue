@@ -4,7 +4,7 @@ import { useTaskStore, type Keep } from "@/stores/taskStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { buildProjectRetrospective, exportProjectSnapshot, normalizeImportedProjectSnapshot, type KeepType } from "@/lib/taskPlanning";
 import { generateKeepContentWithAi } from "@/lib/aiParser";
-import { Plus, Archive, Trash2, Edit, FileText, Link, PackageOpen, ExternalLink, X, Download, Upload, ClipboardList, Save, Eye, FolderOpen, Sparkles } from "@lucide/vue";
+import { Plus, Archive, Trash2, Edit, FileText, Link, PackageOpen, ExternalLink, X, Download, Upload, ClipboardList, Save, Eye, FolderOpen, Sparkles, HelpCircle } from "@lucide/vue";
 import { useToast } from "@/composables/useToast";
 import { uuid } from "@/lib/utils";
 
@@ -567,8 +567,15 @@ function getKeepLabel(type: KeepType) {
           <h2 class="text-xl font-semibold flex items-center gap-2">
             <Archive class="h-5 w-5 text-purple-500" />
             K - KEEP 留存与归档
+            <span class="group relative inline-flex items-center">
+              <HelpCircle class="h-4 w-4 text-muted-foreground/60 hover:text-foreground cursor-help transition-colors" />
+              <span
+                class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-popover border border-border text-xs text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[100] leading-relaxed font-normal normal-case"
+              >
+                沉淀文档、链接、交付证据、版本记录和复盘，让项目结果可追溯、可复用。
+              </span>
+            </span>
           </h2>
-          <p class="text-xs text-muted-foreground mt-1">沉淀文档、链接、交付证据、版本记录和复盘，让项目结果可追溯、可复用。</p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2">
           <button class="inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all gap-1 cursor-pointer" @click="createRetrospective">

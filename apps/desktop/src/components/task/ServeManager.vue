@@ -5,7 +5,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { suggestAcceptanceCriteriaWithAi } from "@/lib/aiParser";
 import type { ChecklistItem } from "@/lib/taskPlanning";
 import { uuid } from "@/lib/utils";
-import { Handshake, FileCheck, CalendarDays, ClipboardCheck, Paperclip, CheckCircle2, Circle, FileText, Eye, Save, X, FolderOpen, Sparkles, Loader2 } from "@lucide/vue";
+import { Handshake, FileCheck, CalendarDays, ClipboardCheck, Paperclip, CheckCircle2, Circle, FileText, Eye, Save, X, FolderOpen, Sparkles, Loader2, HelpCircle } from "@lucide/vue";
 import { useToast } from "@/composables/useToast";
 import { writeServeTemplateToLocal } from "@/lib/taskFileSync";
 
@@ -543,8 +543,13 @@ async function aggregateActionsToReport(serve: Serve) {
         <h2 class="text-xl font-semibold flex items-center gap-2">
           <Handshake class="h-5 w-5 text-amber-500" />
           S - SERVE 交付物与文档输出
+          <span class="group relative inline-flex items-center">
+            <HelpCircle class="h-4 w-4 text-muted-foreground/60 hover:text-foreground cursor-help transition-colors" />
+            <span class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-popover border border-border text-xs text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[100] leading-relaxed font-normal normal-case">
+              针对当前项目目标进行文档输出及自测汇总，直接对齐概要设计、实现方案、测试用例、部署指引及操作文档等 5 个企业级核心交付物。
+            </span>
+          </span>
         </h2>
-        <p class="text-xs text-muted-foreground mt-1">针对当前项目目标进行文档输出及自测汇总，直接对齐概要设计、实现方案、测试用例、部署指引及操作文档等 5 个企业级核心交付物。</p>
       </div>
     </div>
 
@@ -613,13 +618,22 @@ async function aggregateActionsToReport(serve: Serve) {
               class="p-3.5 rounded-xl border bg-muted/10 border-border/40 hover:bg-muted/20 transition-all flex flex-col justify-between gap-3"
             >
               <div class="space-y-1">
-                <div class="flex items-center justify-between">
-                  <span class="font-bold text-xs text-foreground/90 truncate">{{ docType.label }}</span>
-                  <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full border" :class="isDocumentGenerated(currentServe, docType.type) ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-500/10 text-slate-500 border-slate-500/20'">
+                <div class="flex items-center justify-between gap-1.5">
+                  <div class="flex items-center gap-1 min-w-0">
+                    <span class="font-bold text-xs text-foreground/90 truncate">{{ docType.label }}</span>
+                    <span class="group relative inline-flex items-center shrink-0">
+                      <HelpCircle class="h-3.5 w-3.5 text-muted-foreground/50 hover:text-foreground cursor-help transition-colors" />
+                      <span
+                        class="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 w-48 p-2 bg-popover border border-border text-[9px] text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 leading-relaxed font-normal normal-case"
+                      >
+                        {{ docType.desc }}
+                      </span>
+                    </span>
+                  </div>
+                  <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full border shrink-0" :class="isDocumentGenerated(currentServe, docType.type) ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-500/10 text-slate-500 border-slate-500/20'">
                     {{ isDocumentGenerated(currentServe, docType.type) ? "已就绪" : "未生成" }}
                   </span>
                 </div>
-                <p class="text-[10px] text-muted-foreground leading-relaxed">{{ docType.desc }}</p>
               </div>
 
               <div class="flex items-center gap-1.5 border-t border-border/20 pt-2.5 mt-1 shrink-0 justify-end">

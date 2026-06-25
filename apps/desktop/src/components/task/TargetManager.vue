@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTaskStore, type Target } from "@/stores/taskStore";
-import { Plus, Target as TargetIcon, Calendar, Trash2, Edit, CheckCircle2, Circle, AlertCircle, X, Sparkles, ArrowUpRight } from "@lucide/vue";
+import { Plus, Target as TargetIcon, Calendar, Trash2, Edit, CheckCircle2, Circle, AlertCircle, X, Sparkles, ArrowUpRight, HelpCircle } from "@lucide/vue";
 import AiParserModal from "@/components/task/AiParserModal.vue";
 import { useToast } from "@/composables/useToast";
 
@@ -288,8 +288,15 @@ function getChecklistProgress(items: ChecklistDraft[] = []) {
           <h2 class="text-xl font-semibold flex items-center gap-2">
             <TargetIcon class="h-5 w-5 text-emerald-500" />
             T - TARGET 项目章程
+            <span class="group relative inline-flex items-center">
+              <HelpCircle class="h-4 w-4 text-muted-foreground/60 hover:text-foreground cursor-help transition-colors" />
+              <span
+                class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-popover border border-border text-xs text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[100] leading-relaxed font-normal normal-case"
+              >
+                先明确目标、边界、成功标准和风险假设，再拆解里程碑与行动。
+              </span>
+            </span>
           </h2>
-          <p class="text-xs text-muted-foreground mt-1">先明确目标、边界、成功标准和风险假设，再拆解里程碑与行动。</p>
         </div>
         <div class="flex items-center gap-2">
           <button class="inline-flex h-9 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-500 px-4 text-sm font-medium transition-all shadow-sm gap-1.5" @click="showAiModal = true">
@@ -349,11 +356,11 @@ function getChecklistProgress(items: ChecklistDraft[] = []) {
           <div class="grid gap-2 sm:grid-cols-2">
             <div class="rounded-md bg-background/50 p-2">
               <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">项目范围</div>
-              <p class="mt-1 line-clamp-2 text-muted-foreground">{{ target.scope || "未定义范围" }}</p>
+              <p class="mt-1 line-clamp-2 text-muted-foreground" :title="target.scope">{{ target.scope || "未定义范围" }}</p>
             </div>
             <div class="rounded-md bg-background/50 p-2">
               <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">非范围</div>
-              <p class="mt-1 line-clamp-2 text-muted-foreground">{{ target.outOfScope || "未定义非范围" }}</p>
+              <p class="mt-1 line-clamp-2 text-muted-foreground" :title="target.outOfScope">{{ target.outOfScope || "未定义非范围" }}</p>
             </div>
           </div>
           <div class="flex flex-wrap gap-2">
