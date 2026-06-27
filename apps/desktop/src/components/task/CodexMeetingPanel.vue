@@ -434,6 +434,26 @@ function handleFileUpload(event: Event) {
   input.value = "";
 }
 
+async function handleLarkInstall() {
+  toast("小科已开始通过 Volta 自动部署飞书 CLI，这需要十几秒，请耐心等待...", 4000);
+  try {
+    await officeStore.installLarkCli();
+    toast("飞书 lark-cli 部署完成！🎉", 3000);
+  } catch (err: any) {
+    toast(`部署失败: ${err.message || String(err)}`, 5000);
+  }
+}
+
+async function handleDwsInstall() {
+  toast("小科已开始通过 Volta 自动部署钉钉 CLI，这需要十几秒，请耐心等待...", 4000);
+  try {
+    await officeStore.installDwsCli();
+    toast("钉钉 dws 部署完成！🎉", 3000);
+  } catch (err: any) {
+    toast(`部署失败: ${err.message || String(err)}`, 5000);
+  }
+}
+
 // OAuth Browser Login
 async function startFeishuLogin() {
   isFeishuLogginIn.value = true;
@@ -761,11 +781,22 @@ function getPriorityColor(priority: string) {
         <div v-if="!officeStore.larkInstalled" class="p-3 rounded-lg bg-red-500/5 border border-red-500/10 space-y-2">
           <div class="text-[10px] text-red-400 leading-relaxed flex items-start gap-1.5">
             <Info class="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            <p>系统未检测到全局安装的 <code>lark-cli</code>。由于您的系统使用 Volta 软件包管理，请打开终端直接执行以下命令安装：</p>
+            <p>系统未检测到全局安装的 <code>lark-cli</code>。由于您的系统使用 Volta 软件包管理，可以直接点击一键自动安装：</p>
           </div>
-          <div class="bg-black/40 px-3 py-2 rounded border border-white/5 font-mono text-[10px] flex items-center justify-between text-zinc-300">
-            <code>volta install @larksuite/cli</code>
-            <Terminal class="h-3 w-3 opacity-60" />
+          <div class="flex items-center justify-between gap-3 mt-1.5">
+            <div class="bg-black/40 px-3 py-2 rounded border border-white/5 font-mono text-[10px] flex-1 flex items-center justify-between text-zinc-300">
+              <code>volta install @larksuite/cli</code>
+              <Terminal class="h-3 w-3 opacity-60" />
+            </div>
+            <button
+              class="h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white text-xs px-4 font-semibold transition-all active:scale-[0.97] shadow-md flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer animate-pulse"
+              :disabled="officeStore.larkInstalling"
+              @click="handleLarkInstall"
+            >
+              <Loader2 v-if="officeStore.larkInstalling" class="h-3.5 w-3.5 animate-spin" />
+              <Sparkles v-else class="h-3.5 w-3.5" />
+              {{ officeStore.larkInstalling ? "正在安装..." : "一键自动安装" }}
+            </button>
           </div>
         </div>
 
@@ -807,11 +838,22 @@ function getPriorityColor(priority: string) {
         <div v-if="!officeStore.dwsInstalled" class="p-3 rounded-lg bg-red-500/5 border border-red-500/10 space-y-2">
           <div class="text-[10px] text-red-400 leading-relaxed flex items-start gap-1.5">
             <Info class="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            <p>系统未检测到全局安装的 <code>dws</code>。由于您的系统使用 Volta 软件包管理，请打开终端直接执行以下命令安装：</p>
+            <p>系统未检测到全局安装的 <code>dws</code>。由于您的系统使用 Volta 软件包管理，可以直接点击一键自动安装：</p>
           </div>
-          <div class="bg-black/40 px-3 py-2 rounded border border-white/5 font-mono text-[10px] flex items-center justify-between text-zinc-300">
-            <code>volta install dingtalk-workspace-cli</code>
-            <Terminal class="h-3 w-3 opacity-60" />
+          <div class="flex items-center justify-between gap-3 mt-1.5">
+            <div class="bg-black/40 px-3 py-2 rounded border border-white/5 font-mono text-[10px] flex-1 flex items-center justify-between text-zinc-300">
+              <code>volta install dingtalk-workspace-cli</code>
+              <Terminal class="h-3 w-3 opacity-60" />
+            </div>
+            <button
+              class="h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white text-xs px-4 font-semibold transition-all active:scale-[0.97] shadow-md flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer animate-pulse"
+              :disabled="officeStore.dwsInstalling"
+              @click="handleDwsInstall"
+            >
+              <Loader2 v-if="officeStore.dwsInstalling" class="h-3.5 w-3.5 animate-spin" />
+              <Sparkles v-else class="h-3.5 w-3.5" />
+              {{ officeStore.dwsInstalling ? "正在安装..." : "一键自动安装" }}
+            </button>
           </div>
         </div>
 

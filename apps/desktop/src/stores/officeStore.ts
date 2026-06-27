@@ -12,6 +12,8 @@ export interface SyncLog {
 export const useOfficeStore = defineStore("office", () => {
   const larkInstalled = ref(false);
   const dwsInstalled = ref(false);
+  const larkInstalling = ref(false);
+  const dwsInstalling = ref(false);
 
   const larkConnected = ref(false);
   const dwsConnected = ref(false);
@@ -153,6 +155,41 @@ export const useOfficeStore = defineStore("office", () => {
     }
   }
 
+  // 6. One-click installations via Volta
+  async function installLarkCli() {
+    if (larkInstalling.value) return;
+    larkInstalling.value = true;
+    addLog("info", "开始自动安装 @larksuite/cli (通过 Volta)...");
+    try {
+      await runCli("volta", ["install", "@larksuite/cli"]);
+      addLog("success", "飞书 lark-cli 全局安装成功！");
+      await checkLarkInstall();
+      await checkLarkStatus();
+    } catch (e: any) {
+      addLog("error", `安装 @larksuite/cli 失败: ${e.message}`);
+      throw e;
+    } finally {
+      larkInstalling.value = false;
+    }
+  }
+
+  async function installDwsCli() {
+    if (dwsInstalling.value) return;
+    dwsInstalling.value = true;
+    addLog("info", "开始自动安装 dingtalk-workspace-cli (通过 Volta)...");
+    try {
+      await runCli("volta", ["install", "dingtalk-workspace-cli"]);
+      addLog("success", "钉钉 dws 全局安装成功！");
+      await checkDwsInstall();
+      await checkDwsStatus();
+    } catch (e: any) {
+      addLog("error", `安装 dingtalk-workspace-cli 失败: ${e.message}`);
+      throw e;
+    } finally {
+      dwsInstalling.value = false;
+    }
+  }
+
   // Check all statuses
   async function initStatus() {
     const hasLark = await checkLarkInstall();
@@ -180,6 +217,10 @@ export const useOfficeStore = defineStore("office", () => {
     getDwsLoginUrl,
     logoutLark,
     logoutDws,
+    larkInstalling,
+    dwsInstalling,
+    installLarkCli,
+    installDwsCli,
     initStatus,
   };
 });
