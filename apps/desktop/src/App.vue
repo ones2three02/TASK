@@ -19,6 +19,7 @@ import ShortcutsHelpModal from "@/components/layout/ShortcutsHelpModal.vue";
 import AiParserModal from "@/components/task/AiParserModal.vue";
 import AiDiagnosticModal from "@/components/task/AiDiagnosticModal.vue";
 import InboxPanel from "@/components/layout/InboxPanel.vue";
+import CodexPet from "@/components/task/CodexPet.vue";
 import { useTaskStore } from "@/stores/taskStore";
 import EditorToolbar from "@/components/layout/EditorToolbar.vue";
 import ContentArea from "@/components/layout/ContentArea.vue";
@@ -1270,6 +1271,7 @@ onUnmounted(() => {
       <AiParserModal :open="showAiParserModal" @close="showAiParserModal = false" />
       <AiDiagnosticModal :open="showAiDiagnosticModal" @close="showAiDiagnosticModal = false" />
       <InboxPanel :show="showInbox" @close="showInbox = false" @navigate-to-kanban="activeModule = 'action'" />
+      <CodexPet />
     </TooltipProvider>
   </div>
 </template>
