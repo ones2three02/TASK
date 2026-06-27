@@ -1,6 +1,6 @@
 [package]
 name = "task-web"
-version = "0.5.45"
+version = "0.5.46"
 edition = "2021"
 license = "Apache-2.0"
 
