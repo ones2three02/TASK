@@ -82,6 +82,15 @@ export interface Keep {
   relatedActionId?: string;
 }
 
+export interface SystemNotification {
+  id: string;
+  title: string;
+  description: string;
+  type: "success" | "warning" | "info" | "unlock";
+  createdAt: string;
+  read: boolean;
+}
+
 export const useTaskStore = defineStore("task", () => {
   const projects = ref<Project[]>([]);
   const activeProjectId = ref<string>("");
@@ -89,6 +98,7 @@ export const useTaskStore = defineStore("task", () => {
   const actions = ref<Action[]>([]);
   const serves = ref<Serve[]>([]);
   const keeps = ref<Keep[]>([]);
+  const notifications = ref<SystemNotification[]>([]);
 
   const activeProject = computed(() => projects.value.find((p) => p.id === activeProjectId.value));
 
@@ -187,6 +197,7 @@ export const useTaskStore = defineStore("task", () => {
       actions.value = JSON.parse(localStorage.getItem("task-actions") || "[]").map(normalizeAction);
       serves.value = JSON.parse(localStorage.getItem("task-serves") || "[]").map(normalizeServe);
       keeps.value = JSON.parse(localStorage.getItem("task-keeps") || "[]").map(normalizeKeep);
+      notifications.value = JSON.parse(localStorage.getItem("task-notifications") || "[]");
 
       // Initialize a default project if none exists
       if (projects.value.length === 0) {
@@ -212,6 +223,17 @@ export const useTaskStore = defineStore("task", () => {
           void syncFromLocalFiles(proj);
         }
       });
+
+      // 检测当天是否有已逾期的行动并推送通知
+      const today = new Date().toISOString().slice(0, 10);
+      const lastAlertDate = localStorage.getItem("task-last-overdue-alert-date") || "";
+      if (lastAlertDate !== today) {
+        const overdueCount = actions.value.filter((a) => a.status !== "done" && a.status !== "discarded" && !!a.dueDate && a.dueDate < today).length;
+        if (overdueCount > 0) {
+          addNotification("任务逾期警报", `⚠️ 注意：当前有 ${overdueCount} 项任务已逾期，请及时处理！`, "warning");
+          localStorage.setItem("task-last-overdue-alert-date", today);
+        }
+      }
     } catch (e) {
       console.error("Failed to load tasks", e);
     }
@@ -240,6 +262,36 @@ export const useTaskStore = defineStore("task", () => {
   function saveKeeps() {
     localStorage.setItem("task-keeps", JSON.stringify(keeps.value));
     void triggerLocalSync();
+  }
+
+  function saveNotifications() {
+    localStorage.setItem("task-notifications", JSON.stringify(notifications.value));
+  }
+
+  function addNotification(title: string, description: string, type: "success" | "warning" | "info" | "unlock") {
+    const notification: SystemNotification = {
+      id: uuid(),
+      title,
+      description,
+      type,
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+    notifications.value.unshift(notification);
+    saveNotifications();
+    return notification;
+  }
+
+  function markAllAsRead() {
+    notifications.value.forEach((n) => {
+      n.read = true;
+    });
+    saveNotifications();
+  }
+
+  function clearAllNotifications() {
+    notifications.value = [];
+    saveNotifications();
   }
 
   // Projects CRUD
@@ -521,10 +573,30 @@ export const useTaskStore = defineStore("task", () => {
       const oldAction = actions.value[index];
       actions.value[index] = { ...updated };
       saveActions();
+
+      const unblockedActions: Action[] = [];
+      if (updated.status === "done" && oldAction.status !== "done") {
+        actions.value.forEach((a) => {
+          if (a.projectId === updated.projectId && a.blocked && a.blockerReason) {
+            const matchId = `[${updated.id}]`;
+            if (a.blockerReason.includes(matchId)) {
+              a.blocked = false;
+              unblockedActions.push(a);
+              addNotification("行动自动解锁", `🔓 行动自动解锁：由于阻碍源 [${updated.title}] 已完成，行动 [${a.title}] 已自动接触锁定！`, "unlock");
+            }
+          }
+        });
+        if (unblockedActions.length > 0) {
+          saveActions();
+        }
+      }
+
       if (oldAction.status !== updated.status) {
         syncActionStateToTAndS(updated);
       }
+      return unblockedActions;
     }
+    return [];
   }
 
   function deleteAction(id: string) {
@@ -648,6 +720,7 @@ export const useTaskStore = defineStore("task", () => {
     actions,
     serves,
     keeps,
+    notifications,
     loadAll,
     addProject,
     updateProject,
@@ -665,5 +738,9 @@ export const useTaskStore = defineStore("task", () => {
     addKeep,
     updateKeep,
     deleteKeep,
+    addNotification,
+    markAllAsRead,
+    clearAllNotifications,
+    saveNotifications,
   };
 });

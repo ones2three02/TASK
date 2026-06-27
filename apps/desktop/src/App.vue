@@ -14,6 +14,11 @@ import KeepManager from "@/components/task/KeepManager.vue";
 import CalendarManager from "@/components/task/CalendarManager.vue";
 import DashboardManager from "@/components/task/DashboardManager.vue";
 import TaskRoadmap from "@/components/task/TaskRoadmap.vue";
+import CommandPalette from "@/components/layout/CommandPalette.vue";
+import ShortcutsHelpModal from "@/components/layout/ShortcutsHelpModal.vue";
+import AiParserModal from "@/components/task/AiParserModal.vue";
+import AiDiagnosticModal from "@/components/task/AiDiagnosticModal.vue";
+import InboxPanel from "@/components/layout/InboxPanel.vue";
 import { useTaskStore } from "@/stores/taskStore";
 import EditorToolbar from "@/components/layout/EditorToolbar.vue";
 import ContentArea from "@/components/layout/ContentArea.vue";
@@ -97,6 +102,18 @@ const settingsStore = useSettingsStore();
 const savedSqlStore = useSavedSqlStore();
 const taskStore = useTaskStore();
 const activeModule = ref<"dashboard" | "target" | "action" | "serve" | "keep" | "calendar">("dashboard");
+const showCommandPalette = ref(false);
+const showAiParserModal = ref(false);
+const showAiDiagnosticModal = ref(false);
+const showInbox = ref(false);
+const showShortcutsHelp = ref(false);
+
+function triggerOpenCreateAction() {
+  activeModule.value = "action";
+  nextTick(() => {
+    window.dispatchEvent(new CustomEvent("task-open-add-action"));
+  });
+}
 const { message: toastMessage, visible: toastVisible, toast } = useToast();
 const { isDark, themeMode, applyTheme, setThemeMode } = useTheme();
 const { checkingUpdates, updateInfo, updateCheckMessage, showUpdateDialog, isDownloadingUpdate, downloadProgress, updateReady, hasUpdateAvailable, openUrl, checkUpdates, openLatestRelease, downloadAndInstallUpdate, restartApp } = useAppUpdater();
@@ -837,6 +854,39 @@ function onAiRequestAutoExecuteSql(sql: string) {
 function handleKeydown(e: KeyboardEvent) {
   if (e.defaultPrevented) return;
 
+  // 1. Esc key handling to close drawers/modals
+  if (e.key === "Escape") {
+    e.preventDefault();
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent("task-close-all"));
+    showCommandPalette.value = false;
+    showSaveSqlDialog.value = false;
+    showAiParserModal.value = false;
+    showAiDiagnosticModal.value = false;
+    showInbox.value = false;
+    showShortcutsHelp.value = false;
+    return;
+  }
+
+  // 2. ? key handling to show shortcuts help modal
+  if (e.key === "?") {
+    const activeEl = document.activeElement;
+    const isInputActive = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.hasAttribute("contenteditable") || activeEl.closest("[contenteditable='true']"));
+    if (!isInputActive) {
+      e.preventDefault();
+      e.stopPropagation();
+      showShortcutsHelp.value = true;
+      return;
+    }
+  }
+
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    e.stopPropagation();
+    showCommandPalette.value = !showCommandPalette.value;
+    return;
+  }
+
   const switchNum = isSwitchModuleShortcut(e);
   if (switchNum !== null) {
     e.preventDefault();
@@ -1073,6 +1123,7 @@ onUnmounted(() => {
           @toggle-ai="toggleAiPanel"
           @check-updates="checkUpdates({ silent: false })"
           @open-settings="showSettingsDialog = true"
+          @toggle-inbox="showInbox = !showInbox"
         />
 
         <div :class="isClassicLayout ? 'app-layout-classic flex-1 flex min-h-0' : 'app-panel-gutter flex-1 flex min-h-0 gap-1 p-1'">
@@ -1086,7 +1137,7 @@ onUnmounted(() => {
           <div :class="isClassicLayout ? 'flex-1 min-w-0 overflow-hidden' : 'flex-1 min-w-0 overflow-hidden rounded-md border border-border/80 bg-background'">
             <div class="h-full flex flex-col min-w-0">
               <TaskRoadmap v-if="activeModule !== 'dashboard'" :active-module="activeModule" @select-module="(mod) => (activeModule = mod)" />
-              <DashboardManager v-if="activeModule === 'dashboard'" @select-module="(mod) => (activeModule = mod)" />
+              <DashboardManager v-if="activeModule === 'dashboard'" @select-module="(mod) => (activeModule = mod)" @run-ai-diagnostic="showAiDiagnosticModal = true" />
               <TargetManager v-else-if="activeModule === 'target'" />
               <ActionManager v-else-if="activeModule === 'action'" />
               <ServeManager v-else-if="activeModule === 'serve'" />
@@ -1203,6 +1254,22 @@ onUnmounted(() => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CommandPalette
+        v-if="showCommandPalette"
+        @close="showCommandPalette = false"
+        @selectModule="activeModule = $event"
+        @openAiParser="showAiParserModal = true"
+        @openAiDiagnostic="showAiDiagnosticModal = true"
+        @openSettings="showSettingsDialog = true"
+        @toggleTheme="setThemeMode(isDark ? 'light' : 'dark')"
+        @openCreateAction="triggerOpenCreateAction"
+        @toggleInbox="showInbox = !showInbox"
+        @openShortcutsHelp="showShortcutsHelp = true"
+      />
+      <ShortcutsHelpModal :open="showShortcutsHelp" @update:open="showShortcutsHelp = $event" />
+      <AiParserModal :open="showAiParserModal" @close="showAiParserModal = false" />
+      <AiDiagnosticModal :open="showAiDiagnosticModal" @close="showAiDiagnosticModal = false" />
+      <InboxPanel :show="showInbox" @close="showInbox = false" @navigate-to-kanban="activeModule = 'action'" />
     </TooltipProvider>
   </div>
 </template>

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { ClipboardCheck, Moon, Sun, SunMoon, Bot, Settings, CloudDownload, LoaderCircle } from "@lucide/vue";
+import { ClipboardCheck, Moon, Sun, SunMoon, Bot, Settings, CloudDownload, LoaderCircle, Bell } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import LightDropdown from "@/components/ui/LightDropdown.vue";
 import WindowControls from "@/components/layout/WindowControls.vue";
 import { shouldReserveMacTrafficLightInset, useWindowControls } from "@/composables/useWindowControls";
 import type { AppThemeMode } from "@/lib/appTheme";
+import { useTaskStore } from "@/stores/taskStore";
 
 const props = defineProps<{
   isDark: boolean;
@@ -25,7 +26,11 @@ const emit = defineEmits<{
   "check-updates": [];
   "open-settings": [];
   "open-about": [];
+  "toggle-inbox": [];
 }>();
+
+const taskStore = useTaskStore();
+const unreadCount = computed(() => taskStore.notifications.filter((n) => !n.read).length);
 
 const { t } = useI18n();
 const { isMac, isDesktop, isFullscreen, minimize, toggleMaximize, close } = useWindowControls();
@@ -107,6 +112,20 @@ function onToolbarDblClick() {
           </span>
         </TooltipTrigger>
         <TooltipContent>切换主题模式</TooltipContent>
+      </Tooltip>
+
+      <!-- Inbox Bell -->
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button variant="ghost" size="icon" class="relative h-8 w-8 rounded-md" @click="emit('toggle-inbox')">
+            <Bell class="h-4 w-4" />
+            <span v-if="unreadCount > 0" class="absolute right-1 top-1 flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>收件箱</TooltipContent>
       </Tooltip>
 
       <!-- Settings -->

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useTaskStore, type Action } from "@/stores/taskStore";
 import { useSettingsStore, AI_PROVIDER_PRESETS } from "@/stores/settingsStore";
 import { useToast } from "@/composables/useToast";
 import { uuid } from "@/lib/utils";
 import { suggestServeKeepWithAi, splitActionWithAi } from "@/lib/aiParser";
-import { Plus, ListTodo, Calendar, Trash2, Edit, ArrowRight, ArrowLeft, MoreHorizontal, X, Trophy, Handshake, Archive, Loader2, Sparkles, CheckCircle2, Circle, Target as TargetIcon, ChevronDown, ChevronRight, HelpCircle } from "@lucide/vue";
+import { Plus, ListTodo, Calendar, Trash2, Edit, ArrowRight, ArrowLeft, MoreHorizontal, X, Trophy, Handshake, Archive, Loader2, Sparkles, CheckCircle2, Circle, Target as TargetIcon, ChevronDown, ChevronRight, HelpCircle, Lock, LayoutGrid, Compass } from "@lucide/vue";
 
 const taskStore = useTaskStore();
 const today = new Date().toISOString().slice(0, 10);
@@ -13,6 +13,67 @@ const statusFilter = ref<"all" | "todo" | "in_progress" | "done">("all");
 const priorityFilter = ref<"all" | "P0" | "P1" | "P2" | "P3">("all");
 const dateFilter = ref<"all" | "overdue" | "next7" | "none">("all");
 const lifecycleFilter = ref<"all" | "unlinked" | "blocked" | "withEvidence">("all");
+
+const viewMode = ref<"kanban" | "focus">((localStorage.getItem("task-action-view-mode") as "kanban" | "focus") || "kanban");
+watch(viewMode, (newVal) => {
+  localStorage.setItem("task-action-view-mode", newVal);
+});
+
+const focusCollapsed = ref({
+  today: false,
+  upcoming: false,
+  anytime: false,
+  someday: false,
+});
+
+function isUpcoming(dueDate?: string) {
+  if (!dueDate) return false;
+  const dueDay = dueDate.slice(0, 10);
+  if (dueDay === today) return false;
+  const due = new Date(`${dueDay}T00:00:00`).getTime();
+  const start = new Date(`${today}T00:00:00`).getTime();
+  const end = start + 7 * 24 * 60 * 60 * 1000;
+  return due > start && due <= end;
+}
+
+const focusGroups = computed(() => {
+  const unfinished = taskStore.actions.filter((a) => a.projectId === taskStore.activeProjectId && a.status !== "done" && a.status !== "discarded");
+
+  const todayList: Action[] = [];
+  const upcomingList: Action[] = [];
+  const anytimeList: Action[] = [];
+  const somedayList: Action[] = [];
+
+  unfinished.forEach((a) => {
+    if (a.dueDate === today || a.priority === "P0" || a.priority === "P1") {
+      todayList.push(a);
+    } else if (isUpcoming(a.dueDate)) {
+      upcomingList.push(a);
+    } else if (a.blocked || (!a.dueDate && a.priority === "P3")) {
+      somedayList.push(a);
+    } else {
+      anytimeList.push(a);
+    }
+  });
+
+  return {
+    today: todayList,
+    upcoming: upcomingList,
+    anytime: anytimeList,
+    someday: somedayList,
+  };
+});
+
+function completeAction(action: Action) {
+  const actionCopy = { ...action };
+  actionCopy.status = "done";
+  const unblocked = taskStore.updateAction(actionCopy);
+  if (unblocked && unblocked.length > 0) {
+    unblocked.forEach((ua) => {
+      toast(`🔓 阻塞源行动已完成，自动解锁行动：${ua.title}`);
+    });
+  }
+}
 
 // Filter actions for active project
 const projectActions = computed(() => {
@@ -123,6 +184,41 @@ const formStatus = ref<"todo" | "in_progress" | "done" | "discarded">("todo");
 const formServeId = ref("");
 const formBlocked = ref(false);
 const formBlockerReason = ref("");
+const formBlockerActionId = ref("");
+const formBlockerReasonText = ref("");
+
+function formatBlockerReasonDisplay(reason?: string) {
+  if (!reason) return "无具体原因";
+  const match = reason.match(/^\[([^\]]+)\]\s*(.*)$/);
+  if (match) {
+    const blockerId = match[1];
+    const reasonText = match[2];
+    const blockerAction = taskStore.actions.find((a) => a.id === blockerId);
+    const blockerTitle = blockerAction ? blockerAction.title : "未知行动";
+    return `阻碍于行动: ${blockerTitle}${reasonText ? "\n原因: " + reasonText : ""}`;
+  }
+  return reason;
+}
+
+onMounted(() => {
+  window.addEventListener("task-open-add-action", handleOpenAddAction);
+  window.addEventListener("task-close-all", handleCloseAll);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("task-open-add-action", handleOpenAddAction);
+  window.removeEventListener("task-close-all", handleCloseAll);
+});
+
+function handleCloseAll() {
+  showDialog.value = false;
+  showDeleteConfirm.value = false;
+  showKeepPromptDialog.value = false;
+}
+
+function handleOpenAddAction() {
+  openAddDialog("todo");
+}
 const formEvidence = ref("");
 const formDiscardedReason = ref("");
 const formSupersededById = ref("");
@@ -264,6 +360,8 @@ function openAddDialog(status: "todo" | "in_progress" | "done" | "discarded" = "
   formServeId.value = "";
   formBlocked.value = false;
   formBlockerReason.value = "";
+  formBlockerActionId.value = "";
+  formBlockerReasonText.value = "";
   formEvidence.value = "";
   formDiscardedReason.value = "";
   formSupersededById.value = "";
@@ -288,6 +386,17 @@ function openEditDialog(action: Action) {
   formServeId.value = action.serveId || "";
   formBlocked.value = action.blocked || false;
   formBlockerReason.value = action.blockerReason || "";
+
+  const blockerReasonStr = action.blockerReason || "";
+  const match = blockerReasonStr.match(/^\[([^\]]+)\]\s*(.*)$/);
+  if (match) {
+    formBlockerActionId.value = match[1];
+    formBlockerReasonText.value = match[2];
+  } else {
+    formBlockerActionId.value = "";
+    formBlockerReasonText.value = blockerReasonStr;
+  }
+
   formEvidence.value = action.evidence || "";
   formDiscardedReason.value = action.discardedReason || "";
   formSupersededById.value = action.supersededById || "";
@@ -305,7 +414,17 @@ function submitForm() {
   if (!formTitle.value.trim()) return;
 
   const serveId = formServeId.value || undefined;
-  const blockerReason = formBlocked.value ? formBlockerReason.value.trim() : "";
+
+  let blockerReason = "";
+  if (formBlocked.value) {
+    const reasonText = formBlockerReasonText.value.trim();
+    if (formBlockerActionId.value) {
+      blockerReason = `[${formBlockerActionId.value}]${reasonText ? " " + reasonText : ""}`;
+    } else {
+      blockerReason = reasonText;
+    }
+  }
+
   const evidence = formEvidence.value.trim();
   const devItems = sanitizeChecklist(formDevItems.value);
   const testItems = sanitizeChecklist(formTestItems.value);
@@ -332,7 +451,12 @@ function submitForm() {
       existing.outputItems = outputItems;
       existing.targetId = formTargetId.value || undefined;
       existing.milestoneId = formMilestoneId.value || undefined;
-      taskStore.updateAction(existing);
+      const unblocked = taskStore.updateAction(existing);
+      if (unblocked && unblocked.length > 0) {
+        unblocked.forEach((ua) => {
+          toast(`🔓 阻塞源行动已完成，自动解锁行动：${ua.title}`);
+        });
+      }
     }
   } else {
     taskStore.addAction(
@@ -372,7 +496,12 @@ function moveAction(action: Action, direction: "next" | "prev") {
     if (actionCopy.status === "done") actionCopy.status = "in_progress";
     else if (actionCopy.status === "in_progress") actionCopy.status = "todo";
   }
-  taskStore.updateAction(actionCopy);
+  const unblocked = taskStore.updateAction(actionCopy);
+  if (unblocked && unblocked.length > 0) {
+    unblocked.forEach((ua) => {
+      toast(`🔓 阻塞源行动已完成，自动解锁行动：${ua.title}`);
+    });
+  }
 }
 
 // Visuals for Priority
@@ -439,7 +568,7 @@ function getActionChecklistStats(action: Action) {
 </script>
 
 <template>
-  <div class="flex-1 min-w-0 overflow-y-auto bg-background/50 p-6 flex flex-col gap-6">
+  <div :class="['flex-1 min-w-0 overflow-y-auto bg-background/50 p-6 flex flex-col gap-6 transition-all duration-300', showDialog ? 'pr-[474px]' : '']">
     <!-- Header -->
     <div class="flex flex-col gap-4 p-5 rounded-xl border bg-muted/10 backdrop-blur-md">
       <div class="flex items-center justify-between">
@@ -481,7 +610,7 @@ function getActionChecklistStats(action: Action) {
             </div>
           </div>
         </div>
-        <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1" @click="openAddDialog('todo')">
+        <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all active:scale-[0.97] shadow-md gap-1" @click="openAddDialog('todo')">
           <Plus class="h-4 w-4" />
           发起行动
         </button>
@@ -529,12 +658,27 @@ function getActionChecklistStats(action: Action) {
           </select>
         </label>
       </div>
+
+      <!-- Toggle 开关 -->
+      <div class="flex items-center justify-between border-t border-border/40 pt-4 mt-1 select-none">
+        <span class="text-xs font-medium text-muted-foreground">视图模式</span>
+        <div class="flex items-center bg-muted/60 p-0.5 rounded-lg border border-border/60">
+          <button @click="viewMode = 'kanban'" :class="['px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 cursor-pointer flex items-center gap-1.5', viewMode === 'kanban' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground']">
+            <LayoutGrid class="h-3.5 w-3.5" />
+            看板视图
+          </button>
+          <button @click="viewMode = 'focus'" :class="['px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 cursor-pointer flex items-center gap-1.5', viewMode === 'focus' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground']">
+            <Compass class="h-3.5 w-3.5" />
+            今日聚焦 (Things Focus)
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Kanban Grid -->
-    <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-start min-h-[400px]">
+    <div v-if="viewMode === 'kanban'" class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-start min-h-[400px]">
       <!-- Column 1: Todo -->
-      <div class="rounded-xl border border-border/60 bg-muted/5 flex flex-col min-h-[450px] p-4 gap-4">
+      <div class="rounded-xl border border-border/40 bg-muted/5 flex flex-col min-h-[450px] p-4 gap-4">
         <div class="flex items-center justify-between border-b pb-2 border-border/40">
           <div class="flex items-center gap-2">
             <span class="h-2 w-2 rounded-full bg-slate-400" />
@@ -550,16 +694,30 @@ function getActionChecklistStats(action: Action) {
 
         <div class="flex-1 overflow-y-auto max-h-[60vh] pr-0.5">
           <TransitionGroup name="action-list" tag="div" class="flex flex-col gap-3">
-            <div v-for="action in todoActions" :key="action.id" class="group p-4 rounded-lg border bg-background/50 hover:bg-muted/10 border-border/80 relative shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.99]">
+            <div
+              v-for="action in todoActions"
+              :key="action.id"
+              @click="openEditDialog(action)"
+              class="group p-4 rounded-lg border bg-background/50 hover:bg-muted/10 border-border/40 relative shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30 active:scale-[0.97] cursor-pointer"
+            >
               <div class="flex flex-col gap-2">
                 <div class="flex items-start justify-between gap-2">
                   <span class="text-xs font-semibold px-2 py-0.5 rounded border shrink-0" :class="getPriorityBadge(action.priority)">
                     {{ getPriorityLabel(action.priority) }}
                   </span>
-                  <span v-if="action.dueDate" class="text-[10px] text-muted-foreground flex items-center gap-1">
-                    <Calendar class="h-3 w-3" />
-                    {{ action.dueDate }}
-                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <span v-if="action.dueDate" class="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Calendar class="h-3 w-3" />
+                      {{ action.dueDate }}
+                    </span>
+                    <div v-if="action.blocked" class="group/lock relative cursor-help text-red-500 hover:text-red-600 transition-colors shrink-0" @click.stop>
+                      <Lock class="h-3.5 w-3.5" />
+                      <div class="absolute right-0 bottom-full mb-1.5 w-56 p-2.5 bg-red-600 text-white text-[11px] rounded-lg shadow-xl opacity-0 invisible group-hover/lock:opacity-100 group-hover/lock:visible transition-all z-[100] leading-normal font-normal">
+                        <div class="font-bold border-b border-white/20 pb-1 mb-1">🔓 阻塞详情</div>
+                        <p class="whitespace-pre-wrap">{{ formatBlockerReasonDisplay(action.blockerReason) }}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <span v-if="isActionOverdue(action)" class="inline-flex w-fit items-center rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-500">已逾期</span>
                 <h4 class="font-medium text-sm leading-snug">{{ action.title }}</h4>
@@ -600,15 +758,15 @@ function getActionChecklistStats(action: Action) {
                 <!-- Card actions -->
                 <div class="flex items-center justify-between border-t pt-2.5 mt-1 border-border/30">
                   <div class="flex items-center gap-1">
-                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground active:scale-90 transition-transform cursor-pointer" @click="openEditDialog(action)">
+                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground active:scale-90 transition-transform cursor-pointer" @click.stop="openEditDialog(action)">
                       <Edit class="h-3 w-3" />
                     </button>
-                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 active:scale-90 transition-transform cursor-pointer" @click="requestDeleteAction(action)">
+                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 active:scale-90 transition-transform cursor-pointer" @click.stop="requestDeleteAction(action)">
                       <Trash2 class="h-3 w-3" />
                     </button>
                   </div>
 
-                  <button class="h-6 px-2 text-[10px] font-medium inline-flex items-center justify-center rounded bg-indigo-500/10 hover:bg-indigo-500 text-indigo-500 hover:text-white transition-all active:scale-95 gap-0.5 cursor-pointer" @click="moveAction(action, 'next')">
+                  <button class="h-6 px-2 text-[10px] font-medium inline-flex items-center justify-center rounded bg-indigo-500/10 hover:bg-indigo-500 text-indigo-500 hover:text-white transition-all active:scale-95 gap-0.5 cursor-pointer" @click.stop="moveAction(action, 'next')">
                     开始
                     <ArrowRight class="h-3 w-3" />
                   </button>
@@ -621,7 +779,7 @@ function getActionChecklistStats(action: Action) {
       </div>
 
       <!-- Column 2: In Progress -->
-      <div class="rounded-xl border border-border/60 bg-muted/5 flex flex-col min-h-[450px] p-4 gap-4">
+      <div class="rounded-xl border border-border/40 bg-muted/5 flex flex-col min-h-[450px] p-4 gap-4">
         <div class="flex items-center justify-between border-b pb-2 border-border/40">
           <div class="flex items-center gap-2">
             <span class="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
@@ -637,16 +795,30 @@ function getActionChecklistStats(action: Action) {
 
         <div class="flex-1 overflow-y-auto max-h-[60vh] pr-0.5">
           <TransitionGroup name="action-list" tag="div" class="flex flex-col gap-3">
-            <div v-for="action in inProgressActions" :key="action.id" class="group p-4 rounded-lg border bg-background/50 hover:bg-muted/10 border-border/80 relative shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.99]">
+            <div
+              v-for="action in inProgressActions"
+              :key="action.id"
+              @click="openEditDialog(action)"
+              class="group p-4 rounded-lg border bg-background/50 hover:bg-muted/10 border-border/40 relative shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30 active:scale-[0.97] cursor-pointer"
+            >
               <div class="flex flex-col gap-2">
                 <div class="flex items-start justify-between gap-2">
                   <span class="text-xs font-semibold px-2 py-0.5 rounded border shrink-0" :class="getPriorityBadge(action.priority)">
                     {{ getPriorityLabel(action.priority) }}
                   </span>
-                  <span v-if="action.dueDate" class="text-[10px] text-muted-foreground flex items-center gap-1">
-                    <Calendar class="h-3 w-3" />
-                    {{ action.dueDate }}
-                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <span v-if="action.dueDate" class="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Calendar class="h-3 w-3" />
+                      {{ action.dueDate }}
+                    </span>
+                    <div v-if="action.blocked" class="group/lock relative cursor-help text-red-500 hover:text-red-600 transition-colors shrink-0" @click.stop>
+                      <Lock class="h-3.5 w-3.5" />
+                      <div class="absolute right-0 bottom-full mb-1.5 w-56 p-2.5 bg-red-600 text-white text-[11px] rounded-lg shadow-xl opacity-0 invisible group-hover/lock:opacity-100 group-hover/lock:visible transition-all z-[100] leading-normal font-normal">
+                        <div class="font-bold border-b border-white/20 pb-1 mb-1">🔓 阻塞详情</div>
+                        <p class="whitespace-pre-wrap">{{ formatBlockerReasonDisplay(action.blockerReason) }}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <span v-if="isActionOverdue(action)" class="inline-flex w-fit items-center rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-500">已逾期</span>
                 <h4 class="font-medium text-sm leading-snug">{{ action.title }}</h4>
@@ -686,21 +858,21 @@ function getActionChecklistStats(action: Action) {
 
                 <!-- Card actions -->
                 <div class="flex items-center justify-between border-t pt-2.5 mt-1 border-border/30">
-                  <button class="h-6 px-2 text-[10px] font-medium inline-flex items-center justify-center rounded bg-slate-500/10 hover:bg-slate-500 text-muted-foreground hover:text-white transition-all active:scale-95 gap-0.5 cursor-pointer" @click="moveAction(action, 'prev')">
+                  <button class="h-6 px-2 text-[10px] font-medium inline-flex items-center justify-center rounded bg-slate-500/10 hover:bg-slate-500 text-muted-foreground hover:text-white transition-all active:scale-95 gap-0.5 cursor-pointer" @click.stop="moveAction(action, 'prev')">
                     <ArrowLeft class="h-3 w-3" />
                     撤回
                   </button>
 
                   <div class="flex items-center gap-1">
-                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground active:scale-90 transition-transform cursor-pointer" @click="openEditDialog(action)">
+                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground active:scale-90 transition-transform cursor-pointer" @click.stop="openEditDialog(action)">
                       <Edit class="h-3 w-3" />
                     </button>
-                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 active:scale-90 transition-transform cursor-pointer" @click="requestDeleteAction(action)">
+                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 active:scale-90 transition-transform cursor-pointer" @click.stop="requestDeleteAction(action)">
                       <Trash2 class="h-3 w-3" />
                     </button>
                   </div>
 
-                  <button class="h-6 px-2 text-[10px] font-medium inline-flex items-center justify-center rounded bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white transition-all active:scale-95 gap-0.5 cursor-pointer" @click="moveAction(action, 'next')">
+                  <button class="h-6 px-2 text-[10px] font-medium inline-flex items-center justify-center rounded bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white transition-all active:scale-95 gap-0.5 cursor-pointer" @click.stop="moveAction(action, 'next')">
                     完成
                     <ArrowRight class="h-3 w-3" />
                   </button>
@@ -713,7 +885,7 @@ function getActionChecklistStats(action: Action) {
       </div>
 
       <!-- Column 3: Done -->
-      <div class="rounded-xl border border-border/60 bg-muted/5 flex flex-col min-h-[450px] p-4 gap-4">
+      <div class="rounded-xl border border-border/40 bg-muted/5 flex flex-col min-h-[450px] p-4 gap-4">
         <div class="flex items-center justify-between border-b pb-2 border-border/40">
           <div class="flex items-center gap-2">
             <span class="h-2 w-2 rounded-full bg-emerald-500" />
@@ -729,14 +901,28 @@ function getActionChecklistStats(action: Action) {
 
         <div class="flex-1 overflow-y-auto max-h-[60vh] pr-0.5">
           <TransitionGroup name="action-list" tag="div" class="flex flex-col gap-3">
-            <div v-for="action in doneActions" :key="action.id" class="group p-4 rounded-lg border bg-background/30 hover:bg-muted/10 border-border/50 relative shadow-sm opacity-80 transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.99]">
+            <div
+              v-for="action in doneActions"
+              :key="action.id"
+              @click="openEditDialog(action)"
+              class="group p-4 rounded-lg border bg-background/30 hover:bg-muted/10 border-border/40 relative shadow-sm opacity-85 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30 active:scale-[0.97] cursor-pointer"
+            >
               <div class="flex flex-col gap-2">
                 <div class="flex items-start justify-between gap-2">
                   <span class="text-xs font-semibold px-2 py-0.5 rounded border shrink-0 bg-emerald-500/5 text-emerald-500/80 border-emerald-500/10"> 已完成 </span>
-                  <span v-if="action.dueDate" class="text-[10px] text-muted-foreground/60 flex items-center gap-1 line-through">
-                    <Calendar class="h-3 w-3" />
-                    {{ action.dueDate }}
-                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <span v-if="action.dueDate" class="text-[10px] text-muted-foreground/60 flex items-center gap-1 line-through">
+                      <Calendar class="h-3 w-3" />
+                      {{ action.dueDate }}
+                    </span>
+                    <div v-if="action.blocked" class="group/lock relative cursor-help text-red-500 hover:text-red-600 transition-colors shrink-0" @click.stop>
+                      <Lock class="h-3.5 w-3.5" />
+                      <div class="absolute right-0 bottom-full mb-1.5 w-56 p-2.5 bg-red-600 text-white text-[11px] rounded-lg shadow-xl opacity-0 invisible group-hover/lock:opacity-100 group-hover/lock:visible transition-all z-[100] leading-normal font-normal">
+                        <div class="font-bold border-b border-white/20 pb-1 mb-1">🔓 阻塞详情</div>
+                        <p class="whitespace-pre-wrap">{{ formatBlockerReasonDisplay(action.blockerReason) }}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <h4 class="font-medium text-sm leading-snug line-through text-muted-foreground">{{ action.title }}</h4>
                 <p class="text-xs text-muted-foreground/60 line-clamp-2 leading-relaxed" v-if="action.description">
@@ -775,16 +961,16 @@ function getActionChecklistStats(action: Action) {
 
                 <!-- Card actions -->
                 <div class="flex items-center justify-between border-t pt-2.5 mt-1 border-border/20">
-                  <button class="h-6 px-2 text-[10px] font-medium inline-flex items-center justify-center rounded bg-slate-500/10 hover:bg-slate-500 text-muted-foreground hover:text-white transition-all active:scale-95 gap-0.5 cursor-pointer" @click="moveAction(action, 'prev')">
+                  <button class="h-6 px-2 text-[10px] font-medium inline-flex items-center justify-center rounded bg-slate-500/10 hover:bg-slate-500 text-muted-foreground hover:text-white transition-all active:scale-95 gap-0.5 cursor-pointer" @click.stop="moveAction(action, 'prev')">
                     <ArrowLeft class="h-3 w-3" />
                     未完
                   </button>
 
                   <div class="flex items-center gap-1">
-                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground active:scale-90 transition-transform cursor-pointer" @click="openEditDialog(action)">
+                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground active:scale-90 transition-transform cursor-pointer" @click.stop="openEditDialog(action)">
                       <Edit class="h-3 w-3" />
                     </button>
-                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 active:scale-90 transition-transform cursor-pointer" @click="requestDeleteAction(action)">
+                    <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 active:scale-90 transition-transform cursor-pointer" @click.stop="requestDeleteAction(action)">
                       <Trash2 class="h-3 w-3" />
                     </button>
                   </div>
@@ -793,6 +979,226 @@ function getActionChecklistStats(action: Action) {
             </div>
           </TransitionGroup>
           <div v-if="doneActions.length === 0" class="flex-1 flex flex-col items-center justify-center py-10 text-center border border-dashed border-border/30 rounded-lg bg-background/5 text-muted-foreground/40 text-xs italic mt-3">暂无已完成任务</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Things Focus View (Things 3 style 极简列表) -->
+    <div v-else class="flex-1 flex flex-col gap-6 max-w-4xl mx-auto w-full">
+      <!-- ⚡ 今日任务 (Today) -->
+      <div class="bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
+        <div class="flex items-center justify-between border-b border-border/40 pb-2 cursor-pointer select-none" @click="focusCollapsed.today = !focusCollapsed.today">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold flex items-center gap-1.5 text-amber-500">
+              <span>⚡</span>
+              今日任务 (Today)
+            </span>
+            <span class="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-semibold">
+              {{ focusGroups.today.length }}
+            </span>
+          </div>
+          <component :is="focusCollapsed.today ? ChevronRight : ChevronDown" class="h-4 w-4 text-muted-foreground/60" />
+        </div>
+
+        <div v-show="!focusCollapsed.today" class="min-h-0">
+          <TransitionGroup name="focus-list" tag="div" class="divide-y divide-border/20">
+            <div v-for="action in focusGroups.today" :key="action.id" @click="openEditDialog(action)" class="flex items-center justify-between py-2.5 gap-4 group hover:bg-accent/5 px-2 rounded-lg transition-colors cursor-pointer">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <!-- Checkbox -->
+                <button @click.stop="completeAction(action)" class="group/check flex items-center justify-center p-1 rounded-full hover:bg-emerald-500/10 text-muted-foreground/60 hover:text-emerald-500 transition-colors shrink-0 cursor-pointer">
+                  <Circle class="h-4.5 w-4.5 block group-hover/check:hidden" />
+                  <CheckCircle2 class="h-4.5 w-4.5 hidden group-hover/check:block text-emerald-500" />
+                </button>
+                <!-- Title and priority tag -->
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                  <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 scale-90" :class="getPriorityBadge(action.priority)">
+                    {{ action.priority }}
+                  </span>
+                  <span class="text-sm text-foreground/90 truncate" :title="action.title">{{ action.title }}</span>
+                  <!-- Blocked indicator -->
+                  <span v-if="action.blocked" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 shrink-0 font-medium">
+                    <Lock class="h-2.5 w-2.5" />
+                    阻塞
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 shrink-0">
+                <!-- Hover Action Buttons -->
+                <div class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity duration-200">
+                  <button class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="编辑" @click.stop="openEditDialog(action)">
+                    <Edit class="h-3.5 w-3.5" />
+                  </button>
+                  <button class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors cursor-pointer" title="删除" @click.stop="requestDeleteAction(action)">
+                    <Trash2 class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <!-- Due Date -->
+                <span v-if="action.dueDate" :class="['text-[11px] flex items-center gap-1 font-medium shrink-0', isActionOverdue(action) ? 'text-red-500 font-semibold' : 'text-muted-foreground']">
+                  <Calendar class="h-3 w-3" />
+                  {{ action.dueDate }}
+                </span>
+              </div>
+            </div>
+          </TransitionGroup>
+          <div v-if="focusGroups.today.length === 0" class="text-xs text-muted-foreground/40 py-6 italic text-center">暂无今日任务，快去开始一项新的行动吧！</div>
+        </div>
+      </div>
+
+      <!-- 📅 即将到来 (Upcoming) -->
+      <div class="bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
+        <div class="flex items-center justify-between border-b border-border/40 pb-2 cursor-pointer select-none" @click="focusCollapsed.upcoming = !focusCollapsed.upcoming">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold flex items-center gap-1.5 text-blue-500">
+              <span>📅</span>
+              即将到来 (Upcoming)
+            </span>
+            <span class="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-semibold">
+              {{ focusGroups.upcoming.length }}
+            </span>
+          </div>
+          <component :is="focusCollapsed.upcoming ? ChevronRight : ChevronDown" class="h-4 w-4 text-muted-foreground/60" />
+        </div>
+
+        <div v-show="!focusCollapsed.upcoming" class="min-h-0">
+          <TransitionGroup name="focus-list" tag="div" class="divide-y divide-border/20">
+            <div v-for="action in focusGroups.upcoming" :key="action.id" @click="openEditDialog(action)" class="flex items-center justify-between py-2.5 gap-4 group hover:bg-accent/5 px-2 rounded-lg transition-colors cursor-pointer">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <button @click.stop="completeAction(action)" class="group/check flex items-center justify-center p-1 rounded-full hover:bg-emerald-500/10 text-muted-foreground/60 hover:text-emerald-500 transition-colors shrink-0 cursor-pointer">
+                  <Circle class="h-4.5 w-4.5 block group-hover/check:hidden" />
+                  <CheckCircle2 class="h-4.5 w-4.5 hidden group-hover/check:block text-emerald-500" />
+                </button>
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                  <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 scale-90" :class="getPriorityBadge(action.priority)">
+                    {{ action.priority }}
+                  </span>
+                  <span class="text-sm text-foreground/90 truncate" :title="action.title">{{ action.title }}</span>
+                  <span v-if="action.blocked" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 shrink-0 font-medium">
+                    <Lock class="h-2.5 w-2.5" />
+                    阻塞
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 shrink-0">
+                <div class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity duration-200">
+                  <button class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="编辑" @click.stop="openEditDialog(action)">
+                    <Edit class="h-3.5 w-3.5" />
+                  </button>
+                  <button class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors cursor-pointer" title="删除" @click.stop="requestDeleteAction(action)">
+                    <Trash2 class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <span v-if="action.dueDate" :class="['text-[11px] flex items-center gap-1 font-medium shrink-0', isActionOverdue(action) ? 'text-red-500 font-semibold' : 'text-muted-foreground']">
+                  <Calendar class="h-3 w-3" />
+                  {{ action.dueDate }}
+                </span>
+              </div>
+            </div>
+          </TransitionGroup>
+          <div v-if="focusGroups.upcoming.length === 0" class="text-xs text-muted-foreground/40 py-6 italic text-center">未来 7 天内无截止期限的任务。</div>
+        </div>
+      </div>
+
+      <!-- ⚓ 随时开始 (Anytime) -->
+      <div class="bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
+        <div class="flex items-center justify-between border-b border-border/40 pb-2 cursor-pointer select-none" @click="focusCollapsed.anytime = !focusCollapsed.anytime">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold flex items-center gap-1.5 text-emerald-500">
+              <span>⚓</span>
+              随时开始 (Anytime)
+            </span>
+            <span class="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-semibold">
+              {{ focusGroups.anytime.length }}
+            </span>
+          </div>
+          <component :is="focusCollapsed.anytime ? ChevronRight : ChevronDown" class="h-4 w-4 text-muted-foreground/60" />
+        </div>
+
+        <div v-show="!focusCollapsed.anytime" class="min-h-0">
+          <TransitionGroup name="focus-list" tag="div" class="divide-y divide-border/20">
+            <div v-for="action in focusGroups.anytime" :key="action.id" @click="openEditDialog(action)" class="flex items-center justify-between py-2.5 gap-4 group hover:bg-accent/5 px-2 rounded-lg transition-colors cursor-pointer">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <button @click.stop="completeAction(action)" class="group/check flex items-center justify-center p-1 rounded-full hover:bg-emerald-500/10 text-muted-foreground/60 hover:text-emerald-500 transition-colors shrink-0 cursor-pointer">
+                  <Circle class="h-4.5 w-4.5 block group-hover/check:hidden" />
+                  <CheckCircle2 class="h-4.5 w-4.5 hidden group-hover/check:block text-emerald-500" />
+                </button>
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                  <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 scale-90" :class="getPriorityBadge(action.priority)">
+                    {{ action.priority }}
+                  </span>
+                  <span class="text-sm text-foreground/90 truncate" :title="action.title">{{ action.title }}</span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 shrink-0">
+                <div class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity duration-200">
+                  <button class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="编辑" @click.stop="openEditDialog(action)">
+                    <Edit class="h-3.5 w-3.5" />
+                  </button>
+                  <button class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors cursor-pointer" title="删除" @click.stop="requestDeleteAction(action)">
+                    <Trash2 class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </TransitionGroup>
+          <div v-if="focusGroups.anytime.length === 0" class="text-xs text-muted-foreground/40 py-6 italic text-center">无无需截止日期且随时可开始的任务。</div>
+        </div>
+      </div>
+
+      <!-- 🍂 暂缓搁置 (Someday) -->
+      <div class="bg-card/45 backdrop-blur-md border border-border/50 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
+        <div class="flex items-center justify-between border-b border-border/40 pb-2 cursor-pointer select-none" @click="focusCollapsed.someday = !focusCollapsed.someday">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold flex items-center gap-1.5 text-purple-400">
+              <span>🍂</span>
+              暂缓搁置 (Someday)
+            </span>
+            <span class="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-semibold">
+              {{ focusGroups.someday.length }}
+            </span>
+          </div>
+          <component :is="focusCollapsed.someday ? ChevronRight : ChevronDown" class="h-4 w-4 text-muted-foreground/60" />
+        </div>
+
+        <div v-show="!focusCollapsed.someday" class="min-h-0">
+          <TransitionGroup name="focus-list" tag="div" class="divide-y divide-border/20">
+            <div v-for="action in focusGroups.someday" :key="action.id" @click="openEditDialog(action)" class="flex items-center justify-between py-2.5 gap-4 group hover:bg-accent/5 px-2 rounded-lg transition-colors cursor-pointer">
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <button @click.stop="completeAction(action)" class="group/check flex items-center justify-center p-1 rounded-full hover:bg-emerald-500/10 text-muted-foreground/60 hover:text-emerald-500 transition-colors shrink-0 cursor-pointer">
+                  <Circle class="h-4.5 w-4.5 block group-hover/check:hidden" />
+                  <CheckCircle2 class="h-4.5 w-4.5 hidden group-hover/check:block text-emerald-500" />
+                </button>
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                  <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 scale-90" :class="getPriorityBadge(action.priority)">
+                    {{ action.priority }}
+                  </span>
+                  <span class="text-sm text-foreground/80 truncate" :title="action.title">{{ action.title }}</span>
+                  <span v-if="action.blocked" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 shrink-0 font-medium">
+                    <Lock class="h-2.5 w-2.5" />
+                    阻塞
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 shrink-0">
+                <div class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity duration-200">
+                  <button class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="编辑" @click.stop="openEditDialog(action)">
+                    <Edit class="h-3.5 w-3.5" />
+                  </button>
+                  <button class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors cursor-pointer" title="删除" @click.stop="requestDeleteAction(action)">
+                    <Trash2 class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <span v-if="action.dueDate" :class="['text-[11px] flex items-center gap-1 font-medium shrink-0', isActionOverdue(action) ? 'text-red-500 font-semibold' : 'text-muted-foreground']">
+                  <Calendar class="h-3 w-3" />
+                  {{ action.dueDate }}
+                </span>
+              </div>
+            </div>
+          </TransitionGroup>
+          <div v-if="focusGroups.someday.length === 0" class="text-xs text-muted-foreground/40 py-6 italic text-center">暂无暂缓或被阻塞的任务。</div>
         </div>
       </div>
     </div>
@@ -808,14 +1214,14 @@ function getActionChecklistStats(action: Action) {
       </button>
 
       <div v-show="showDiscardedList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2 animate-in fade-in duration-200">
-        <div v-for="action in discardedActions" :key="action.id" class="rounded-xl border border-red-500/10 bg-background/60 p-4 shadow-sm relative flex flex-col gap-2">
+        <div v-for="action in discardedActions" :key="action.id" @click="openEditDialog(action)" class="rounded-xl border border-red-500/10 bg-background/60 p-4 shadow-sm relative flex flex-col gap-2 cursor-pointer">
           <div class="flex items-start justify-between gap-4">
             <h4 class="font-medium text-sm leading-snug line-through text-muted-foreground">{{ action.title }}</h4>
             <div class="flex gap-1.5 shrink-0">
-              <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer active:scale-90 transition-transform" @click="openEditDialog(action)">
+              <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer active:scale-90 transition-transform" @click.stop="openEditDialog(action)">
                 <Edit class="h-3.5 w-3.5" />
               </button>
-              <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 cursor-pointer active:scale-90 transition-transform" @click="requestDeleteAction(action)">
+              <button class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 cursor-pointer active:scale-90 transition-transform" @click.stop="requestDeleteAction(action)">
                 <Trash2 class="h-3.5 w-3.5" />
               </button>
             </div>
@@ -832,15 +1238,15 @@ function getActionChecklistStats(action: Action) {
       </div>
     </div>
 
-    <!-- Dialog Drawer Backdrop -->
-    <div v-if="showDialog" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-opacity duration-300" @click="showDialog = false"></div>
-
     <!-- Dialog Drawer Container -->
-    <div v-if="showDialog" class="fixed inset-y-0 right-0 z-50 w-full max-w-[500px] border-l border-border bg-background shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-300">
+    <div :class="['fixed inset-y-0 right-0 z-40 w-[450px] border-l border-border bg-background/95 backdrop-blur-md transition-all duration-300 transform flex flex-col justify-between', showDialog ? 'translate-x-0 shadow-2xl' : 'translate-x-full pointer-events-none']">
       <!-- Header -->
-      <div class="flex items-center justify-between p-6 border-b border-border/60 shrink-0">
-        <h3 class="text-base font-semibold text-foreground">{{ isEdit ? "修改行动详情" : "发起新行动" }}</h3>
-        <button class="h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer" @click="showDialog = false">
+      <div class="flex items-center justify-between p-5 border-b border-border/40 bg-muted/5 shrink-0 select-none">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center rounded-md bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-500 ring-1 ring-inset ring-indigo-500/20 tracking-wider">ACTION</span>
+          <h3 class="text-sm font-semibold text-foreground">{{ isEdit ? "修改行动详情" : "发起新行动" }}</h3>
+        </div>
+        <button class="h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors active:scale-90" @click="showDialog = false">
           <X class="h-4 w-4" />
         </button>
       </div>
@@ -946,8 +1352,15 @@ function getActionChecklistStats(action: Action) {
             <input v-model="formBlocked" type="checkbox" class="h-4 w-4 rounded border-input accent-primary" />
             标记为阻塞中
           </label>
+          <div class="space-y-1.5" v-if="formBlocked && activeProjectActionsExceptSelf.length > 0">
+            <label class="text-[11px] font-medium text-muted-foreground">阻碍源行动 (可选)</label>
+            <select v-model="formBlockerActionId" class="h-9 w-full rounded-md border border-input bg-background px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              <option value="">无具体阻碍行动（仅输入原因）</option>
+              <option v-for="act in activeProjectActionsExceptSelf" :key="act.id" :value="act.id">{{ act.title }}</option>
+            </select>
+          </div>
           <textarea
-            v-model="formBlockerReason"
+            v-model="formBlockerReasonText"
             :disabled="!formBlocked"
             placeholder="说明阻塞原因、等待对象或解除条件..."
             rows="2"
@@ -1123,8 +1536,8 @@ function getActionChecklistStats(action: Action) {
           </button>
         </div>
         <div class="flex gap-2">
-          <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted transition-colors cursor-pointer" @click="showDialog = false">取消</button>
-          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md cursor-pointer" :disabled="!formTitle.trim()" @click="submitForm">
+          <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted transition-all active:scale-[0.97] cursor-pointer" @click="showDialog = false">取消</button>
+          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all active:scale-[0.97] shadow-md cursor-pointer" :disabled="!formTitle.trim()" @click="submitForm">
             {{ isEdit ? "保存修改" : "确定发起" }}
           </button>
         </div>
@@ -1264,5 +1677,15 @@ function getActionChecklistStats(action: Action) {
 .action-list-leave-active {
   position: absolute;
   width: 100%;
+}
+
+.focus-list-enter-active,
+.focus-list-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.focus-list-enter-from,
+.focus-list-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>
