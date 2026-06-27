@@ -61,6 +61,7 @@ jobs:
           CARGO_BUILD_JOBS: ${{ matrix.cargoBuildJobs }}
           CXXFLAGS: ${{ matrix.cxxFlags }}
           CXXFLAGS_x86_64_pc_windows_msvc: ${{ matrix.cxxFlags }}
+          APPLE_SIGNING_IDENTITY: "-"
         run: pnpm tauri build
 
       - name: Upload macOS package

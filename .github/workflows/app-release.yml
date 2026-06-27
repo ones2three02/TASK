@@ -123,6 +123,7 @@ jobs:
           elif [ "$missing" -eq 6 ]; then
             echo "No macOS signing secrets provided. Skipping macOS signing and notarization."
             echo "SKIP_MACOS_SIGNING=true" >> "$GITHUB_ENV"
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
           else
             echo "All macOS signing secrets provided. Proceeding with signed build."
             echo "SKIP_MACOS_SIGNING=false" >> "$GITHUB_ENV"
