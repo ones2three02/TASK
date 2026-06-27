@@ -2382,7 +2382,7 @@ export const useConnectionStore = defineStore("connection", () => {
 
         if (Array.isArray(parsed)) {
           imported = parsed;
-        } else if ((parsed.format === "task-config" || parsed.format === "task-config") && Array.isArray(parsed.connections)) {
+        } else if (parsed.format === "task-config" && Array.isArray(parsed.connections)) {
           imported = parsed.connections;
         } else if (parsed.connections && Array.isArray(parsed.connections)) {
           imported = parsed.connections;

@@ -6,6 +6,7 @@ import { useOfficeStore } from "@/stores/officeStore";
 import { parseMeetingWithAi, type ParsedMeetingResult } from "@/lib/codexMeetingParser";
 import { useToast } from "@/composables/useToast";
 import { uuid } from "@/lib/utils";
+import { isTauriRuntime } from "@/lib/tauriRuntime";
 
 import { X, Mic, MicOff, Sparkles, Loader2, CheckCircle, Circle, Target, ListTodo, Archive, FileText, Upload, Trash2, ChevronRight, AlertTriangle, Link2, Settings, Check, RefreshCw, LogOut, Terminal, Info } from "@lucide/vue";
 
@@ -406,6 +407,7 @@ async function handleImport() {
   setTimeout(() => {
     emit("close");
     resetPanel();
+    emit("stateChange", "idle");
   }, 2500);
 }
 
@@ -454,6 +456,14 @@ async function handleDwsInstall() {
   }
 }
 
+function openExternalUrl(url: string) {
+  if (isTauriRuntime()) {
+    import("@tauri-apps/plugin-shell").then(({ open }) => open(url));
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
 // OAuth Browser Login
 async function startFeishuLogin() {
   isFeishuLogginIn.value = true;
@@ -461,12 +471,7 @@ async function startFeishuLogin() {
     const url = await officeStore.getLarkLoginUrl();
     if (url) {
       larkLoginUrl.value = url;
-      // In Tauri or Web browser, open link
-      if ((window as any).__TAURI_INTERNALS__) {
-        window.open(url, "_blank");
-      } else {
-        window.open(url, "_blank");
-      }
+      openExternalUrl(url);
       toast("已在浏览器打开飞书授权页面，请授权后点击“确认已绑定”", 5000);
     } else {
       toast("授权拉取失败，请检查 CLI 本地状态", 3000);
@@ -493,7 +498,7 @@ async function startDingtalkLogin() {
     const url = await officeStore.getDwsLoginUrl();
     if (url) {
       dwsLoginUrl.value = url;
-      window.open(url, "_blank");
+      openExternalUrl(url);
       toast("已在浏览器打开钉钉授权页面，请授权后点击“确认已绑定”", 5000);
     } else {
       toast("授权拉取失败，请检查 dws 本地状态", 3000);
@@ -861,7 +866,7 @@ function getPriorityColor(priority: string) {
         <div v-else-if="!officeStore.dwsConnected" class="flex gap-2 items-center justify-between">
           <span class="text-[10px] text-muted-foreground">已检测到本地 dws 钉钉环境，请授权登录。</span>
           <button v-if="!isDingtalkLogginIn" class="h-7 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 font-semibold transition-all active:scale-95 cursor-pointer" @click="startDingtalkLogin">授权登录钉钉</button>
-          <button else class="h-7 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 font-semibold transition-all active:scale-95 cursor-pointer" @click="confirmDingtalkLogin">确认已绑定</button>
+          <button v-else class="h-7 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 font-semibold transition-all active:scale-95 cursor-pointer" @click="confirmDingtalkLogin">确认已绑定</button>
         </div>
 
         <!-- 3. Connected user status -->
