@@ -71,7 +71,7 @@ pub async fn database_export_progress(
     Path(export_id): Path<String>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>>, AppError> {
     let channels = state.sse_channels.read().await;
-    let tx = channels.get(&export_id).ok_or_else(|| AppError("Export not found".to_string()))?;
+    let tx = channels.get(&export_id).ok_or_else(|| AppError::internal("Export not found".to_string()))?;
     let rx = tx.subscribe();
     drop(channels);
     Ok(crate::sse::sse_from_channel(rx))

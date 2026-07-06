@@ -30,7 +30,7 @@ pub async fn start_transfer(
 
     // Reject transfer early if the target connection is read-only
     if let Some(name) = task_core::query::connection_readonly_name(&state.app, &req.target_connection_id).await {
-        return Err(AppError(format!(
+        return Err(AppError::internal(format!(
             "Read-only mode: target connection '{}' has read-only protection enabled. Transfer blocked.",
             name
         )));
@@ -182,7 +182,7 @@ pub async fn transfer_progress(
     Path(transfer_id): Path<String>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>>, AppError> {
     let channels = state.sse_channels.read().await;
-    let tx = channels.get(&transfer_id).ok_or_else(|| AppError("Transfer not found".to_string()))?;
+    let tx = channels.get(&transfer_id).ok_or_else(|| AppError::internal("Transfer not found".to_string()))?;
     let rx = tx.subscribe();
     drop(channels);
     Ok(crate::sse::sse_from_channel(rx))

@@ -3,11 +3,12 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::Json;
 use serde::Deserialize;
+use utoipa::ToSchema;
 
 use crate::error::AppError;
 use crate::state::WebState;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecuteQueryRequest {
     pub connection_id: String,
@@ -23,10 +24,15 @@ pub struct ExecuteQueryRequest {
     pub timeout_secs: Option<u64>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelRequest {
     pub execution_id: String,
+}
+
+#[derive(serde::Serialize, ToSchema)]
+pub struct CancelResponse {
+    pub cancelled: bool,
 }
 
 #[derive(Deserialize)]
@@ -263,6 +269,15 @@ pub struct BuildDatabaseSqlExportRequest {
     pub options: task_core::database_export::BuildDatabaseSqlExportOptions,
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/query/execute",
+    request_body = ExecuteQueryRequest,
+    responses(
+        (status = 200, description = "Execute SQL statement successful", body = Object),
+        (status = 500, description = "Failed to execute SQL", body = String)
+    )
+)]
 pub async fn execute_query(
     State(state): State<Arc<WebState>>,
     Json(req): Json<ExecuteQueryRequest>,
@@ -290,10 +305,10 @@ pub async fn execute_query(
         },
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
 
     drop(registered);
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn execute_multi(
@@ -323,10 +338,10 @@ pub async fn execute_multi(
         },
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
 
     drop(registered);
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn execute_batch(
@@ -342,11 +357,19 @@ pub async fn execute_batch(
         req.timeout_secs,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
 
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/query/cancel",
+    request_body = CancelRequest,
+    responses(
+        (status = 200, description = "Cancel running query execution", body = CancelResponse)
+    )
+)]
 pub async fn cancel_query(
     State(state): State<Arc<WebState>>,
     Json(req): Json<CancelRequest>,
@@ -367,7 +390,7 @@ pub async fn close_query_session(
         req.client_session_id.as_deref(),
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
 
     Ok(Json(serde_json::json!(closed)))
 }
@@ -381,7 +404,7 @@ pub async fn close_client_connection_session(
         .app
         .close_client_session_pool(&req.connection_id, database, &req.client_session_id)
         .await
-        .map_err(AppError)?;
+        .map_err(AppError::internal)?;
 
     Ok(Json(serde_json::json!(closed)))
 }
@@ -406,9 +429,9 @@ pub async fn execute_script(
         None,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
 
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn execute_in_transaction(
@@ -423,15 +446,17 @@ pub async fn execute_in_transaction(
         req.schema.as_deref(),
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
 
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn analyze_sql_references(
     Json(req): Json<AnalyzeSqlReferencesRequest>,
 ) -> Result<Json<task_core::sql_analysis::SqlReferenceAnalysis>, AppError> {
-    task_core::sql_analysis::analyze_sql_references(&req.sql, req.dialect.as_deref()).map(Json).map_err(AppError)
+    task_core::sql_analysis::analyze_sql_references(&req.sql, req.dialect.as_deref())
+        .map(Json)
+        .map_err(AppError::internal)
 }
 
 pub async fn find_statement_at_cursor(Json(req): Json<FindStatementAtCursorRequest>) -> Json<String> {
@@ -484,10 +509,12 @@ pub async fn get_explain_info(
 ) -> Result<Json<String>, AppError> {
     let client = {
         let connections = state.app.connections.read().await;
-        let pool = connections.get(&req.connection_id).ok_or_else(|| AppError("Connection not found".to_string()))?;
+        let pool = connections
+            .get(&req.connection_id)
+            .ok_or_else(|| AppError::internal("Connection not found".to_string()))?;
         match pool {
             task_core::connection::PoolKind::Agent(client) => client.clone(),
-            _ => return Err(AppError("Connection is not an agent-based connection".to_string())),
+            _ => return Err(AppError::internal("Connection is not an agent-based connection".to_string())),
         }
     };
 
@@ -495,14 +522,14 @@ pub async fn get_explain_info(
         let configs = state.app.configs.read().await;
         configs.get(&req.connection_id).cloned()
     };
-    let config = config.ok_or_else(|| AppError("Connection config not found".to_string()))?;
+    let config = config.ok_or_else(|| AppError::internal("Connection config not found".to_string()))?;
     let timeout_secs = config.query_timeout_secs;
 
     let mut client = client.lock().await;
     let mode = req.mode.unwrap_or_else(|| "explain".to_string());
     if mode.eq_ignore_ascii_case("autotrace") && !task_core::query_execution_sql::is_safe_dameng_autotrace_sql(&req.sql)
     {
-        return Err(AppError("unsafe".to_string()));
+        return Err(AppError::internal("unsafe".to_string()));
     }
     let params = serde_json::json!({
         "sql": req.sql,
@@ -519,8 +546,8 @@ pub async fn get_explain_info(
             let plan = obj.get("plan").and_then(|v| v.as_str()).unwrap_or("").to_string();
             Ok(Json(plan))
         }
-        Ok(val) => Err(AppError(format!("Unexpected result type from getExplainInfo: {:?}", val))),
-        Err(e) => Err(AppError(e)),
+        Ok(val) => Err(AppError::internal(format!("Unexpected result type from getExplainInfo: {:?}", val))),
+        Err(e) => Err(AppError::internal(e)),
     }
 }
 
@@ -549,7 +576,7 @@ pub async fn build_search_result_where(Json(req): Json<BuildSearchResultWhereReq
 }
 
 pub async fn build_rename_object_sql(Json(req): Json<BuildRenameObjectSqlRequest>) -> Result<Json<String>, AppError> {
-    task_core::db_admin_sql::build_rename_object_sql(req.options).map(Json).map_err(AppError)
+    task_core::db_admin_sql::build_rename_object_sql(req.options).map(Json).map_err(AppError::internal)
 }
 
 pub async fn build_create_database_sql(Json(req): Json<BuildCreateDatabaseSqlRequest>) -> Json<String> {
@@ -571,7 +598,7 @@ pub async fn build_drop_table_sql(Json(req): Json<BuildTableAdminSqlRequest>) ->
 pub async fn build_drop_table_child_object_sql(
     Json(req): Json<BuildDropTableChildObjectSqlRequest>,
 ) -> Result<Json<String>, AppError> {
-    task_core::db_admin_sql::build_drop_table_child_object_sql(req.options).map(Json).map_err(AppError)
+    task_core::db_admin_sql::build_drop_table_child_object_sql(req.options).map(Json).map_err(AppError::internal)
 }
 
 pub async fn build_empty_table_sql(Json(req): Json<BuildTableAdminSqlRequest>) -> Json<String> {
@@ -603,19 +630,23 @@ pub async fn build_duplicate_table_structure_sql(
 pub async fn build_executable_object_source_statements(
     Json(req): Json<BuildExecutableObjectSourceRequest>,
 ) -> Result<Json<Vec<String>>, AppError> {
-    task_core::object_source_sql::build_executable_object_source_statements(req.input).map(Json).map_err(AppError)
+    task_core::object_source_sql::build_executable_object_source_statements(req.input)
+        .map(Json)
+        .map_err(AppError::internal)
 }
 
 pub async fn build_executable_object_source_sql(
     Json(req): Json<BuildExecutableObjectSourceRequest>,
 ) -> Result<Json<String>, AppError> {
-    task_core::object_source_sql::build_executable_object_source_sql(req.input).map(Json).map_err(AppError)
+    task_core::object_source_sql::build_executable_object_source_sql(req.input).map(Json).map_err(AppError::internal)
 }
 
 pub async fn build_routine_rename_object_source_statements(
     Json(req): Json<BuildRoutineRenameObjectSourceRequest>,
 ) -> Result<Json<Vec<String>>, AppError> {
-    task_core::object_source_sql::build_routine_rename_object_source_statements(req.input).map(Json).map_err(AppError)
+    task_core::object_source_sql::build_routine_rename_object_source_statements(req.input)
+        .map(Json)
+        .map_err(AppError::internal)
 }
 
 pub async fn build_view_ddl_sql(Json(req): Json<BuildViewDdlRequest>) -> Json<String> {
@@ -687,15 +718,15 @@ pub async fn build_hive_table_properties_sql(Json(req): Json<BuildHiveTablePrope
 pub async fn build_export_insert_statements(
     Json(req): Json<BuildExportInsertStatementsRequest>,
 ) -> Result<Json<Vec<String>>, AppError> {
-    task_core::database_export::build_export_insert_statements(req.options).map(Json).map_err(AppError)
+    task_core::database_export::build_export_insert_statements(req.options).map(Json).map_err(AppError::internal)
 }
 
 pub async fn build_export_sql_insert(Json(req): Json<BuildExportSqlInsertRequest>) -> Result<Json<String>, AppError> {
-    task_core::database_export::build_export_sql_insert(req.options).map(Json).map_err(AppError)
+    task_core::database_export::build_export_sql_insert(req.options).map(Json).map_err(AppError::internal)
 }
 
 pub async fn build_database_sql_export(
     Json(req): Json<BuildDatabaseSqlExportRequest>,
 ) -> Result<Json<String>, AppError> {
-    task_core::database_export::build_database_sql_export(req.options).map(Json).map_err(AppError)
+    task_core::database_export::build_database_sql_export(req.options).map(Json).map_err(AppError::internal)
 }

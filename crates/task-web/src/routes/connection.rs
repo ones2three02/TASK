@@ -4,35 +4,45 @@ use axum::extract::State;
 use axum::Json;
 use serde::Deserialize;
 use task_core::models::connection::ConnectionConfig;
+use utoipa::ToSchema;
 
 use crate::error::AppError;
 use crate::state::WebState;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectRequest {
     pub config: ConnectionConfig,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DisconnectRequest {
     pub connection_id: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CloseDatabaseConnectionRequest {
     pub connection_id: String,
     pub database: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveConnectionsRequest {
     pub configs: Vec<ConnectionConfig>,
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/connection/test",
+    request_body = ConnectRequest,
+    responses(
+        (status = 200, description = "Test database connection successful", body = String),
+        (status = 500, description = "Failed to connect", body = String)
+    )
+)]
 pub async fn test_connection(
     State(state): State<Arc<WebState>>,
     Json(body): Json<ConnectRequest>,
@@ -59,10 +69,19 @@ pub async fn test_connection(
 
     match result {
         Ok(_) => Ok(Json("Connection successful".to_string())),
-        Err(e) => Err(AppError(e)),
+        Err(e) => Err(AppError::internal(e)),
     }
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/connection/connect",
+    request_body = ConnectRequest,
+    responses(
+        (status = 200, description = "Establish database connection successful, returns connection ID", body = String),
+        (status = 500, description = "Failed to establish connection", body = String)
+    )
+)]
 pub async fn connect_db(
     State(state): State<Arc<WebState>>,
     Json(body): Json<ConnectRequest>,
@@ -73,18 +92,27 @@ pub async fn connect_db(
 
     app.configs.write().await.insert(connection_id.clone(), config.clone());
 
-    app.get_or_create_pool(&connection_id, None).await.map_err(AppError)?;
+    app.get_or_create_pool(&connection_id, None).await.map_err(AppError::internal)?;
 
     Ok(Json(connection_id))
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/connection/final-proxy-port",
+    request_body = ConnectRequest,
+    responses(
+        (status = 200, description = "Get final proxy port for connection", body = u16),
+        (status = 500, description = "Failed to resolve proxy port", body = String)
+    )
+)]
 pub async fn connection_final_proxy_port(
     State(state): State<Arc<WebState>>,
     Json(body): Json<ConnectRequest>,
 ) -> Result<Json<u16>, AppError> {
     let runtime_config = body.config.canonicalized();
     if !runtime_config.has_effective_transport_layers() {
-        return Err(AppError("Connection has no configured transport layers".to_string()));
+        return Err(AppError::internal("Connection has no configured transport layers".to_string()));
     }
 
     let app = &state.app;
@@ -92,10 +120,19 @@ pub async fn connection_final_proxy_port(
     let db_config = task_core::connection::metadata_connection_config(&runtime_config);
     app.configs.write().await.insert(connection_id.clone(), runtime_config);
 
-    let (_, port) = app.connection_host_port(&connection_id, &db_config).await.map_err(AppError)?;
+    let (_, port) = app.connection_host_port(&connection_id, &db_config).await.map_err(AppError::internal)?;
     Ok(Json(port))
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/connection/disconnect",
+    request_body = DisconnectRequest,
+    responses(
+        (status = 200, description = "Disconnect database connection successful"),
+        (status = 500, description = "Failed to disconnect", body = String)
+    )
+)]
 pub async fn disconnect_db(
     State(state): State<Arc<WebState>>,
     Json(body): Json<DisconnectRequest>,
@@ -119,26 +156,52 @@ pub async fn disconnect_db(
     Ok(Json(()))
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/connection/close-database",
+    request_body = CloseDatabaseConnectionRequest,
+    responses(
+        (status = 200, description = "Close connection to specific database", body = bool),
+        (status = 500, description = "Internal error", body = String)
+    )
+)]
 pub async fn close_database_connection(
     State(state): State<Arc<WebState>>,
     Json(body): Json<CloseDatabaseConnectionRequest>,
 ) -> Result<Json<bool>, AppError> {
     let database = body.database.trim();
     let database = if database.is_empty() { None } else { Some(database) };
-    state.app.close_database_pool(&body.connection_id, database).await.map(Json).map_err(AppError)
+    state.app.close_database_pool(&body.connection_id, database).await.map(Json).map_err(AppError::internal)
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/connection/save",
+    request_body = SaveConnectionsRequest,
+    responses(
+        (status = 200, description = "Save connection configurations list successful"),
+        (status = 500, description = "Failed to save config", body = String)
+    )
+)]
 pub async fn save_connections(
     State(state): State<Arc<WebState>>,
     Json(body): Json<SaveConnectionsRequest>,
 ) -> Result<Json<()>, AppError> {
-    state.app.storage.save_connections(&body.configs).await.map_err(AppError)?;
+    state.app.storage.save_connections(&body.configs).await.map_err(AppError::internal)?;
     cache_connection_configs(&state, &body.configs).await;
     Ok(Json(()))
 }
 
+#[utoipa::path(
+    method(get),
+    path = "/api/connection/list",
+    responses(
+        (status = 200, description = "Load connection configurations list successful", body = [ConnectionConfig]),
+        (status = 500, description = "Failed to load config", body = String)
+    )
+)]
 pub async fn load_connections(State(state): State<Arc<WebState>>) -> Result<Json<Vec<ConnectionConfig>>, AppError> {
-    let configs = state.app.storage.load_connections().await.map_err(AppError)?;
+    let configs = state.app.storage.load_connections().await.map_err(AppError::internal)?;
     cache_connection_configs(&state, &configs).await;
     Ok(Json(configs))
 }

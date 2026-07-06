@@ -14,7 +14,7 @@ async fn ensure_writable(
     action: &str,
 ) -> Result<(), AppError> {
     if let Some(name) = task_core::query::connection_readonly_name(app, connection_id).await {
-        return Err(AppError(format!(
+        return Err(AppError::internal(format!(
             "Read-only mode: connection '{}' has read-only protection enabled. {} blocked.",
             name, action
         )));
@@ -160,9 +160,10 @@ pub async fn list_databases(
     State(state): State<Arc<WebState>>,
     Json(req): Json<RedisConnectionRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let result =
-        task_core::redis_ops::redis_list_databases_core(&state.app, &req.connection_id).await.map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    let result = task_core::redis_ops::redis_list_databases_core(&state.app, &req.connection_id)
+        .await
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn scan_keys(
@@ -178,8 +179,8 @@ pub async fn scan_keys(
         req.count,
     )
     .await
-    .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn scan_values(
@@ -197,8 +198,8 @@ pub async fn scan_values(
         req.count,
     )
     .await
-    .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn get_value(
@@ -207,8 +208,8 @@ pub async fn get_value(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let result = task_core::redis_ops::redis_get_value_in_db_core(&state.app, &req.connection_id, req.db, &req.key_raw)
         .await
-        .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn set_string(
@@ -225,7 +226,7 @@ pub async fn set_string(
         req.ttl,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -236,7 +237,7 @@ pub async fn delete_key(
     ensure_writable(&state.app, &req.connection_id, "Delete key").await?;
     task_core::redis_ops::redis_delete_key_in_db_core(&state.app, &req.connection_id, req.db, &req.key_raw)
         .await
-        .map_err(AppError)?;
+        .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -256,7 +257,7 @@ pub async fn hash_set(
         req.ttl,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -267,7 +268,7 @@ pub async fn hash_del(
     ensure_writable(&state.app, &req.connection_id, "HDEL").await?;
     task_core::redis_ops::redis_hash_del_in_db_core(&state.app, &req.connection_id, req.db, &req.key_raw, &req.field)
         .await
-        .map_err(AppError)?;
+        .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -286,7 +287,7 @@ pub async fn list_push(
         req.ttl,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -299,7 +300,7 @@ pub async fn list_set(
     let value = req.value.as_deref().unwrap_or("");
     task_core::redis_ops::redis_list_set_in_db_core(&state.app, &req.connection_id, req.db, &req.key_raw, index, value)
         .await
-        .map_err(AppError)?;
+        .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -311,7 +312,7 @@ pub async fn list_remove(
     let index = req.index.unwrap_or(0);
     task_core::redis_ops::redis_list_remove_in_db_core(&state.app, &req.connection_id, req.db, &req.key_raw, index)
         .await
-        .map_err(AppError)?;
+        .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -329,7 +330,7 @@ pub async fn set_add(
         req.ttl,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -346,7 +347,7 @@ pub async fn set_remove(
         &req.member,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -361,7 +362,7 @@ pub async fn zadd(State(state): State<Arc<WebState>>, Json(req): Json<RedisZaddR
         req.ttl,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -379,7 +380,7 @@ pub async fn stream_add(
         req.ttl,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -396,7 +397,7 @@ pub async fn json_set(
         req.ttl,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -406,7 +407,7 @@ pub async fn check_json_module(
 ) -> Result<Json<bool>, AppError> {
     let result = task_core::redis_ops::redis_check_json_module_in_db_core(&state.app, &req.connection_id, req.db)
         .await
-        .map_err(AppError)?;
+        .map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -418,7 +419,7 @@ pub async fn delete_keys(
     let result =
         task_core::redis_ops::redis_delete_keys_in_db_core(&state.app, &req.connection_id, req.db, &req.key_raws)
             .await
-            .map_err(AppError)?;
+            .map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -427,7 +428,9 @@ pub async fn flush_db(
     Json(req): Json<RedisDbRequest>,
 ) -> Result<Json<()>, AppError> {
     ensure_writable(&state.app, &req.connection_id, "FLUSHDB").await?;
-    task_core::redis_ops::redis_flush_db_core(&state.app, &req.connection_id, req.db).await.map_err(AppError)?;
+    task_core::redis_ops::redis_flush_db_core(&state.app, &req.connection_id, req.db)
+        .await
+        .map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -441,7 +444,7 @@ pub async fn execute_command(
         if task_core::db::redis_driver::classify_command(cmd_name)
             != task_core::db::redis_driver::RedisCommandSafety::Allowed
         {
-            return Err(AppError(format!(
+            return Err(AppError::internal(format!(
                 "Read-only mode: connection '{}' has read-only protection enabled. Command '{}' blocked.",
                 name, cmd_name
             )));
@@ -455,6 +458,6 @@ pub async fn execute_command(
         req.skip_safety_check.unwrap_or(false),
     )
     .await
-    .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }

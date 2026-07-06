@@ -89,12 +89,12 @@ pub async fn save_ai_config(
     State(state): State<Arc<WebState>>,
     Json(body): Json<SaveAiConfigRequest>,
 ) -> Result<Json<()>, AppError> {
-    state.app.storage.save_ai_config(&body.config).await.map_err(AppError)?;
+    state.app.storage.save_ai_config(&body.config).await.map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
 pub async fn load_ai_config(State(state): State<Arc<WebState>>) -> Result<Json<Option<AiConfig>>, AppError> {
-    let config = state.app.storage.load_ai_config().await.map_err(AppError)?;
+    let config = state.app.storage.load_ai_config().await.map_err(AppError::internal)?;
     Ok(Json(config))
 }
 
@@ -106,12 +106,12 @@ pub async fn save_ai_conversation(
     State(state): State<Arc<WebState>>,
     Json(body): Json<SaveAiConversationRequest>,
 ) -> Result<Json<()>, AppError> {
-    state.app.storage.save_ai_conversation(&body.conversation).await.map_err(AppError)?;
+    state.app.storage.save_ai_conversation(&body.conversation).await.map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
 pub async fn load_ai_conversations(State(state): State<Arc<WebState>>) -> Result<Json<Vec<AiConversation>>, AppError> {
-    let conversations = state.app.storage.load_ai_conversations().await.map_err(AppError)?;
+    let conversations = state.app.storage.load_ai_conversations().await.map_err(AppError::internal)?;
     Ok(Json(conversations))
 }
 
@@ -119,7 +119,7 @@ pub async fn delete_ai_conversation(
     State(state): State<Arc<WebState>>,
     Path(id): Path<String>,
 ) -> Result<Json<()>, AppError> {
-    state.app.storage.delete_ai_conversation(&id).await.map_err(AppError)?;
+    state.app.storage.delete_ai_conversation(&id).await.map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
@@ -128,7 +128,7 @@ pub async fn delete_ai_conversation(
 // ---------------------------------------------------------------------------
 
 pub async fn ai_complete(Json(body): Json<AiCompleteRequest>) -> Result<Json<String>, AppError> {
-    let result = task_core::ai::complete(&body.request).await.map_err(AppError)?;
+    let result = task_core::ai::complete(&body.request).await.map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -139,12 +139,12 @@ pub async fn ai_complete(Json(body): Json<AiCompleteRequest>) -> Result<Json<Str
 pub async fn ai_test_connection(
     Json(body): Json<AiTestConnectionRequest>,
 ) -> Result<Json<AiTestConnectionResult>, AppError> {
-    let result = task_core::ai::test_connection_core(&body.config).await.map_err(AppError)?;
+    let result = task_core::ai::test_connection_core(&body.config).await.map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
 pub async fn ai_list_models(Json(body): Json<AiListModelsRequest>) -> Result<Json<Vec<AiModelInfo>>, AppError> {
-    let result = task_core::ai::list_models_core(&body.config).await.map_err(AppError)?;
+    let result = task_core::ai::list_models_core(&body.config).await.map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -212,7 +212,7 @@ pub async fn ai_agent_stream(
     let (tx, rx) = tokio::sync::broadcast::channel::<String>(256);
 
     let parsed_db_type: DatabaseType = serde_json::from_str(&format!("\"{}\"", body.db_type))
-        .map_err(|_| AppError(format!("Unknown database type: {}", body.db_type)))?;
+        .map_err(|_| AppError::internal(format!("Unknown database type: {}", body.db_type)))?;
 
     let agent_ctx = AgentLoopContext {
         state: state.app.clone(),

@@ -38,7 +38,7 @@ pub struct DecryptConfigRequest {
 }
 
 pub async fn load_pinned_tree_node_ids(State(state): State<Arc<WebState>>) -> Result<Json<Vec<String>>, AppError> {
-    let ids = state.app.storage.load_pinned_tree_node_ids().await.map_err(AppError)?;
+    let ids = state.app.storage.load_pinned_tree_node_ids().await.map_err(AppError::internal)?;
     Ok(Json(ids))
 }
 
@@ -46,12 +46,12 @@ pub async fn save_pinned_tree_node_ids(
     State(state): State<Arc<WebState>>,
     Json(body): Json<SavePinnedTreeNodeIdsRequest>,
 ) -> Result<Json<()>, AppError> {
-    state.app.storage.save_pinned_tree_node_ids(&body.ids).await.map_err(AppError)?;
+    state.app.storage.save_pinned_tree_node_ids(&body.ids).await.map_err(AppError::internal)?;
     Ok(Json(()))
 }
 
 pub async fn decrypt_config(Json(body): Json<DecryptConfigRequest>) -> Result<Json<String>, AppError> {
-    decrypt_config_payload(&body.payload, &body.passphrase).map(Json).map_err(AppError)
+    decrypt_config_payload(&body.payload, &body.passphrase).map(Json).map_err(AppError::internal)
 }
 
 fn decrypt_config_payload(payload: &EncryptedConfigPayload, passphrase: &str) -> Result<String, String> {

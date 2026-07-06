@@ -14,7 +14,7 @@ async fn ensure_writable(
     action: &str,
 ) -> Result<(), AppError> {
     if let Some(name) = task_core::query::connection_readonly_name(app, connection_id).await {
-        return Err(AppError(format!(
+        return Err(AppError::internal(format!(
             "Read-only mode: connection '{}' has read-only protection enabled. {} blocked.",
             name, action
         )));
@@ -119,8 +119,9 @@ pub async fn list_databases(
     State(state): State<Arc<WebState>>,
     Json(req): Json<MongoConnectionRequest>,
 ) -> Result<Json<Vec<String>>, AppError> {
-    let result =
-        task_core::mongo_ops::mongo_list_databases_core(&state.app, &req.connection_id).await.map_err(AppError)?;
+    let result = task_core::mongo_ops::mongo_list_databases_core(&state.app, &req.connection_id)
+        .await
+        .map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -130,7 +131,7 @@ pub async fn list_collections(
 ) -> Result<Json<Vec<String>>, AppError> {
     let result = task_core::mongo_ops::mongo_list_collections_core(&state.app, &req.connection_id, &req.database)
         .await
-        .map_err(AppError)?;
+        .map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -149,8 +150,8 @@ pub async fn find_documents(
         req.sort.as_deref(),
     )
     .await
-    .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn document_find_documents(
@@ -168,8 +169,8 @@ pub async fn document_find_documents(
         req.sort.as_deref(),
     )
     .await
-    .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn aggregate_documents(
@@ -185,8 +186,8 @@ pub async fn aggregate_documents(
         req.max_rows,
     )
     .await
-    .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn insert_document(
@@ -202,7 +203,7 @@ pub async fn insert_document(
         &req.doc_json,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -219,7 +220,7 @@ pub async fn insert_documents(
         &req.docs_json,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(serde_json::json!({ "affected_rows": result })))
 }
 
@@ -237,7 +238,7 @@ pub async fn update_document(
         &req.doc_json,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -256,7 +257,7 @@ pub async fn update_documents(
         req.many,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(serde_json::json!({ "affected_rows": result })))
 }
 
@@ -273,7 +274,7 @@ pub async fn delete_document(
         &req.id,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -291,6 +292,6 @@ pub async fn delete_documents(
         req.many,
     )
     .await
-    .map_err(AppError)?;
+    .map_err(AppError::internal)?;
     Ok(Json(serde_json::json!({ "affected_rows": result })))
 }

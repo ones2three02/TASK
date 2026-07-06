@@ -4,9 +4,68 @@ mod routes;
 mod sse;
 mod state;
 
+use utoipa::OpenApi;
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        auth::login,
+        auth::setup,
+        auth::check,
+        auth::change_password,
+        auth::logout,
+        routes::update::get_version,
+        routes::update::check_for_updates,
+        routes::connection::test_connection,
+        routes::connection::connect_db,
+        routes::connection::connection_final_proxy_port,
+        routes::connection::disconnect_db,
+        routes::connection::close_database_connection,
+        routes::connection::save_connections,
+        routes::connection::load_connections,
+        routes::query::execute_query,
+        routes::query::cancel_query,
+    ),
+    components(
+        schemas(
+            auth::OkResponse,
+            auth::LoginRequest,
+            auth::ChangePasswordRequest,
+            auth::AuthCheckResponse,
+            routes::update::VersionResponse,
+            routes::update::UpdateInfoSchema,
+            routes::connection::ConnectRequest,
+            routes::connection::DisconnectRequest,
+            routes::connection::CloseDatabaseConnectionRequest,
+            routes::connection::SaveConnectionsRequest,
+            task_core::models::connection::ConnectionConfig,
+            task_core::models::connection::DatabaseType,
+            task_core::models::connection::TransportLayerConfig,
+            task_core::models::connection::SshTunnelConfig,
+            task_core::models::connection::ProxyTunnelConfig,
+            task_core::models::connection::ProxyType,
+            task_core::models::connection::AttachedDatabaseConfig,
+            routes::query::ExecuteQueryRequest,
+            routes::query::CancelRequest,
+            routes::query::CancelResponse,
+        )
+    ),
+    tags(
+        (name = "auth", description = "Authentication APIs"),
+        (name = "update", description = "Application Update APIs"),
+        (name = "connection", description = "Database Connection APIs"),
+        (name = "query", description = "SQL Query APIs")
+    )
+)]
+struct ApiDoc;
+
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::sync::Arc;
+
+use axum::http::HeaderName;
+use axum::Json;
+use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
@@ -353,10 +412,24 @@ async fn main() {
         .with_state(web_state.clone());
 
     // Build app
+    let x_request_id = HeaderName::from_static("x-request-id");
+    let openapi = Arc::new(ApiDoc::openapi());
     let mut app = Router::new()
+        .route(
+            "/api-docs/openapi.json",
+            axum::routing::get({
+                let openapi = Arc::clone(&openapi);
+                move || {
+                    let openapi = Arc::clone(&openapi);
+                    async move { Json((*openapi).clone()) }
+                }
+            }),
+        )
         .nest("/api", api)
-        .layer(DefaultBodyLimit::max(web_body_limit_bytes()))
         .layer(tower_http::trace::TraceLayer::new_for_http())
+        .layer(PropagateRequestIdLayer::new(x_request_id.clone()))
+        .layer(SetRequestIdLayer::new(x_request_id, MakeRequestUuid))
+        .layer(DefaultBodyLimit::max(web_body_limit_bytes()))
         .layer(cors);
 
     // Static file serving

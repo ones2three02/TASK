@@ -28,27 +28,31 @@ pub async fn preview_import(
     mut multipart: Multipart,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let tmp_dir = state.data_dir.join("tmp");
-    std::fs::create_dir_all(&tmp_dir).map_err(|e| AppError(e.to_string()))?;
+    std::fs::create_dir_all(&tmp_dir).map_err(|e| AppError::internal(e.to_string()))?;
 
-    if let Some(field) = multipart.next_field().await.map_err(|e| AppError(e.to_string()))? {
+    if let Some(field) = multipart.next_field().await.map_err(|e| AppError::internal(e.to_string()))? {
         let file_name = field.file_name().unwrap_or("upload.csv").to_string();
-        let data = field.bytes().await.map_err(|e| AppError(e.to_string()))?;
+        let data = field.bytes().await.map_err(|e| AppError::internal(e.to_string()))?;
 
         if data.len() > 100 * 1024 * 1024 {
-            return Err(AppError(format!("File too large: {} bytes (max {} bytes)", data.len(), 100 * 1024 * 1024)));
+            return Err(AppError::internal(format!(
+                "File too large: {} bytes (max {} bytes)",
+                data.len(),
+                100 * 1024 * 1024
+            )));
         }
 
         let file_path = tmp_dir.join(&file_name);
-        std::fs::write(&file_path, &data).map_err(|e| AppError(e.to_string()))?;
+        std::fs::write(&file_path, &data).map_err(|e| AppError::internal(e.to_string()))?;
 
         let file_path_str = file_path.to_string_lossy().to_string();
         let preview = table_import::preview_table_import_file_core(&file_path_str).await;
         let _ = tokio::fs::remove_file(&file_path).await;
-        let preview = preview.map_err(AppError)?;
-        return Ok(Json(serde_json::to_value(preview).map_err(|e| AppError(e.to_string()))?));
+        let preview = preview.map_err(AppError::internal)?;
+        return Ok(Json(serde_json::to_value(preview).map_err(|e| AppError::internal(e.to_string()))?));
     }
 
-    Err(AppError("No file uploaded".to_string()))
+    Err(AppError::internal("No file uploaded".to_string()))
 }
 
 pub async fn execute_import(
@@ -59,7 +63,7 @@ pub async fn execute_import(
 
     // Reject import early if the connection is read-only
     if let Some(name) = task_core::query::connection_readonly_name(&state.app, &req.connection_id).await {
-        return Err(AppError(format!(
+        return Err(AppError::internal(format!(
             "Read-only mode: connection '{}' has read-only protection enabled. Import blocked.",
             name
         )));
@@ -152,7 +156,7 @@ pub async fn import_progress(
     Path(import_id): Path<String>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>>, AppError> {
     let channels = state.sse_channels.read().await;
-    let tx = channels.get(&import_id).ok_or_else(|| AppError("Import not found".to_string()))?;
+    let tx = channels.get(&import_id).ok_or_else(|| AppError::internal("Import not found".to_string()))?;
     let rx = tx.subscribe();
     drop(channels);
     Ok(crate::sse::sse_from_channel(rx))

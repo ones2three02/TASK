@@ -331,8 +331,9 @@ pub fn is_newer_version(latest: &str, current: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_update_info, is_current_platform_available, is_newer_version, normalize_version, system_proxy_url_from_scutil_output,
-        system_proxy_url_from_windows_registry_output, GithubReleaseMetadata, TauriRelease,
+        build_update_info, is_current_platform_available, is_newer_version, normalize_version,
+        system_proxy_url_from_scutil_output, system_proxy_url_from_windows_registry_output, GithubReleaseMetadata,
+        TauriRelease,
     };
 
     #[test]

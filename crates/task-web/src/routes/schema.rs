@@ -22,8 +22,9 @@ pub async fn list_databases(
     State(state): State<Arc<WebState>>,
     Query(q): Query<SchemaQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let result = task_core::schema::list_databases_core(&state.app, &q.connection_id).await.map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    let result =
+        task_core::schema::list_databases_core(&state.app, &q.connection_id).await.map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn list_schemas(
@@ -31,8 +32,9 @@ pub async fn list_schemas(
     Query(q): Query<SchemaQuery>,
 ) -> Result<Json<Vec<String>>, AppError> {
     let database = q.database.as_deref().unwrap_or("");
-    let result =
-        task_core::schema::list_schemas_core(&state.app, &q.connection_id, database).await.map_err(AppError)?;
+    let result = task_core::schema::list_schemas_core(&state.app, &q.connection_id, database)
+        .await
+        .map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -51,8 +53,8 @@ pub async fn list_tables(
         q.limit,
     )
     .await
-    .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn list_objects(
@@ -61,9 +63,10 @@ pub async fn list_objects(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let database = q.database.as_deref().unwrap_or("");
     let schema = q.schema.as_deref().unwrap_or("");
-    let result =
-        task_core::schema::list_objects_core(&state.app, &q.connection_id, database, schema).await.map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    let result = task_core::schema::list_objects_core(&state.app, &q.connection_id, database, schema)
+        .await
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn list_completion_objects(
@@ -74,8 +77,8 @@ pub async fn list_completion_objects(
     let schema = q.schema.as_deref().unwrap_or("");
     let result = task_core::schema::list_completion_objects_core(&state.app, &q.connection_id, database, schema)
         .await
-        .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn get_object_source(
@@ -85,11 +88,11 @@ pub async fn get_object_source(
     let database = q.database.as_deref().unwrap_or("");
     let schema = q.schema.as_deref().unwrap_or("");
     let name = q.table.as_deref().unwrap_or("");
-    let object_type = q.object_type.ok_or_else(|| AppError("Missing object_type".to_string()))?;
+    let object_type = q.object_type.ok_or_else(|| AppError::internal("Missing object_type".to_string()))?;
     let result =
         task_core::schema::get_object_source_core(&state.app, &q.connection_id, database, schema, name, object_type)
             .await
-            .map_err(AppError)?;
+            .map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -102,8 +105,8 @@ pub async fn list_columns(
     let table = q.table.as_deref().unwrap_or("");
     let result = task_core::schema::get_columns_core(&state.app, &q.connection_id, database, schema, table)
         .await
-        .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn list_indexes(
@@ -115,8 +118,8 @@ pub async fn list_indexes(
     let table = q.table.as_deref().unwrap_or("");
     let result = task_core::schema::list_indexes_core(&state.app, &q.connection_id, database, schema, table)
         .await
-        .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn list_foreign_keys(
@@ -128,8 +131,8 @@ pub async fn list_foreign_keys(
     let table = q.table.as_deref().unwrap_or("");
     let result = task_core::schema::list_foreign_keys_core(&state.app, &q.connection_id, database, schema, table)
         .await
-        .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn list_triggers(
@@ -141,8 +144,8 @@ pub async fn list_triggers(
     let table = q.table.as_deref().unwrap_or("");
     let result = task_core::schema::list_triggers_core(&state.app, &q.connection_id, database, schema, table)
         .await
-        .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn get_ddl(
@@ -154,7 +157,7 @@ pub async fn get_ddl(
     let table = q.table.as_deref().unwrap_or("");
     let result = task_core::schema::get_table_ddl_core(&state.app, &q.connection_id, database, schema, table)
         .await
-        .map_err(AppError)?;
+        .map_err(AppError::internal)?;
     Ok(Json(result))
 }
 
@@ -166,8 +169,8 @@ pub async fn list_functions(
     let schema = q.schema.as_deref().unwrap_or("");
     let result = task_core::schema::list_functions_core(&state.app, &q.connection_id, database, schema)
         .await
-        .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 #[derive(Deserialize)]
@@ -192,8 +195,8 @@ pub async fn list_sequences(
         q.with_last_values.unwrap_or(false),
     )
     .await
-    .map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn list_rules(
@@ -202,9 +205,10 @@ pub async fn list_rules(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let database = q.database.as_deref().unwrap_or("");
     let schema = q.schema.as_deref().unwrap_or("");
-    let result =
-        task_core::schema::list_rules_core(&state.app, &q.connection_id, database, schema).await.map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    let result = task_core::schema::list_rules_core(&state.app, &q.connection_id, database, schema)
+        .await
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }
 
 pub async fn list_owners(
@@ -213,7 +217,8 @@ pub async fn list_owners(
 ) -> Result<Json<serde_json::Value>, AppError> {
     let database = q.database.as_deref().unwrap_or("");
     let schema = q.schema.as_deref().unwrap_or("");
-    let result =
-        task_core::schema::list_owners_core(&state.app, &q.connection_id, database, schema).await.map_err(AppError)?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| AppError(e.to_string()))?))
+    let result = task_core::schema::list_owners_core(&state.app, &q.connection_id, database, schema)
+        .await
+        .map_err(AppError::internal)?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| AppError::internal(e.to_string()))?))
 }

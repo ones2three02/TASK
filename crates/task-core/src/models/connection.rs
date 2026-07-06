@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ConnectionConfig {
     pub id: String,
     pub name: String,
@@ -79,6 +80,7 @@ pub struct ConnectionConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "lowercase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum TransportLayerConfig {
     Ssh(SshTunnelConfig),
     Proxy(ProxyTunnelConfig),
@@ -115,6 +117,7 @@ impl TransportLayerConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SshTunnelConfig {
     #[serde(default)]
     pub id: String,
@@ -143,6 +146,7 @@ pub struct SshTunnelConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ProxyTunnelConfig {
     #[serde(default)]
     pub id: String,
@@ -163,6 +167,7 @@ pub struct ProxyTunnelConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct AttachedDatabaseConfig {
     pub name: String,
     pub path: String,
@@ -211,6 +216,7 @@ fn is_default_redis_separator(value: &str) -> bool {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 #[derive(Default)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum ProxyType {
     #[default]
     Socks5,
@@ -219,6 +225,7 @@ pub enum ProxyType {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum DatabaseType {
     Mysql,
     Postgres,

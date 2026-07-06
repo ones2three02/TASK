@@ -9,21 +9,27 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::state::WebState;
 
-#[derive(Deserialize)]
+#[derive(Serialize, ToSchema)]
+pub struct OkResponse {
+    pub ok: bool,
+}
+
+#[derive(Deserialize, ToSchema)]
 pub struct LoginRequest {
     pub password: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct ChangePasswordRequest {
     pub old_password: String,
     pub new_password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct AuthCheckResponse {
     pub authenticated: bool,
     pub required: bool,
@@ -33,6 +39,17 @@ pub struct AuthCheckResponse {
 const MAX_ATTEMPTS: u32 = 5;
 const LOCKOUT_SECS: u64 = 60;
 
+#[utoipa::path(
+    method(post),
+    path = "/api/auth/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Login successful", body = OkResponse),
+        (status = 401, description = "Unauthorized - invalid password"),
+        (status = 429, description = "Too many attempts - locked out"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn login(State(state): State<Arc<WebState>>, Json(body): Json<LoginRequest>) -> Result<Response, StatusCode> {
     let hash_guard = state.password_hash.read().await;
     let hash_str = match hash_guard.as_deref() {
@@ -84,6 +101,17 @@ pub async fn login(State(state): State<Arc<WebState>>, Json(body): Json<LoginReq
     Ok((StatusCode::OK, [("set-cookie", cookie.as_str())], Json(serde_json::json!({"ok": true}))).into_response())
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/auth/setup",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Setup successful", body = OkResponse),
+        (status = 400, description = "Bad request - empty password"),
+        (status = 403, description = "Forbidden - password already setup"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn setup(State(state): State<Arc<WebState>>, Json(body): Json<LoginRequest>) -> Result<Response, StatusCode> {
     // Only allow setup when no password is configured
     if state.password_hash.read().await.is_some() {
@@ -114,6 +142,13 @@ pub async fn setup(State(state): State<Arc<WebState>>, Json(body): Json<LoginReq
     Ok((StatusCode::OK, [("set-cookie", cookie.as_str())], Json(serde_json::json!({"ok": true}))).into_response())
 }
 
+#[utoipa::path(
+    method(get),
+    path = "/api/auth/check",
+    responses(
+        (status = 200, description = "Authentication status check response", body = AuthCheckResponse)
+    )
+)]
 pub async fn check(State(state): State<Arc<WebState>>, req: Request<axum::body::Body>) -> Json<AuthCheckResponse> {
     let has_password = state.password_hash.read().await.is_some();
     if !has_password {
@@ -126,6 +161,17 @@ pub async fn check(State(state): State<Arc<WebState>>, req: Request<axum::body::
     Json(AuthCheckResponse { authenticated, required: true, setup_required: false })
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/auth/change-password",
+    request_body = ChangePasswordRequest,
+    responses(
+        (status = 200, description = "Password changed successful", body = OkResponse),
+        (status = 400, description = "Bad request - empty new password or not setup"),
+        (status = 401, description = "Unauthorized - invalid old password"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn change_password(
     State(state): State<Arc<WebState>>,
     Json(body): Json<ChangePasswordRequest>,
@@ -158,6 +204,13 @@ pub async fn change_password(
     Ok((StatusCode::OK, Json(serde_json::json!({"ok": true}))).into_response())
 }
 
+#[utoipa::path(
+    method(post),
+    path = "/api/auth/logout",
+    responses(
+        (status = 200, description = "Logout successful", body = OkResponse)
+    )
+)]
 pub async fn logout(State(state): State<Arc<WebState>>, req: Request<axum::body::Body>) -> Response {
     if let Some(token) = extract_session_token(&req) {
         state.sessions.write().await.remove(&token);
