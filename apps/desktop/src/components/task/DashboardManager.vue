@@ -134,6 +134,24 @@ function getQualityGateTarget(stage: "target" | "action" | "serve" | "keep") {
                 </div>
               </div>
             </div>
+
+            <div class="w-full sm:w-[220px] rounded-lg border border-border/40 bg-background/60 p-4 flex flex-col justify-between hover:shadow-md transition-all duration-200">
+              <div>
+                <div class="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>治理成熟度</span>
+                  <AlertTriangle class="h-4 w-4 text-amber-500" />
+                </div>
+                <div class="mt-2 flex items-end gap-2">
+                  <span class="text-3xl font-semibold tabular-nums">{{ overview.qualityGateSummary.score }}</span>
+                  <span class="pb-1 text-xs text-muted-foreground">{{ overview.qualityGateSummary.label }}</span>
+                </div>
+              </div>
+              <div class="mt-3 grid grid-cols-3 gap-1.5 text-[10px]">
+                <span class="rounded bg-red-500/10 px-1.5 py-1 text-center font-semibold text-red-500">D {{ overview.qualityGateSummary.bySeverity.danger }}</span>
+                <span class="rounded bg-amber-500/10 px-1.5 py-1 text-center font-semibold text-amber-500">W {{ overview.qualityGateSummary.bySeverity.warning }}</span>
+                <span class="rounded bg-blue-500/10 px-1.5 py-1 text-center font-semibold text-blue-500">I {{ overview.qualityGateSummary.bySeverity.info }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

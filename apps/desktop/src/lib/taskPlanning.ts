@@ -33,6 +33,14 @@ export interface TaskQualityGate {
   relatedIds: string[];
 }
 
+export interface TaskQualityGateSummary {
+  total: number;
+  score: number;
+  label: string;
+  bySeverity: Record<TaskQualityGateSeverity, number>;
+  byStage: Record<TaskQualityGateStage, number>;
+}
+
 export interface TaskProject {
   id: string;
   name: string;
@@ -323,6 +331,20 @@ export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction
   const normalizedKeeps = keeps.map(normalizeKeep);
   const gates: TaskQualityGate[] = [];
 
+  const targetsMissingScopeBoundary = normalizedTargets.filter((target) => !target.scope || !target.outOfScope);
+  if (targetsMissingScopeBoundary.length > 0) {
+    gates.push(
+      createQualityGate(
+        "target-scope-boundary",
+        "target",
+        "warning",
+        "目标缺少范围边界",
+        "建议为 Target 补充范围与非范围，避免项目执行中持续膨胀或验收边界不清。",
+        targetsMissingScopeBoundary.map((target) => target.id),
+      ),
+    );
+  }
+
   const targetsMissingSuccessCriteria = normalizedTargets.filter((target) => (target.successCriteria?.length ?? 0) === 0);
   if (targetsMissingSuccessCriteria.length > 0) {
     gates.push(
@@ -333,6 +355,77 @@ export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction
         "目标缺少成功标准",
         "建议为 Target 补充可验收的成功标准，避免目标完成口径不一致。",
         targetsMissingSuccessCriteria.map((target) => target.id),
+      ),
+    );
+  }
+
+  const targetsMissingRiskRegister = normalizedTargets.filter((target) => (target.risks?.length ?? 0) === 0);
+  if (targetsMissingRiskRegister.length > 0) {
+    gates.push(
+      createQualityGate(
+        "target-risk-register",
+        "target",
+        "info",
+        "目标缺少风险登记",
+        "建议为 Target 记录关键风险、依赖或假设，方便提前制定规避与回滚方案。",
+        targetsMissingRiskRegister.map((target) => target.id),
+      ),
+    );
+  }
+
+  const activeActions = normalizedActions.filter((action) => action.status !== "discarded");
+  const actionsMissingDevChecklist = activeActions.filter((action) => (action.devItems?.length ?? 0) === 0);
+  if (actionsMissingDevChecklist.length > 0) {
+    gates.push(
+      createQualityGate(
+        "action-missing-dev-checklist",
+        "action",
+        "info",
+        "行动缺少开发检查项",
+        "建议为 Action 拆出开发步骤，确保执行过程可跟踪、可交接、可复盘。",
+        actionsMissingDevChecklist.map((action) => action.id),
+      ),
+    );
+  }
+
+  const actionsMissingTestChecklist = activeActions.filter((action) => (action.testItems?.length ?? 0) === 0);
+  if (actionsMissingTestChecklist.length > 0) {
+    gates.push(
+      createQualityGate(
+        "action-missing-test-checklist",
+        "action",
+        "warning",
+        "行动缺少测试检查项",
+        "建议为 Action 补充验证步骤，避免完成状态只代表做完而不代表可交付。",
+        actionsMissingTestChecklist.map((action) => action.id),
+      ),
+    );
+  }
+
+  const actionsMissingOutputChecklist = activeActions.filter((action) => (action.outputItems?.length ?? 0) === 0);
+  if (actionsMissingOutputChecklist.length > 0) {
+    gates.push(
+      createQualityGate(
+        "action-missing-output-checklist",
+        "action",
+        "info",
+        "行动缺少输出物检查项",
+        "建议明确 Action 的代码、文档、配置、截图或其他输出物，保证行动可以沉淀为交付。",
+        actionsMissingOutputChecklist.map((action) => action.id),
+      ),
+    );
+  }
+
+  const doneActionsWithoutEvidence = normalizedActions.filter((action) => action.status === "done" && !action.evidence);
+  if (doneActionsWithoutEvidence.length > 0) {
+    gates.push(
+      createQualityGate(
+        "action-done-without-evidence",
+        "action",
+        "warning",
+        "完成行动缺少证据",
+        "建议为已完成 Action 记录测试结果、提交链接、截图或关键输出，避免完成状态无法追溯。",
+        doneActionsWithoutEvidence.map((action) => action.id),
       ),
     );
   }
@@ -393,6 +486,20 @@ export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction
     );
   }
 
+  const acceptedServesWithoutEvidence = normalizedServes.filter((serve) => (serve.status === "accepted" || serve.acceptanceStatus === "accepted") && (serve.evidence?.length ?? 0) === 0);
+  if (acceptedServesWithoutEvidence.length > 0) {
+    gates.push(
+      createQualityGate(
+        "serve-accepted-without-evidence",
+        "serve",
+        "warning",
+        "验收交付缺少证据",
+        "建议为已验收 Serve 记录验收链接、截图、会议结论或版本信息，形成可审计交付记录。",
+        acceptedServesWithoutEvidence.map((serve) => serve.id),
+      ),
+    );
+  }
+
   const acceptedServes = normalizedServes.filter((serve) => serve.status === "accepted" || serve.acceptanceStatus === "accepted");
   if (acceptedServes.length > 0 && normalizedKeeps.length === 0) {
     gates.push(
@@ -407,7 +514,60 @@ export function calculateQualityGates(targets: TaskTarget[], actions: TaskAction
     );
   }
 
+  const acceptedServesWithoutKeepAsset = acceptedServes.filter((serve) => !normalizedKeeps.some((keep) => keep.relatedServeId === serve.id));
+  if (acceptedServesWithoutKeepAsset.length > 0) {
+    gates.push(
+      createQualityGate(
+        "keep-missing-serve-asset",
+        "keep",
+        "info",
+        "验收交付未关联存档",
+        "建议为每个已验收 Serve 关联 Keep 资产，形成从交付到沉淀的可追溯链路。",
+        acceptedServesWithoutKeepAsset.map((serve) => serve.id),
+      ),
+    );
+  }
+
+  const hasTargets = normalizedTargets.length > 0;
+  const allTargetsCompleted = hasTargets && normalizedTargets.every((target) => target.status === "completed");
+  const hasActions = normalizedActions.length > 0;
+  const allActionsClosed = hasActions && normalizedActions.every((action) => action.status === "done" || action.status === "discarded");
+  const hasServes = normalizedServes.length > 0;
+  const allServesAccepted = hasServes && normalizedServes.every((serve) => serve.status === "accepted" || serve.acceptanceStatus === "accepted");
+  const hasRetrospective = normalizedKeeps.some((keep) => keep.type === "retrospective");
+  if (allTargetsCompleted && allActionsClosed && allServesAccepted && !hasRetrospective) {
+    gates.push(
+      createQualityGate("keep-missing-retrospective", "keep", "warning", "项目闭环缺少复盘", "T/A/S 已完成时，建议在 Keep 中补充复盘资产，沉淀决策、经验、风险与后续复用建议。", [
+        ...normalizedTargets.map((target) => target.id),
+        ...normalizedActions.map((action) => action.id),
+        ...normalizedServes.map((serve) => serve.id),
+      ]),
+    );
+  }
+
   return gates;
+}
+
+export function calculateQualityGateSummary(gates: TaskQualityGate[]): TaskQualityGateSummary {
+  const bySeverity: Record<TaskQualityGateSeverity, number> = { danger: 0, warning: 0, info: 0 };
+  const byStage: Record<TaskQualityGateStage, number> = { target: 0, action: 0, serve: 0, keep: 0 };
+
+  for (const gate of gates) {
+    bySeverity[gate.severity] += 1;
+    byStage[gate.stage] += 1;
+  }
+
+  const penalty = bySeverity.danger * 25 + bySeverity.warning * 10 + bySeverity.info * 4;
+  const score = Math.max(0, 100 - penalty);
+  const label = bySeverity.danger > 0 ? "高风险" : score >= 90 ? "优秀" : score >= 75 ? "稳健" : score >= 60 ? "需治理" : "高风险";
+
+  return {
+    total: gates.length,
+    score,
+    label,
+    bySeverity,
+    byStage,
+  };
 }
 
 export function calculateProjectOverview(project: TaskProject, targets: TaskTarget[], actions: TaskAction[], serves: TaskServe[], keeps: TaskKeep[], today?: string) {
@@ -416,6 +576,7 @@ export function calculateProjectOverview(project: TaskProject, targets: TaskTarg
   const serveStats = calculateServeStats(serves);
   const keepStats = calculateKeepStats(keeps);
   const qualityGates = calculateQualityGates(targets, actions, serves, keeps);
+  const qualityGateSummary = calculateQualityGateSummary(qualityGates);
   const overallPercent = Math.round(targetProgress.percent * 0.3 + actionStats.percent * 0.35 + serveStats.percent * 0.2 + keepStats.percent * 0.15);
 
   const overview = {
@@ -425,6 +586,7 @@ export function calculateProjectOverview(project: TaskProject, targets: TaskTarg
     serveStats,
     keepStats,
     qualityGates,
+    qualityGateSummary,
     overallPercent,
     recommendation: {
       stage: "target" as "dashboard" | "target" | "action" | "serve" | "keep",
