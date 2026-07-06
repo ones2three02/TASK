@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useTaskStore } from "@/stores/taskStore";
-import { calculateProjectOverview } from "@/lib/taskPlanning";
-import { Activity, AlertTriangle, Archive, ArrowRight, CheckCircle2, Handshake, ListTodo, Target, TrendingUp } from "@lucide/vue";
+import { buildQualityGateAutofillPlan, calculateProjectOverview } from "@/lib/taskPlanning";
+import { Activity, AlertTriangle, Archive, ArrowRight, CheckCircle2, Handshake, ListTodo, Sparkles, Target, TrendingUp } from "@lucide/vue";
 import ProjectIllustration from "./ProjectIllustration.vue";
 import IllustrationModal from "./IllustrationModal.vue";
+import { useToast } from "@/composables/useToast";
 
 const showIllustrationModal = ref(false);
 
@@ -14,6 +15,7 @@ const emit = defineEmits<{
 }>();
 
 const taskStore = useTaskStore();
+const { toast } = useToast();
 
 const activeProject = computed(() => taskStore.projects.find((project) => project.id === taskStore.activeProjectId));
 const projectTargets = computed(() => taskStore.targets.filter((target) => target.projectId === taskStore.activeProjectId));
@@ -91,6 +93,18 @@ function getQualityGateClass(severity: "info" | "warning" | "danger") {
 
 function getQualityGateTarget(stage: "target" | "action" | "serve" | "keep") {
   return stage;
+}
+
+function autofillTemplateableQualityGates() {
+  if (!activeProject.value) return;
+
+  const plan = buildQualityGateAutofillPlan(activeProject.value, projectTargets.value, projectActions.value, projectServes.value, projectKeeps.value);
+  plan.targets.forEach((target) => taskStore.updateTarget(target));
+  plan.actions.forEach((action) => taskStore.updateAction(action));
+  plan.serves.forEach((serve) => taskStore.updateServe(serve));
+  plan.keeps.forEach((keep) => taskStore.addKeep(keep.name, keep.type, keep.content, keep.relatedServeId, keep.relatedActionId));
+
+  toast("已补齐可模板化的企业级检查项；真实验收证据和完成证据仍需手动补充。");
 }
 </script>
 
@@ -187,7 +201,13 @@ function getQualityGateTarget(stage: "target" | "action" | "serve" | "keep") {
             </h3>
             <p class="mt-1 text-xs text-muted-foreground">这些提醒不会阻断流程，但建议逐项补齐，以达到个人企业级交付标准。</p>
           </div>
-          <span class="rounded-full border border-border/40 px-2.5 py-1 text-xs text-muted-foreground">{{ qualityGateCards.length }} 项</span>
+          <div class="flex shrink-0 items-center gap-2">
+            <button class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/95 active:scale-[0.97] transition-all cursor-pointer" @click="autofillTemplateableQualityGates">
+              <Sparkles class="h-3.5 w-3.5" />
+              一键补齐模板项
+            </button>
+            <span class="rounded-full border border-border/40 px-2.5 py-1 text-xs text-muted-foreground">{{ qualityGateCards.length }} 项</span>
+          </div>
         </div>
 
         <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">

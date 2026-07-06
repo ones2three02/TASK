@@ -41,6 +41,13 @@ export interface TaskQualityGateSummary {
   byStage: Record<TaskQualityGateStage, number>;
 }
 
+export interface TaskQualityGateAutofillPlan {
+  targets: TaskTarget[];
+  actions: TaskAction[];
+  serves: TaskServe[];
+  keeps: TaskKeep[];
+}
+
 export interface TaskProject {
   id: string;
   name: string;
@@ -567,6 +574,69 @@ export function calculateQualityGateSummary(gates: TaskQualityGate[]): TaskQuali
     label,
     bySeverity,
     byStage,
+  };
+}
+
+function createChecklistItem(title: string): ChecklistItem {
+  return { id: uuid(), title, completed: false };
+}
+
+function appendMissingChecklistItems(existing: ChecklistItem[] | undefined, titles: string[]): ChecklistItem[] {
+  const items = [...(existing ?? [])];
+  for (const title of titles) {
+    if (!items.some((item) => item.title.trim() === title.trim())) {
+      items.push(createChecklistItem(title));
+    }
+  }
+  return items;
+}
+
+export function buildQualityGateAutofillPlan(project: TaskProject, targets: TaskTarget[], actions: TaskAction[], serves: TaskServe[], keeps: TaskKeep[]): TaskQualityGateAutofillPlan {
+  const updatedTargets = targets.map(normalizeTarget).map((target) => {
+    const next = { ...target };
+    if (!next.scope) {
+      next.scope = `本项目聚焦「${project.name}」中已明确的目标、行动、交付与沉淀资产。`;
+    }
+    if (!next.outOfScope) {
+      next.outOfScope = "暂不包含未确认需求、长期运营事项、云端协作能力或超出当前交付边界的扩展工作。";
+    }
+    next.risks = appendMissingChecklistItems(next.risks, ["需求边界变化导致范围膨胀", "关键依赖或资源不可用", "验收证据不足导致交付无法确认"]);
+    return next;
+  });
+
+  const updatedActions = actions.map(normalizeAction).map((action) => {
+    const next = { ...action };
+    if (next.status !== "discarded") {
+      next.devItems = appendMissingChecklistItems(next.devItems, ["确认输入与边界条件", "完成核心实现或配置", "自查异常分支与回滚方式"]);
+      next.testItems = appendMissingChecklistItems(next.testItems, ["验证主路径可用", "验证异常/空数据/边界场景", "记录验证结果或失败原因"]);
+      next.outputItems = appendMissingChecklistItems(next.outputItems, ["提交代码、配置、文档或截图等可交付产物"]);
+    }
+    return next;
+  });
+
+  const updatedServes = serves.map(normalizeServe);
+  const hasRetrospective = keeps.some((keep) => keep.type === "retrospective");
+  const allTargetsCompleted = updatedTargets.length > 0 && updatedTargets.every((target) => target.status === "completed");
+  const allActionsClosed = updatedActions.length > 0 && updatedActions.every((action) => action.status === "done" || action.status === "discarded");
+  const allServesAccepted = updatedServes.length > 0 && updatedServes.every((serve) => serve.status === "accepted" || serve.acceptanceStatus === "accepted");
+  const generatedKeeps: TaskKeep[] = [];
+
+  if (allTargetsCompleted && allActionsClosed && allServesAccepted && !hasRetrospective) {
+    generatedKeeps.push({
+      id: uuid(),
+      projectId: project.id,
+      name: `${project.name} 项目复盘`,
+      type: "retrospective",
+      content: buildProjectRetrospective(project, updatedTargets, updatedActions, updatedServes, keeps),
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  return {
+    targets: updatedTargets,
+    actions: updatedActions,
+    serves: updatedServes,
+    keeps: generatedKeeps,
   };
 }
 

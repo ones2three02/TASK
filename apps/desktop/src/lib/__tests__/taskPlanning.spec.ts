@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateProjectOverview, calculateQualityGates, type TaskAction, type TaskKeep, type TaskProject, type TaskServe, type TaskTarget } from "@/lib/taskPlanning";
+import { buildQualityGateAutofillPlan, calculateProjectOverview, calculateQualityGates, type TaskAction, type TaskKeep, type TaskProject, type TaskServe, type TaskTarget } from "@/lib/taskPlanning";
 
 const baseTarget: TaskTarget = {
   id: "target-1",
@@ -121,5 +121,35 @@ describe("taskPlanning quality gates", () => {
     expect(overview.qualityGateSummary.bySeverity.warning).toBeGreaterThan(0);
     expect(overview.qualityGateSummary.score).toBeLessThan(100);
     expect(overview.qualityGateSummary.label).toMatch(/需治理|高风险/);
+  });
+
+  it("builds a safe autofill plan for templateable quality gates only", () => {
+    const completedTarget: TaskTarget = {
+      ...baseTarget,
+      status: "completed",
+      milestones: baseTarget.milestones.map((item) => ({ ...item, completed: true })),
+    };
+    const completedAction: TaskAction = {
+      ...baseAction,
+      status: "done",
+    };
+    const acceptedServe: TaskServe = {
+      ...baseServe,
+      status: "accepted",
+      acceptanceStatus: "accepted",
+      acceptanceChecklist: baseServe.acceptanceChecklist?.map((item) => ({ ...item, completed: true })),
+    };
+
+    const plan = buildQualityGateAutofillPlan(baseProject, [completedTarget], [completedAction], [acceptedServe], []);
+
+    expect(plan.targets[0]?.scope).toContain("本项目聚焦");
+    expect(plan.targets[0]?.outOfScope).toContain("暂不包含");
+    expect(plan.targets[0]?.risks?.length).toBeGreaterThan(0);
+    expect(plan.actions[0]?.devItems?.length).toBeGreaterThan(0);
+    expect(plan.actions[0]?.testItems?.length).toBeGreaterThan(0);
+    expect(plan.actions[0]?.outputItems?.length).toBeGreaterThan(0);
+    expect(plan.actions[0]?.evidence).toBeFalsy();
+    expect(plan.serves[0]?.evidence).toHaveLength(0);
+    expect(plan.keeps[0]?.type).toBe("retrospective");
   });
 });
