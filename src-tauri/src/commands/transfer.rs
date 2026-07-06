@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, State};
 use crate::commands::connection::{ensure_connection_writable, AppState};
 
 // Re-export types and functions used by other modules
-pub use dbx_core::transfer::{get_db_type, TransferProgress, TransferRequest, TransferStatus};
+pub use task_core::transfer::{get_db_type, TransferProgress, TransferRequest, TransferStatus};
 
 fn emit_progress(app: &AppHandle, progress: TransferProgress) {
     let _ = app.emit("transfer-progress", progress);
@@ -36,10 +36,10 @@ pub async fn start_transfer(
         let total_tables = request.tables.len();
         log::info!("[transfer] starting transfer_id={} tables={}", transfer_id, total_tables);
 
-        if matches!(source_db_type, dbx_core::models::connection::DatabaseType::Postgres)
-            && matches!(target_db_type, dbx_core::models::connection::DatabaseType::Postgres)
+        if matches!(source_db_type, task_core::models::connection::DatabaseType::Postgres)
+            && matches!(target_db_type, task_core::models::connection::DatabaseType::Postgres)
         {
-            match dbx_core::transfer::transfer_postgres_schema_dependencies(
+            match task_core::transfer::transfer_postgres_schema_dependencies(
                 &state,
                 &request,
                 &source_pool_key,
@@ -63,7 +63,7 @@ pub async fn start_transfer(
                             error: None,
                         },
                     );
-                    dbx_core::transfer::clear_cancelled(&transfer_id).await;
+                    task_core::transfer::clear_cancelled(&transfer_id).await;
                     return;
                 }
                 Err(e) => {
@@ -80,14 +80,14 @@ pub async fn start_transfer(
                             error: Some(e),
                         },
                     );
-                    dbx_core::transfer::clear_cancelled(&transfer_id).await;
+                    task_core::transfer::clear_cancelled(&transfer_id).await;
                     return;
                 }
             }
         }
 
         for (i, table) in request.tables.iter().enumerate() {
-            if dbx_core::transfer::is_cancelled(&transfer_id).await {
+            if task_core::transfer::is_cancelled(&transfer_id).await {
                 emit_progress(
                     &app,
                     TransferProgress {
@@ -101,7 +101,7 @@ pub async fn start_transfer(
                         error: None,
                     },
                 );
-                dbx_core::transfer::clear_cancelled(&transfer_id).await;
+                task_core::transfer::clear_cancelled(&transfer_id).await;
                 return;
             }
 
@@ -110,7 +110,7 @@ pub async fn start_transfer(
             let mut last_rows_transferred = 0_u64;
             let mut last_total_rows = None;
 
-            match dbx_core::transfer::transfer_table(
+            match task_core::transfer::transfer_table(
                 &state,
                 &request,
                 table,
@@ -157,7 +157,7 @@ pub async fn start_transfer(
                                 error: None,
                             },
                         );
-                        dbx_core::transfer::clear_cancelled(&transfer_id).await;
+                        task_core::transfer::clear_cancelled(&transfer_id).await;
                         return;
                     }
                     emit_progress(
@@ -177,10 +177,10 @@ pub async fn start_transfer(
             }
         }
 
-        if matches!(source_db_type, dbx_core::models::connection::DatabaseType::Postgres)
-            && matches!(target_db_type, dbx_core::models::connection::DatabaseType::Postgres)
+        if matches!(source_db_type, task_core::models::connection::DatabaseType::Postgres)
+            && matches!(target_db_type, task_core::models::connection::DatabaseType::Postgres)
         {
-            match dbx_core::transfer::transfer_postgres_schema_objects(
+            match task_core::transfer::transfer_postgres_schema_objects(
                 &state,
                 &request,
                 &source_pool_key,
@@ -204,7 +204,7 @@ pub async fn start_transfer(
                             error: None,
                         },
                     );
-                    dbx_core::transfer::clear_cancelled(&transfer_id).await;
+                    task_core::transfer::clear_cancelled(&transfer_id).await;
                     return;
                 }
                 Err(e) => {
@@ -238,7 +238,7 @@ pub async fn start_transfer(
                 error: None,
             },
         );
-        dbx_core::transfer::clear_cancelled(&transfer_id).await;
+        task_core::transfer::clear_cancelled(&transfer_id).await;
     });
 
     Ok(())
@@ -246,6 +246,6 @@ pub async fn start_transfer(
 
 #[tauri::command]
 pub async fn cancel_transfer(transfer_id: String) -> Result<(), String> {
-    dbx_core::transfer::set_cancelled(&transfer_id).await;
+    task_core::transfer::set_cancelled(&transfer_id).await;
     Ok(())
 }

@@ -120,12 +120,12 @@ test("evaluateMongoAggregateSafety blocks write stages unless MCP write flags al
   const out = parseMongoAggregateCommand('db.products.aggregate([{"$out":"products_copy"}])');
   assert.ok(out);
   assert.equal(mongoAggregateWriteStage(out.pipeline), "$out");
-  assert.match(evaluateMongoAggregateSafety(out, {}).reason || "", /DBX_MCP_ALLOW_WRITES=1/);
+  assert.match(evaluateMongoAggregateSafety(out, {}).reason || "", /TASK_MCP_ALLOW_WRITES=1/);
 
   const merge = parseMongoAggregateCommand('db.products.aggregate([{"$merge":{"into":"products_copy"}}])');
   assert.ok(merge);
   assert.equal(mongoAggregateWriteStage(merge.pipeline), "$merge");
-  assert.match(evaluateMongoAggregateSafety(merge, { allowWrites: true }).reason || "", /DBX_MCP_ALLOW_DANGEROUS_SQL=1/);
+  assert.match(evaluateMongoAggregateSafety(merge, { allowWrites: true }).reason || "", /TASK_MCP_ALLOW_DANGEROUS_SQL=1/);
   assert.equal(evaluateMongoAggregateSafety(merge, { allowWrites: true, allowDangerous: true }).allowed, true);
 });
 

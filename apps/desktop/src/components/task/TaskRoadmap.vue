@@ -4,11 +4,11 @@ import { useTaskStore } from "@/stores/taskStore";
 import { Target as TargetIcon, ListTodo as ActionIcon, HeartHandshake as ServeIcon, Archive as KeepIcon, Check, ChevronRight } from "@lucide/vue";
 
 const props = defineProps<{
-  activeModule: "target" | "action" | "serve" | "keep";
+  activeModule: "target" | "action" | "serve" | "keep" | "calendar" | "dashboard";
 }>();
 
 const emit = defineEmits<{
-  selectModule: [value: "target" | "action" | "serve" | "keep"];
+  selectModule: [value: "target" | "action" | "serve" | "keep" | "calendar" | "dashboard"];
 }>();
 
 const store = useTaskStore();
@@ -53,15 +53,37 @@ const actionStatus = computed(() => {
 const projectServes = computed(() => store.serves.filter((s) => s.projectId === store.activeProjectId));
 const serveStatus = computed(() => {
   if (projectServes.value.length === 0) {
-    return { state: "pending", label: "待交付", percent: 0, details: "项目交付价值待归纳与部署" };
+    return { state: "pending", label: "待交付", percent: 0, details: "暂无交付计划与验收记录" };
   }
-  const activeServe = projectServes.value[0];
-  const isDelivered = activeServe.status === "delivered" || activeServe.status === "active";
+
+  const totalServes = projectServes.value.length;
+  const acceptedServes = projectServes.value.filter((serve) => serve.status === "accepted" || serve.acceptanceStatus === "accepted").length;
+  const changesRequestedServes = projectServes.value.filter((serve) => serve.status === "changes_requested" || serve.acceptanceStatus === "changes_requested").length;
+  const deliveredServes = projectServes.value.filter((serve) => serve.status === "delivered").length;
+  const activeServes = projectServes.value.filter((serve) => serve.status === "active").length;
+  const checklistTotal = projectServes.value.reduce((acc, serve) => acc + (serve.acceptanceChecklist?.length ?? 0), 0);
+  const checklistDone = projectServes.value.reduce((acc, serve) => acc + (serve.acceptanceChecklist?.filter((item) => item.completed).length ?? 0), 0);
+  const isCompleted = acceptedServes === totalServes;
+  const percent = isCompleted ? 100 : Math.max(25, Math.round((acceptedServes / totalServes) * 100));
+  const checklistDetails = checklistTotal > 0 ? `，验收清单 ${checklistDone}/${checklistTotal}` : "";
+
+  if (isCompleted) {
+    return { state: "completed", label: "验收通过", percent, details: `全部 ${totalServes} 项交付已验收通过${checklistDetails}` };
+  }
+
+  if (changesRequestedServes > 0) {
+    return { state: "in_progress", label: "需返工", percent, details: `${changesRequestedServes} 项交付需返工，已验收 ${acceptedServes}/${totalServes}${checklistDetails}` };
+  }
+
+  if (deliveredServes > 0) {
+    return { state: "in_progress", label: "待验收", percent, details: `${deliveredServes} 项已交付待验收，已验收 ${acceptedServes}/${totalServes}${checklistDetails}` };
+  }
+
   return {
-    state: isDelivered ? "completed" : "in_progress",
-    label: isDelivered ? "已交付" : "草稿中",
-    percent: isDelivered ? 100 : 50,
-    details: isDelivered ? `已成功交付: ${activeServe.deliverable}` : `已起草交付价值: ${activeServe.title}`,
+    state: "in_progress",
+    label: activeServes > 0 ? "交付中" : "规划中",
+    percent,
+    details: activeServes > 0 ? `${activeServes} 项交付推进中，已验收 ${acceptedServes}/${totalServes}${checklistDetails}` : `${totalServes} 项交付计划已建立${checklistDetails}`,
   };
 });
 
@@ -72,11 +94,26 @@ const keepStatus = computed(() => {
     return { state: "pending", label: "待沉淀", percent: 0, details: "核心文件及代码待留存归档" };
   }
   const totalKeeps = projectKeeps.value.length;
+
+  // 只有当 T、A、S 阶段全部完成时，K 才能标记为 completed
+  const upstreamCompleted = targetStatus.value.state === "completed" && actionStatus.value.state === "completed" && serveStatus.value.state === "completed";
+
+  if (upstreamCompleted) {
+    return {
+      state: "completed",
+      label: "已留存",
+      percent: 100,
+      details: `已完成 ${totalKeeps} 项核心资产归档`,
+    };
+  }
+
+  // 否则即使已有沉淀资产，也属于“沉淀中”状态（百分比限制在 90% 以内）
+  const percent = Math.min(90, Math.round((totalKeeps / Math.max(1, projectServes.value.length)) * 100)) || 50;
   return {
-    state: "completed",
-    label: "已留存",
-    percent: 100,
-    details: `已完成 ${totalKeeps} 项核心资产归档`,
+    state: "in_progress",
+    label: "沉淀中",
+    percent,
+    details: `已归档 ${totalKeeps} 项核心资产，项目其他阶段仍在推进中`,
   };
 });
 
@@ -94,7 +131,7 @@ const steps = computed(() => [
     title: "TARGET 目标",
     icon: TargetIcon,
     status: targetStatus.value,
-    color: "from-emerald-500 to-teal-600",
+    color: "from-emerald-500 to-teal-600 text-white",
     glowColor: "rgba(16,185,129,0.45)",
     activeRing: "ring-emerald-500/30 border-emerald-500 text-emerald-400",
   },
@@ -104,17 +141,17 @@ const steps = computed(() => [
     title: "ACTION 行动",
     icon: ActionIcon,
     status: actionStatus.value,
-    color: "from-indigo-500 to-blue-600",
+    color: "from-indigo-500 to-blue-600 text-white",
     glowColor: "rgba(99,102,241,0.45)",
     activeRing: "ring-indigo-500/30 border-indigo-500 text-indigo-400",
   },
   {
     id: "serve" as const,
     letter: "S",
-    title: "SERVE 服务",
+    title: "SERVE 交付",
     icon: ServeIcon,
     status: serveStatus.value,
-    color: "from-rose-500 to-pink-600",
+    color: "from-rose-500 to-pink-600 text-white",
     glowColor: "rgba(244,63,94,0.45)",
     activeRing: "ring-rose-500/30 border-rose-500 text-rose-400",
   },
@@ -124,7 +161,7 @@ const steps = computed(() => [
     title: "KEEP 留存",
     icon: KeepIcon,
     status: keepStatus.value,
-    color: "from-amber-500 to-orange-600",
+    color: "from-amber-500 to-orange-600 text-white",
     glowColor: "rgba(245,158,11,0.45)",
     activeRing: "ring-amber-500/30 border-amber-500 text-amber-400",
   },
@@ -162,7 +199,7 @@ function getLineClass(idx: number) {
     <div class="flex items-center flex-wrap gap-2 md:gap-3">
       <div v-for="(step, idx) in steps" :key="step.id" class="flex items-center">
         <!-- Interactive Step Node -->
-        <div class="group relative flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-300" :class="[activeModule === step.id ? 'bg-muted/60 shadow-inner' : 'hover:bg-muted/30']" @click="emit('selectModule', step.id)">
+        <div class="group relative flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-200 active:scale-[0.97] cursor-pointer" :class="[activeModule === step.id ? 'bg-muted/60 shadow-inner' : 'hover:bg-muted/30']" @click="emit('selectModule', step.id)">
           <!-- Glowing Node Bubble -->
           <div
             class="h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 relative border shrink-0"

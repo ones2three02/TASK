@@ -17,9 +17,9 @@ function loadDataGridComponent() {
   if (!dataGridComponentPromise) {
     dataGridComponentPromise = (async () => {
       const startedAt = performance.now();
-      console.info("[DBX][DataGrid:load:start]");
+      console.info("[TASK][DataGrid:load:start]");
       const component = await import("@/components/grid/DataGrid.vue");
-      console.info("[DBX][DataGrid:load:done]", { elapsed: `${Math.round(performance.now() - startedAt)}ms` });
+      console.info("[TASK][DataGrid:load:done]", { elapsed: `${Math.round(performance.now() - startedAt)}ms` });
       return component;
     })();
   }
@@ -291,7 +291,7 @@ watch(
   (result) => {
     if (!result) return;
     const startedAt = performance.now();
-    console.info("[DBX][ContentArea:result:observed]", {
+    console.info("[TASK][ContentArea:result:observed]", {
       tabId: props.activeTab.id,
       rowCount: result.rows.length,
       columnCount: result.columns.length,
@@ -299,13 +299,13 @@ watch(
       isExecuting: props.activeTab.isExecuting,
     });
     nextTick(() => {
-      console.info("[DBX][ContentArea:result:nextTick]", {
+      console.info("[TASK][ContentArea:result:nextTick]", {
         tabId: props.activeTab.id,
         elapsed: `${Math.round(performance.now() - startedAt)}ms`,
         isExecuting: props.activeTab.isExecuting,
       });
       requestAnimationFrame(() => {
-        console.info("[DBX][ContentArea:result:first-frame]", {
+        console.info("[TASK][ContentArea:result:first-frame]", {
           tabId: props.activeTab.id,
           elapsed: `${Math.round(performance.now() - startedAt)}ms`,
           isExecuting: props.activeTab.isExecuting,
@@ -369,7 +369,7 @@ async function onHandleClickColumn(matchedCols: Array<{ name: string; table: str
     columnInfoColumns.value = results;
   } catch (e: any) {
     // Silently ignore errors
-    console.error("[DBX] Failed to fetch column info:", e);
+    console.error("[TASK] Failed to fetch column info:", e);
     return;
   } finally {
     columnInfoLoading.value = false;

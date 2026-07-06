@@ -3,7 +3,7 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::connection::AppState;
 
-pub use dbx_core::database_export::{DatabaseExportRequest, ExportProgress, ExportStatus};
+pub use task_core::database_export::{DatabaseExportRequest, ExportProgress, ExportStatus};
 
 fn emit_progress(app: &AppHandle, progress: ExportProgress) {
     let _ = app.emit("database-export-progress", progress);
@@ -19,7 +19,7 @@ pub async fn export_database_sql(
     let export_id = request.export_id.clone();
 
     tokio::spawn(async move {
-        let result = dbx_core::database_export::export_database_sql_core(&state, &request, |progress| {
+        let result = task_core::database_export::export_database_sql_core(&state, &request, |progress| {
             emit_progress(&app, progress)
         })
         .await;
@@ -40,7 +40,7 @@ pub async fn export_database_sql(
             );
         }
 
-        dbx_core::database_export::clear_export_cancelled(&export_id).await;
+        task_core::database_export::clear_export_cancelled(&export_id).await;
     });
 
     Ok(())
@@ -48,6 +48,6 @@ pub async fn export_database_sql(
 
 #[tauri::command]
 pub async fn cancel_database_export(export_id: String) -> Result<(), String> {
-    dbx_core::database_export::set_export_cancelled(&export_id).await;
+    task_core::database_export::set_export_cancelled(&export_id).await;
     Ok(())
 }

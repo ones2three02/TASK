@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tauri::State;
 
 use super::connection::AppState;
-pub use dbx_core::history::HistoryEntry;
+pub use task_core::history::HistoryEntry;
 
 #[tauri::command]
 pub async fn save_history(state: State<'_, Arc<AppState>>, entry: HistoryEntry) -> Result<(), String> {

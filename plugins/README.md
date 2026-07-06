@@ -1,6 +1,6 @@
 # Plugins
 
-DBX extension plugins live here.
+TASK extension plugins live here.
 
 Plugins are not Node packages, so they intentionally stay separate from `packages/`.
 

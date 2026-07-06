@@ -644,7 +644,7 @@ const selectedProxyLayer = computed(() => (selectedTransportLayer.value?.type ==
 const transportPathSegments = computed(() => {
   const layers = transportLayers.value.filter((layer) => layer.enabled !== false);
   return [
-    "DBX",
+    "TASK",
     ...layers.map((layer, index) => {
       const fallback = layer.type === "proxy" ? `Proxy ${index + 1}` : `SSH ${index + 1}`;
       return layer.name?.trim() || layer.host?.trim() || fallback;
@@ -2287,7 +2287,7 @@ function openExternalUrl(url: string) {
                         {{ t("connection.jdbcPluginHint") }}
                       </p>
                       <div class="flex flex-wrap gap-2">
-                        <Button type="button" variant="outline" size="sm" @click="openExternalUrl('https://dbxio.com')">
+                        <Button type="button" variant="outline" size="sm" @click="openExternalUrl('https://github.com/ones2three02/TASK')">
                           <ExternalLink class="h-3.5 w-3.5" />
                           {{ t("connection.jdbcDocs") }}
                         </Button>

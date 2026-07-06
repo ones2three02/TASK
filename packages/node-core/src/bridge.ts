@@ -16,7 +16,7 @@ export async function postBridge(path: string, body: Record<string, unknown>): P
     });
     return { ok: res.ok, text: res.ok ? "" : await res.text() };
   } catch {
-    return { ok: false, text: "DBX is not running. Please start DBX first." };
+    return { ok: false, text: "TASK is not running. Please start TASK first." };
   }
 }
 

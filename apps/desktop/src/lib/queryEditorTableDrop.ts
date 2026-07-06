@@ -1,11 +1,11 @@
 import type { DatabaseType } from "@/types/database";
 import { qualifiedTableName } from "@/lib/tableSelectSql";
 
-export const DBX_TABLE_REFERENCE_MIME = "application/x-dbx-table-reference";
-export const DBX_TABLE_REFERENCE_DROP_EVENT = "dbx-table-reference-drop";
+export const TASK_TABLE_REFERENCE_MIME = "application/x-task-table-reference";
+export const TASK_TABLE_REFERENCE_DROP_EVENT = "task-table-reference-drop";
 
 export interface QueryEditorTableReferencePayload {
-  kind: "dbx-table-reference";
+  kind: "task-table-reference";
   connectionId: string;
   database: string;
   schema?: string;
@@ -24,7 +24,7 @@ let activeTableReferencePayload: QueryEditorTableReferencePayload | null = null;
 export function createTableReferencePayload(options: { connectionId?: string; database?: string; schema?: string; tableName?: string; databaseType?: DatabaseType }): QueryEditorTableReferencePayload | null {
   if (!options.connectionId || options.database == null || !options.tableName) return null;
   const payload: QueryEditorTableReferencePayload = {
-    kind: "dbx-table-reference",
+    kind: "task-table-reference",
     connectionId: options.connectionId,
     database: options.database,
     tableName: options.tableName,
@@ -42,11 +42,11 @@ export function parseTableReferencePayload(value: string | undefined | null): Qu
   if (!value) return null;
   try {
     const parsed = JSON.parse(value) as Partial<QueryEditorTableReferencePayload>;
-    if (parsed.kind !== "dbx-table-reference" || typeof parsed.connectionId !== "string" || typeof parsed.database !== "string" || typeof parsed.tableName !== "string" || !parsed.connectionId || !parsed.tableName) {
+    if (parsed.kind !== "task-table-reference" || typeof parsed.connectionId !== "string" || typeof parsed.database !== "string" || typeof parsed.tableName !== "string" || !parsed.connectionId || !parsed.tableName) {
       return null;
     }
     const payload: QueryEditorTableReferencePayload = {
-      kind: "dbx-table-reference",
+      kind: "task-table-reference",
       connectionId: parsed.connectionId,
       database: parsed.database,
       tableName: parsed.tableName,
@@ -62,7 +62,7 @@ export function parseTableReferencePayload(value: string | undefined | null): Qu
 export function hasTableReferencePayloadType(types: Iterable<string> | undefined | null): boolean {
   if (!types) return false;
   for (const type of types) {
-    if (type === DBX_TABLE_REFERENCE_MIME) return true;
+    if (type === TASK_TABLE_REFERENCE_MIME) return true;
   }
   return false;
 }
@@ -82,7 +82,7 @@ export function clearActiveTableReferencePayload(payload?: QueryEditorTableRefer
 }
 
 export function createTableReferenceDropEvent(detail: QueryEditorTableReferenceDropDetail) {
-  return new CustomEvent<QueryEditorTableReferenceDropDetail>(DBX_TABLE_REFERENCE_DROP_EVENT, { detail });
+  return new CustomEvent<QueryEditorTableReferenceDropDetail>(TASK_TABLE_REFERENCE_DROP_EVENT, { detail });
 }
 
 export function tableReferenceInsertText(payload: QueryEditorTableReferencePayload, fallbackDatabaseType?: DatabaseType): string {

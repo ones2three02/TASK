@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
-import type { Backend, ConnectionConfig, DbxDiagnostics } from "@dbx-app/node-core";
+import type { Backend, ConnectionConfig, TaskDiagnostics } from "@task-app/node-core";
 import { runCli } from "../src/cli.js";
 
 const connection: ConnectionConfig = {
@@ -41,15 +41,15 @@ function fakeBackend(overrides: Partial<Backend> = {}): Backend {
   };
 }
 
-const diagnostics: DbxDiagnostics = {
-  appDataDir: "/tmp/dbx",
-  dbPath: "/tmp/dbx/dbx.db",
+const diagnostics: TaskDiagnostics = {
+  appDataDir: "/tmp/task",
+  dbPath: "/tmp/task/task.db",
   dbPathExists: true,
   connectionsTableExists: true,
   connectionRowCount: 2,
   loadConnectionsOk: true,
   loadedConnectionCount: 2,
-  bridgePortFile: "/tmp/dbx/mcp-bridge-port",
+  bridgePortFile: "/tmp/task/mcp-bridge-port",
   bridgePortFileExists: false,
   directQueryTypes: ["postgres", "mysql", "sqlite", "rqlite"],
   bridgeRequiredTypes: ["oracle", "mongodb"],
@@ -170,20 +170,20 @@ test("prints connection-store remediation in doctor output", async () => {
       ...diagnostics,
       loadConnectionsOk: false,
       loadConnectionsError: "compiled against a different Node.js version",
-      loadConnectionsHint: "Rebuild DBX CLI native dependencies with your active Node.js.",
+      loadConnectionsHint: "Rebuild TASK CLI native dependencies with your active Node.js.",
     }),
   });
 
   assert.equal(result.exitCode, 0);
   assert.match(result.stdout, /Connection fix/);
-  assert.match(result.stdout, /Rebuild DBX CLI native dependencies/);
+  assert.match(result.stdout, /Rebuild TASK CLI native dependencies/);
 });
 
 test("surfaces connection store failures instead of returning an empty list", async () => {
   const result = await runCli(["connections", "list", "--json"], {
     backend: fakeBackend({
       loadConnections: async () => {
-        throw Object.assign(new Error("Failed to load DBX connections from /tmp/dbx/dbx.db: NODE_MODULE_VERSION 127 mismatch"), {
+        throw Object.assign(new Error("Failed to load TASK connections from /tmp/task/task.db: NODE_MODULE_VERSION 127 mismatch"), {
           code: "CONNECTION_STORE_ERROR",
         });
       },
@@ -192,7 +192,7 @@ test("surfaces connection store failures instead of returning an empty list", as
 
   assert.equal(result.exitCode, 1);
   assert.equal(JSON.parse(result.stderr).error.code, "CONNECTION_STORE_ERROR");
-  assert.match(JSON.parse(result.stderr).error.hint, /Rebuild DBX CLI native dependencies/);
+  assert.match(JSON.parse(result.stderr).error.hint, /Rebuild TASK CLI native dependencies/);
 });
 
 test("prints capabilities as json", async () => {
@@ -213,20 +213,20 @@ test("rejects invalid formats", async () => {
   assert.equal(JSON.parse(result.stderr).error.code, "INVALID_OPTION");
 });
 
-test("uses DBX_CONNECTION when query connection is omitted", async () => {
+test("uses TASK_CONNECTION when query connection is omitted", async () => {
   const result = await runCli(["query", "select count(*) as total from users", "--json"], {
     backend: fakeBackend(),
-    env: { DBX_CONNECTION: "local" },
+    env: { TASK_CONNECTION: "local" },
   });
 
   assert.equal(result.exitCode, 0);
   assert.equal(JSON.parse(result.stdout).connection, "local");
 });
 
-test("uses DBX_CONNECTION when context connection is omitted", async () => {
+test("uses TASK_CONNECTION when context connection is omitted", async () => {
   const result = await runCli(["context", "--tables", "users"], {
     backend: fakeBackend(),
-    env: { DBX_CONNECTION: "local" },
+    env: { TASK_CONNECTION: "local" },
   });
 
   assert.equal(result.exitCode, 0);
@@ -262,7 +262,7 @@ test("rejects invalid query timeouts", async () => {
   assert.equal(JSON.parse(result.stderr).error.code, "INVALID_OPTION");
 });
 
-test("requires a connection when DBX_CONNECTION is not set", async () => {
+test("requires a connection when TASK_CONNECTION is not set", async () => {
   const result = await runCli(["query", "select 1", "--json"], { backend: fakeBackend(), env: {} });
 
   assert.equal(result.exitCode, 1);
@@ -297,7 +297,7 @@ test("builds schema context as prompt-ready text", async () => {
 });
 
 test("runs SQL from file", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "dbx-cli-"));
+  const dir = await mkdtemp(join(tmpdir(), "task-cli-"));
   const file = join(dir, "query.sql");
   let executedSql = "";
 
@@ -360,7 +360,7 @@ test("rejects options with missing values", async () => {
 });
 
 test("rejects query with both inline SQL and file SQL", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "dbx-cli-"));
+  const dir = await mkdtemp(join(tmpdir(), "task-cli-"));
   const file = join(dir, "query.sql");
 
   try {

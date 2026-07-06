@@ -35,7 +35,7 @@ export function useTauriEvents(deps: { openTableTarget: (target: NavigationTarge
             }
             focusCurrentWindow();
           } catch (e) {
-            console.error("[DBX] mcp-open-table error:", e);
+            console.error("[TASK] mcp-open-table error:", e);
           }
         }).then((unlisten) => unlistenHandles.push(unlisten));
 
@@ -43,7 +43,7 @@ export function useTauriEvents(deps: { openTableTarget: (target: NavigationTarge
           try {
             await connectionStore.initFromDisk();
           } catch (e) {
-            console.error("[DBX] mcp-reload-connections error:", e);
+            console.error("[TASK] mcp-reload-connections error:", e);
           }
         }).then((unlisten) => unlistenHandles.push(unlisten));
 
@@ -68,40 +68,40 @@ export function useTauriEvents(deps: { openTableTarget: (target: NavigationTarge
             });
             focusCurrentWindow();
           } catch (e) {
-            console.error("[DBX] mcp-execute-query error:", e);
+            console.error("[TASK] mcp-execute-query error:", e);
           }
         }).then((unlisten) => unlistenHandles.push(unlisten));
 
-        listen<string[]>("dbx-open-sql-files", async (event) => {
+        listen<string[]>("task-open-sql-files", async (event) => {
           try {
             for (const path of event.payload) {
               await deps.openSqlFilePath(path);
             }
             focusCurrentWindow();
           } catch (e) {
-            console.error("[DBX] dbx-open-sql-files error:", e);
+            console.error("[TASK] task-open-sql-files error:", e);
           }
         }).then((unlisten) => unlistenHandles.push(unlisten));
 
-        listen<string[]>("dbx-open-db-files", async (event) => {
+        listen<string[]>("task-open-db-files", async (event) => {
           try {
             for (const path of event.payload) {
               await deps.openDbFilePath(path);
             }
             focusCurrentWindow();
           } catch (e) {
-            console.error("[DBX] dbx-open-db-files error:", e);
+            console.error("[TASK] task-open-db-files error:", e);
           }
         }).then((unlisten) => unlistenHandles.push(unlisten));
 
-        listen<string[]>("dbx-open-connection-links", async (event) => {
+        listen<string[]>("task-open-connection-links", async (event) => {
           try {
             for (const url of event.payload) {
               await deps.openConnectionDeepLink(url);
             }
             focusCurrentWindow();
           } catch (e) {
-            console.error("[DBX] dbx-open-connection-links error:", e);
+            console.error("[TASK] task-open-connection-links error:", e);
           }
         }).then((unlisten) => unlistenHandles.push(unlisten));
       })

@@ -56,7 +56,7 @@ export const BRIDGE_REQUIRED_TYPES = [
   "influxdb",
 ] as const;
 
-export interface DbxDiagnostics {
+export interface TaskDiagnostics {
   appDataDir: string;
   dbPath: string;
   dbPathExists: boolean;
@@ -74,7 +74,7 @@ export interface DbxDiagnostics {
   bridgeRequiredTypes: string[];
 }
 
-export async function getDbxDiagnostics(): Promise<DbxDiagnostics> {
+export async function getTaskDiagnostics(): Promise<TaskDiagnostics> {
   const portFile = bridgePortFilePath();
   const bridgePortFileExists = await exists(portFile);
   let bridgeUrl: string | undefined;
@@ -106,7 +106,7 @@ export async function getDbxDiagnostics(): Promise<DbxDiagnostics> {
 
 function connectionStoreHint(message: string): string | undefined {
   if (/NODE_MODULE_VERSION|compiled against a different Node\.js version/i.test(message)) {
-    return "Rebuild DBX CLI native dependencies with your active Node.js: pnpm rebuild better-sqlite3 keytar --pending, or reinstall the package with the same Node.js version you use to run dbx.";
+    return "Rebuild TASK CLI native dependencies with your active Node.js: pnpm rebuild better-sqlite3 keytar --pending, or reinstall the package with the same Node.js version you use to run task.";
   }
   return undefined;
 }

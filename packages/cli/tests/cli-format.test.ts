@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import type { ConnectionConfig } from "@dbx-app/node-core";
+import type { ConnectionConfig } from "@task-app/node-core";
 import { connectionSummary, csvTable, errorPayload, formatCell, formatErrorMessage, mdTable } from "../src/cli-format.js";
 
 const connection: ConnectionConfig = {
@@ -53,14 +53,14 @@ test("adds remediation hints for native SQLite ABI errors", () => {
     error: {
       code: "CONNECTION_STORE_ERROR",
       message: "NODE_MODULE_VERSION 127 mismatch",
-      hint: "Rebuild DBX CLI native dependencies with your active Node.js: pnpm rebuild better-sqlite3 keytar --pending, or reinstall the package with the same Node.js version you use to run dbx.",
+      hint: "Rebuild TASK CLI native dependencies with your active Node.js: pnpm rebuild better-sqlite3 keytar --pending, or reinstall the package with the same Node.js version you use to run task.",
     },
   });
   assert.match(formatErrorMessage("CONNECTION_STORE_ERROR", "compiled against a different Node.js version"), /Hint: Rebuild/);
 });
 
 test("formats csv tables with escaping", () => {
-  const csv = csvTable(["name", "note"], [{ name: "Ada", note: 'hello, "dbx"' }]);
+  const csv = csvTable(["name", "note"], [{ name: "Ada", note: 'hello, "task"' }]);
 
-  assert.equal(csv, 'name,note\nAda,"hello, ""dbx"""\n');
+  assert.equal(csv, 'name,note\nAda,"hello, ""task"""\n');
 });

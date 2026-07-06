@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       backfill:
-        description: Sync all open issues into DBX Issue Triage
+        description: Sync all open issues into TASK Issue Triage
         required: false
         default: "false"
 
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PROJECT_TOKEN: ${{ secrets.PROJECT_AUTOMATION_TOKEN }}
-      PROJECT_OWNER: t8y2
+      PROJECT_OWNER: ones2three02
       PROJECT_NUMBER: "1"
     steps:
       - uses: actions/checkout@v4

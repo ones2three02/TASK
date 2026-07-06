@@ -2,14 +2,14 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::commands::connection::{ensure_connection_writable, AppState};
-use dbx_core::db::mongo_driver::MongoDocumentResult;
+use task_core::db::mongo_driver::MongoDocumentResult;
 
 #[tauri::command]
 pub async fn mongo_list_databases(
     state: State<'_, Arc<AppState>>,
     connection_id: String,
 ) -> Result<Vec<String>, String> {
-    dbx_core::mongo_ops::mongo_list_databases_core(&state, &connection_id).await
+    task_core::mongo_ops::mongo_list_databases_core(&state, &connection_id).await
 }
 
 #[tauri::command]
@@ -18,7 +18,7 @@ pub async fn mongo_list_collections(
     connection_id: String,
     database: String,
 ) -> Result<Vec<String>, String> {
-    dbx_core::mongo_ops::mongo_list_collections_core(&state, &connection_id, &database).await
+    task_core::mongo_ops::mongo_list_collections_core(&state, &connection_id, &database).await
 }
 
 #[tauri::command]
@@ -33,7 +33,7 @@ pub async fn mongo_find_documents(
     filter: Option<String>,
     sort: Option<String>,
 ) -> Result<MongoDocumentResult, String> {
-    dbx_core::mongo_ops::mongo_find_documents_core(
+    task_core::mongo_ops::mongo_find_documents_core(
         &state,
         &connection_id,
         &database,
@@ -58,7 +58,7 @@ pub async fn document_find_documents(
     filter: Option<String>,
     sort: Option<String>,
 ) -> Result<MongoDocumentResult, String> {
-    dbx_core::mongo_ops::document_find_documents_core(
+    task_core::mongo_ops::document_find_documents_core(
         &state,
         &connection_id,
         &database,
@@ -80,7 +80,7 @@ pub async fn mongo_aggregate_documents(
     pipeline_json: String,
     max_rows: Option<usize>,
 ) -> Result<MongoDocumentResult, String> {
-    dbx_core::mongo_ops::mongo_aggregate_documents_core(
+    task_core::mongo_ops::mongo_aggregate_documents_core(
         &state,
         &connection_id,
         &database,
@@ -100,7 +100,7 @@ pub async fn mongo_insert_document(
     doc_json: String,
 ) -> Result<String, String> {
     ensure_connection_writable(&state, &connection_id, "Insert").await?;
-    dbx_core::mongo_ops::mongo_insert_document_core(&state, &connection_id, &database, &collection, &doc_json).await
+    task_core::mongo_ops::mongo_insert_document_core(&state, &connection_id, &database, &collection, &doc_json).await
 }
 
 #[tauri::command]
@@ -112,7 +112,7 @@ pub async fn mongo_insert_documents(
     docs_json: String,
 ) -> Result<u64, String> {
     ensure_connection_writable(&state, &connection_id, "Insert").await?;
-    dbx_core::mongo_ops::mongo_insert_documents_core(&state, &connection_id, &database, &collection, &docs_json).await
+    task_core::mongo_ops::mongo_insert_documents_core(&state, &connection_id, &database, &collection, &docs_json).await
 }
 
 #[tauri::command]
@@ -125,7 +125,7 @@ pub async fn mongo_update_document(
     doc_json: String,
 ) -> Result<u64, String> {
     ensure_connection_writable(&state, &connection_id, "Update").await?;
-    dbx_core::mongo_ops::mongo_update_document_core(&state, &connection_id, &database, &collection, &id, &doc_json)
+    task_core::mongo_ops::mongo_update_document_core(&state, &connection_id, &database, &collection, &id, &doc_json)
         .await
 }
 
@@ -140,7 +140,7 @@ pub async fn mongo_update_documents(
     many: bool,
 ) -> Result<u64, String> {
     ensure_connection_writable(&state, &connection_id, "Update").await?;
-    dbx_core::mongo_ops::mongo_update_documents_core(
+    task_core::mongo_ops::mongo_update_documents_core(
         &state,
         &connection_id,
         &database,
@@ -161,7 +161,7 @@ pub async fn mongo_delete_document(
     id: String,
 ) -> Result<u64, String> {
     ensure_connection_writable(&state, &connection_id, "Delete").await?;
-    dbx_core::mongo_ops::mongo_delete_document_core(&state, &connection_id, &database, &collection, &id).await
+    task_core::mongo_ops::mongo_delete_document_core(&state, &connection_id, &database, &collection, &id).await
 }
 
 #[tauri::command]
@@ -174,6 +174,13 @@ pub async fn mongo_delete_documents(
     many: bool,
 ) -> Result<u64, String> {
     ensure_connection_writable(&state, &connection_id, "Delete").await?;
-    dbx_core::mongo_ops::mongo_delete_documents_core(&state, &connection_id, &database, &collection, &filter_json, many)
-        .await
+    task_core::mongo_ops::mongo_delete_documents_core(
+        &state,
+        &connection_id,
+        &database,
+        &collection,
+        &filter_json,
+        many,
+    )
+    .await
 }

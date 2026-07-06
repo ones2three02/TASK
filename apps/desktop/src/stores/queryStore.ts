@@ -37,8 +37,8 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import type { SavedSqlFile } from "@/types/database";
 
-const STORAGE_KEY = "dbx-open-tabs";
-const ACTIVE_TAB_KEY = "dbx-active-tab";
+const STORAGE_KEY = "task-open-tabs";
+const ACTIVE_TAB_KEY = "task-active-tab";
 const ORACLE_LIKE_METADATA_TYPES = new Set<string>(["oracle", "dameng", "oceanbase-oracle"]);
 
 function markQueryResultRowsRaw(result: QueryResult): QueryResult {
@@ -144,7 +144,7 @@ export const useQueryStore = defineStore("query", () => {
     try {
       await api.closeQuerySession(tab.connectionId, tab.database, sessionId, tab.id);
     } catch (error) {
-      console.warn("[DBX][query-session:close:error]", { tabId: tab.id, sessionId, error });
+      console.warn("[TASK][query-session:close:error]", { tabId: tab.id, sessionId, error });
     } finally {
       if (tab.resultSessionId === sessionId) tab.resultSessionId = undefined;
       if (tab.result?.session_id === sessionId) tab.result.session_id = undefined;
@@ -156,7 +156,7 @@ export const useQueryStore = defineStore("query", () => {
     try {
       await api.closeClientConnectionSession(tab.connectionId, tab.database, tab.id);
     } catch (error) {
-      console.warn("[DBX][client-session:close:error]", { tabId: tab.id, error });
+      console.warn("[TASK][client-session:close:error]", { tabId: tab.id, error });
     }
   }
 
@@ -762,9 +762,9 @@ export const useQueryStore = defineStore("query", () => {
       };
     }
 
-    console.info("[DBX][executeTabSql:metadata:editability:start]", { traceId, elapsed: elapsed?.() });
+    console.info("[TASK][executeTabSql:metadata:editability:start]", { traceId, elapsed: elapsed?.() });
     const editability = await api.analyzeEditableQueryEditability(sql);
-    console.info("[DBX][executeTabSql:metadata:editability:done]", {
+    console.info("[TASK][executeTabSql:metadata:editability:done]", {
       traceId,
       editable: editability.editable,
       reason: editability.editable ? undefined : editability.reason,
@@ -803,14 +803,14 @@ export const useQueryStore = defineStore("query", () => {
     const metadataAnalysis = normalizeOracleLikeQueryAnalysis(dbType, analysis, metadataSchema || undefined, metadataTableName);
 
     try {
-      console.info("[DBX][executeTabSql:metadata:get-columns:start]", {
+      console.info("[TASK][executeTabSql:metadata:get-columns:start]", {
         traceId,
         schema: metadataSchema,
         table: metadataTableName,
         elapsed: elapsed?.(),
       });
       const columns = await api.getColumns(tab.connectionId, tab.database, metadataSchema, metadataTableName);
-      console.info("[DBX][executeTabSql:metadata:get-columns:done]", {
+      console.info("[TASK][executeTabSql:metadata:get-columns:done]", {
         traceId,
         columnCount: columns.length,
         elapsed: elapsed?.(),
@@ -857,7 +857,7 @@ export const useQueryStore = defineStore("query", () => {
         tableMeta,
       };
     } catch (err) {
-      console.error("[DBX] ERROR fetching columns for query metadata:", err);
+      console.error("[TASK] ERROR fetching columns for query metadata:", err);
       return {
         queryAnalysis: undefined,
         querySourceColumns: undefined,
@@ -871,14 +871,14 @@ export const useQueryStore = defineStore("query", () => {
     void (async () => {
       const tab = tabs.value.find((t) => t.id === tabId);
       if (!tab || tab.result !== result) return;
-      console.info("[DBX][executeTabSql:metadata:start]", { traceId, elapsed: elapsed() });
+      console.info("[TASK][executeTabSql:metadata:start]", { traceId, elapsed: elapsed() });
       const patch = await buildQueryMetadataPatch(tab, sql, traceId, elapsed);
       const current = tabs.value.find((t) => t.id === tabId);
       if (patch && current?.result === result) {
         applyQueryMetadataPatch(current, patch);
-        console.info("[DBX][executeTabSql:metadata:done]", { traceId, elapsed: elapsed() });
+        console.info("[TASK][executeTabSql:metadata:done]", { traceId, elapsed: elapsed() });
       } else {
-        console.warn("[DBX][executeTabSql:metadata:stale]", { traceId, elapsed: elapsed() });
+        console.warn("[TASK][executeTabSql:metadata:stale]", { traceId, elapsed: elapsed() });
       }
     })();
   }
@@ -906,7 +906,7 @@ export const useQueryStore = defineStore("query", () => {
 
     void (async () => {
       try {
-        console.info("[DBX][executeTabSql:count:start]", { traceId: options.traceId, elapsed: options.elapsed() });
+        console.info("[TASK][executeTabSql:count:start]", { traceId: options.traceId, elapsed: options.elapsed() });
         const countResult = await api.executeQuery(options.connectionId, options.database, countSql, options.schema, undefined, { timeoutSecs: options.timeoutSecs });
         const total = Number(countResult.rows?.[0]?.[0] ?? 0);
         if (!Number.isFinite(total) || total < 0) {
@@ -914,14 +914,14 @@ export const useQueryStore = defineStore("query", () => {
           return;
         }
         setQueryTotalRowCountIfCurrent(options.tabId, options.executionId, options.result, total);
-        console.info("[DBX][executeTabSql:count:done]", {
+        console.info("[TASK][executeTabSql:count:done]", {
           traceId: options.traceId,
           total,
           elapsed: options.elapsed(),
         });
       } catch (error) {
         setQueryTotalRowCountIfCurrent(options.tabId, options.executionId, options.result, undefined);
-        console.warn("[DBX][executeTabSql:count:error]", {
+        console.warn("[TASK][executeTabSql:count:error]", {
           traceId: options.traceId,
           elapsed: options.elapsed(),
           error,
@@ -963,7 +963,7 @@ export const useQueryStore = defineStore("query", () => {
     if (!options?.preserveResultDuringExecution || !tab.result) {
       clearResultPayload(tab);
     }
-    console.info("[DBX][executeTabSql:start]", {
+    console.info("[TASK][executeTabSql:start]", {
       traceId,
       tabId: id,
       mode: tab.mode,
@@ -993,9 +993,9 @@ export const useQueryStore = defineStore("query", () => {
       if (conn?.db_type === "redis") {
         await connStore.ensureConnected(tab.connectionId);
         const redisDb = Number(tab.database) || 0;
-        console.info("[DBX][executeTabSql:redis:start]", { traceId, db: redisDb, sql });
+        console.info("[TASK][executeTabSql:redis:start]", { traceId, db: redisDb, sql });
         const result = await api.redisExecuteCommand(tab.connectionId, redisDb, sql, options?.skipRedisSafetyCheck);
-        console.info("[DBX][executeTabSql:redis:done]", { traceId, elapsed: elapsed() });
+        console.info("[TASK][executeTabSql:redis:done]", { traceId, elapsed: elapsed() });
         const current = tabs.value.find((t) => t.id === id);
         if (current?.executionId === executionId) {
           current.results = undefined;
@@ -1034,9 +1034,9 @@ export const useQueryStore = defineStore("query", () => {
       const mongoFind = conn?.db_type === "mongodb" ? parseMongoFindCommand(sql) : null;
       if (mongoFind) {
         await connStore.ensureConnected(tab.connectionId);
-        console.info("[DBX][executeTabSql:mongo-find:start]", { traceId, collection: mongoFind.collection });
+        console.info("[TASK][executeTabSql:mongo-find:start]", { traceId, collection: mongoFind.collection });
         const result = await api.mongoFindDocuments(tab.connectionId, tab.database, mongoFind.collection, mongoFind.skip, mongoFind.limit, mongoFind.filter, mongoFind.sort);
-        console.info("[DBX][executeTabSql:mongo-find:done]", {
+        console.info("[TASK][executeTabSql:mongo-find:done]", {
           traceId,
           rowCount: result.documents.length,
           total: result.total,
@@ -1060,9 +1060,9 @@ export const useQueryStore = defineStore("query", () => {
       const mongoCount = conn?.db_type === "mongodb" ? parseMongoCountDocumentsCommand(sql) : null;
       if (mongoCount) {
         await connStore.ensureConnected(tab.connectionId);
-        console.info("[DBX][executeTabSql:mongo-count:start]", { traceId, collection: mongoCount.collection });
+        console.info("[TASK][executeTabSql:mongo-count:start]", { traceId, collection: mongoCount.collection });
         const result = await api.mongoFindDocuments(tab.connectionId, tab.database, mongoCount.collection, 0, 1, mongoCount.filter);
-        console.info("[DBX][executeTabSql:mongo-count:done]", {
+        console.info("[TASK][executeTabSql:mongo-count:done]", {
           traceId,
           total: result.total,
           elapsed: elapsed(),
@@ -1090,9 +1090,9 @@ export const useQueryStore = defineStore("query", () => {
           if (!safety.allowed) throw new Error(safety.reason);
         }
         await connStore.ensureConnected(tab.connectionId);
-        console.info("[DBX][executeTabSql:mongo-aggregate:start]", { traceId, collection: mongoAggregate.collection });
+        console.info("[TASK][executeTabSql:mongo-aggregate:start]", { traceId, collection: mongoAggregate.collection });
         const result = await api.mongoAggregateDocuments(tab.connectionId, tab.database, mongoAggregate.collection, mongoAggregate.pipeline, pageLimit);
-        console.info("[DBX][executeTabSql:mongo-aggregate:done]", {
+        console.info("[TASK][executeTabSql:mongo-aggregate:done]", {
           traceId,
           rowCount: result.documents.length,
           total: result.total,
@@ -1117,9 +1117,9 @@ export const useQueryStore = defineStore("query", () => {
       const mongoGetIndexes = conn?.db_type === "mongodb" ? parseMongoGetIndexesCommand(sql) : null;
       if (mongoGetIndexes) {
         await connStore.ensureConnected(tab.connectionId);
-        console.info("[DBX][executeTabSql:mongo-indexes:start]", { traceId, collection: mongoGetIndexes.collection });
+        console.info("[TASK][executeTabSql:mongo-indexes:start]", { traceId, collection: mongoGetIndexes.collection });
         const indexes = await api.listIndexes(tab.connectionId, tab.database, "", mongoGetIndexes.collection);
-        console.info("[DBX][executeTabSql:mongo-indexes:done]", {
+        console.info("[TASK][executeTabSql:mongo-indexes:done]", {
           traceId,
           indexCount: indexes.length,
           elapsed: elapsed(),
@@ -1143,7 +1143,7 @@ export const useQueryStore = defineStore("query", () => {
       const mongoWrite = conn?.db_type === "mongodb" ? parseMongoWriteCommand(sql) : null;
       if (mongoWrite) {
         await connStore.ensureConnected(tab.connectionId);
-        console.info("[DBX][executeTabSql:mongo-write:start]", {
+        console.info("[TASK][executeTabSql:mongo-write:start]", {
           traceId,
           kind: mongoWrite.kind,
           collection: mongoWrite.collection,
@@ -1159,7 +1159,7 @@ export const useQueryStore = defineStore("query", () => {
           const result = await api.mongoDeleteDocuments(tab.connectionId, tab.database, mongoWrite.collection, mongoWrite.filter, mongoWrite.many);
           affectedRows = result.affected_rows;
         }
-        console.info("[DBX][executeTabSql:mongo-write:done]", {
+        console.info("[TASK][executeTabSql:mongo-write:done]", {
           traceId,
           affectedRows,
           elapsed: elapsed(),
@@ -1180,7 +1180,7 @@ export const useQueryStore = defineStore("query", () => {
         return;
       }
 
-      console.info("[DBX][executeTabSql:execute-multi:start]", { traceId, elapsed: elapsed() });
+      console.info("[TASK][executeTabSql:execute-multi:start]", { traceId, elapsed: elapsed() });
       const clientSessionId = tab.mode === "query" ? tab.id : undefined;
       const executionOptions = {
         ...(typeof pageLimit === "number"
@@ -1200,7 +1200,7 @@ export const useQueryStore = defineStore("query", () => {
       const executionPromise = api.executeMulti(tab.connectionId, tab.database, sqlToExecute, executionSchema, executionId, executionOptions);
       const frontendTimeoutSecs = Math.max(queryTimeoutSecs * 2, 60);
       const results = markQueryResultsRowsRaw(await withFrontendQueryTimeout(executionPromise, queryTimeoutSecs === 0 ? 0 : frontendTimeoutSecs, t("editor.queryTimeoutError", { seconds: frontendTimeoutSecs })));
-      console.info("[DBX][executeTabSql:execute-multi:done]", {
+      console.info("[TASK][executeTabSql:execute-multi:done]", {
         traceId,
         resultCount: results.length,
         rowCounts: results.map((result) => result.rows.length),
@@ -1256,7 +1256,7 @@ export const useQueryStore = defineStore("query", () => {
             timeoutSecs: queryTimeoutSecs,
           });
         }
-        console.info("[DBX][executeTabSql:result:assigned]", {
+        console.info("[TASK][executeTabSql:result:assigned]", {
           traceId,
           activeResultIndex: current.activeResultIndex,
           rowCount: current.result?.rows.length ?? 0,
@@ -1266,14 +1266,14 @@ export const useQueryStore = defineStore("query", () => {
         });
         if (current.mode === "query" && current.result) analyzeQueryMetadataInBackground(id, queryBaseSql, current.result, traceId, elapsed);
       } else {
-        console.warn("[DBX][executeTabSql:stale-result]", {
+        console.warn("[TASK][executeTabSql:stale-result]", {
           traceId,
           currentExecutionId: current?.executionId,
           elapsed: elapsed(),
         });
       }
     } catch (e: any) {
-      console.error("[DBX][executeTabSql:error]", { traceId, elapsed: elapsed(), error: e });
+      console.error("[TASK][executeTabSql:error]", { traceId, elapsed: elapsed(), error: e });
       const current = tabs.value.find((t) => t.id === id);
       if (current?.executionId === executionId) {
         current.result = toErrorResult(e);
@@ -1301,9 +1301,9 @@ export const useQueryStore = defineStore("query", () => {
         current.isCancelling = false;
         current.queryExecutionStartedAt = undefined;
         current.executionId = undefined;
-        console.info("[DBX][executeTabSql:finish]", { traceId, elapsed: elapsed() });
+        console.info("[TASK][executeTabSql:finish]", { traceId, elapsed: elapsed() });
       } else {
-        console.warn("[DBX][executeTabSql:finish-stale]", {
+        console.warn("[TASK][executeTabSql:finish-stale]", {
           traceId,
           currentExecutionId: current?.executionId,
           elapsed: elapsed(),

@@ -194,13 +194,13 @@ export function evaluateMongoAggregateSafety(command: MongoAggregateCommand, opt
   if (!options.allowWrites) {
     return {
       allowed: false,
-      reason: `MongoDB aggregate stage "${writeStage}" writes data. Set DBX_MCP_ALLOW_WRITES=1 to allow write commands.`,
+      reason: `MongoDB aggregate stage "${writeStage}" writes data. Set TASK_MCP_ALLOW_WRITES=1 to allow write commands.`,
     };
   }
   if (!options.allowDangerous) {
     return {
       allowed: false,
-      reason: `MongoDB aggregate stage "${writeStage}" is dangerous. Set DBX_MCP_ALLOW_DANGEROUS_SQL=1 to allow it.`,
+      reason: `MongoDB aggregate stage "${writeStage}" is dangerous. Set TASK_MCP_ALLOW_DANGEROUS_SQL=1 to allow it.`,
     };
   }
   return { allowed: true };

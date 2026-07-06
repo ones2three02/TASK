@@ -1,9 +1,9 @@
 import { strict as assert } from "node:assert";
 import { test } from "vitest";
 import {
-  DBX_NEO4J_ELEMENT_ID_COLUMN,
-  DBX_ROWID_COLUMN,
-  DBX_TDENGINE_TBNAME_COLUMN,
+  TASK_NEO4J_ELEMENT_ID_COLUMN,
+  TASK_ROWID_COLUMN,
+  TASK_TDENGINE_TBNAME_COLUMN,
   canEditExistingTableRows,
   editablePrimaryKeys,
   hiveTablePropertiesIndicateTransactional,
@@ -27,7 +27,7 @@ function column(name: string, isPrimaryKey = false): ColumnInfo {
 }
 
 test("uses ROWID as Oracle editable key when a table has no primary key", () => {
-  assert.deepEqual(editablePrimaryKeys("oracle", [column("ID"), column("CITY")]), [DBX_ROWID_COLUMN]);
+  assert.deepEqual(editablePrimaryKeys("oracle", [column("ID"), column("CITY")]), [TASK_ROWID_COLUMN]);
 });
 
 test("keeps declared primary keys ahead of Oracle ROWID fallback", () => {
@@ -39,7 +39,7 @@ test("does not synthesize ROWID for non-Oracle keyless tables", () => {
 });
 
 test("uses tbname and timestamp as TDengine editable keys", () => {
-  assert.deepEqual(editablePrimaryKeys("tdengine", [column("ts", true), column("current")]), [DBX_TDENGINE_TBNAME_COLUMN, "ts"]);
+  assert.deepEqual(editablePrimaryKeys("tdengine", [column("ts", true), column("current")]), [TASK_TDENGINE_TBNAME_COLUMN, "ts"]);
 });
 
 test("allows updateable SQL table data editing even without declared primary keys", () => {
@@ -83,7 +83,7 @@ test("allows existing row edits according to database-specific key requirements"
   assert.equal(canEditExistingTableRows("informix", undefined, []), true);
   assert.equal(canEditExistingTableRows("informix", undefined, ["id"]), true);
   assert.equal(canEditExistingTableRows("tdengine", undefined, ["ts"]), false);
-  assert.equal(canEditExistingTableRows("tdengine", undefined, [DBX_TDENGINE_TBNAME_COLUMN, "ts"]), true);
+  assert.equal(canEditExistingTableRows("tdengine", undefined, [TASK_TDENGINE_TBNAME_COLUMN, "ts"]), true);
   assert.equal(canEditExistingTableRows("postgres", undefined), true);
 });
 
@@ -105,11 +105,11 @@ test("detects transactional Hive table properties", () => {
 });
 
 test("uses elementId as Neo4j editable key when labels have no primary key", () => {
-  assert.deepEqual(editablePrimaryKeys("neo4j", [column("name"), column("role")]), [DBX_NEO4J_ELEMENT_ID_COLUMN]);
+  assert.deepEqual(editablePrimaryKeys("neo4j", [column("name"), column("role")]), [TASK_NEO4J_ELEMENT_ID_COLUMN]);
 });
 
 test("keeps TDengine existing row identity and tag columns read-only", () => {
-  assert.equal(isTdengineExistingRowReadonlyColumn("tdengine", DBX_TDENGINE_TBNAME_COLUMN, [column("ts", true)]), true);
+  assert.equal(isTdengineExistingRowReadonlyColumn("tdengine", TASK_TDENGINE_TBNAME_COLUMN, [column("ts", true)]), true);
   assert.equal(isTdengineExistingRowReadonlyColumn("tdengine", "ts", [column("ts", true)]), true);
   assert.equal(isTdengineExistingRowReadonlyColumn("tdengine", "location", [column("location")]), false);
   assert.equal(isTdengineExistingRowReadonlyColumn("mysql", "ts", [column("ts", true)]), false);
@@ -117,16 +117,16 @@ test("keeps TDengine existing row identity and tag columns read-only", () => {
 });
 
 test("detects the synthetic Oracle ROWID key case", () => {
-  assert.equal(usesSyntheticRowIdKey("oracle", [DBX_ROWID_COLUMN]), true);
-  assert.equal(usesSyntheticRowIdKey("oracle", [DBX_ROWID_COLUMN.toLowerCase()]), true);
-  assert.equal(usesSyntheticRowIdKey("postgres", [DBX_ROWID_COLUMN]), false);
+  assert.equal(usesSyntheticRowIdKey("oracle", [TASK_ROWID_COLUMN]), true);
+  assert.equal(usesSyntheticRowIdKey("oracle", [TASK_ROWID_COLUMN.toLowerCase()]), true);
+  assert.equal(usesSyntheticRowIdKey("postgres", [TASK_ROWID_COLUMN]), false);
   assert.equal(usesSyntheticRowIdKey("oracle", ["ID"]), false);
-  assert.equal(usesSyntheticRowIdKey("neo4j", [DBX_NEO4J_ELEMENT_ID_COLUMN]), true);
+  assert.equal(usesSyntheticRowIdKey("neo4j", [TASK_NEO4J_ELEMENT_ID_COLUMN]), true);
 });
 
 test("hides only the synthetic Oracle ROWID grid column", () => {
-  assert.equal(isHiddenGridColumn("oracle", DBX_ROWID_COLUMN, [DBX_ROWID_COLUMN]), true);
-  assert.equal(isHiddenGridColumn("oracle", "ROWID", [DBX_ROWID_COLUMN]), false);
-  assert.equal(isHiddenGridColumn("mysql", DBX_ROWID_COLUMN, [DBX_ROWID_COLUMN]), false);
-  assert.equal(isHiddenGridColumn("neo4j", DBX_NEO4J_ELEMENT_ID_COLUMN, [DBX_NEO4J_ELEMENT_ID_COLUMN]), true);
+  assert.equal(isHiddenGridColumn("oracle", TASK_ROWID_COLUMN, [TASK_ROWID_COLUMN]), true);
+  assert.equal(isHiddenGridColumn("oracle", "ROWID", [TASK_ROWID_COLUMN]), false);
+  assert.equal(isHiddenGridColumn("mysql", TASK_ROWID_COLUMN, [TASK_ROWID_COLUMN]), false);
+  assert.equal(isHiddenGridColumn("neo4j", TASK_NEO4J_ELEMENT_ID_COLUMN, [TASK_NEO4J_ELEMENT_ID_COLUMN]), true);
 });

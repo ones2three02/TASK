@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Mutex;
 
-const CONNECTION_DEEP_LINK_PREFIX: &str = "dbx://connection/new";
+const CONNECTION_DEEP_LINK_PREFIX: &str = "task://connection/new";
 
 #[tauri::command]
 pub fn pending_open_connection_links(state: tauri::State<'_, DeepLinkOpenState>) -> Vec<String> {
@@ -69,22 +69,22 @@ mod tests {
     #[test]
     fn filters_connection_deep_links() {
         let links = connection_deep_links_from_args([
-            "dbx://connection/new?type=mysql&host=127.0.0.1",
+            "task://connection/new?type=mysql&host=127.0.0.1",
             "--flag",
-            "dbx://open?x=1",
-            "dbx://connections/new?type=postgres",
-            "dbx://connection/newer?type=mysql",
+            "task://open?x=1",
+            "task://connections/new?type=postgres",
+            "task://connection/newer?type=mysql",
         ]);
 
-        assert_eq!(links, vec!["dbx://connection/new?type=mysql&host=127.0.0.1".to_string()]);
+        assert_eq!(links, vec!["task://connection/new?type=mysql&host=127.0.0.1".to_string()]);
     }
 
     #[test]
     fn drains_pending_links_once() {
         let state = DeepLinkOpenState::default();
-        state.push(vec!["dbx://connection/new?type=mysql".to_string()]);
+        state.push(vec!["task://connection/new?type=mysql".to_string()]);
 
-        assert_eq!(state.drain(), vec!["dbx://connection/new?type=mysql"]);
+        assert_eq!(state.drain(), vec!["task://connection/new?type=mysql"]);
         assert!(state.drain().is_empty());
     }
 
@@ -92,11 +92,11 @@ mod tests {
     fn dedupes_links_while_preserving_order() {
         assert_eq!(
             dedupe_links(vec![
-                "dbx://connection/new?type=mysql".to_string(),
-                "dbx://connection/new?type=postgres".to_string(),
-                "dbx://connection/new?type=mysql".to_string(),
+                "task://connection/new?type=mysql".to_string(),
+                "task://connection/new?type=postgres".to_string(),
+                "task://connection/new?type=mysql".to_string(),
             ]),
-            vec!["dbx://connection/new?type=mysql", "dbx://connection/new?type=postgres"]
+            vec!["task://connection/new?type=mysql", "task://connection/new?type=postgres"]
         );
     }
 }

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useTaskStore, type Target } from "@/stores/taskStore";
-import { Plus, Target as TargetIcon, Calendar, Trash2, Edit, CheckCircle2, Circle, AlertCircle, X, Sparkles } from "@lucide/vue";
+import { Plus, Target as TargetIcon, Calendar, Trash2, Edit, CheckCircle2, Circle, AlertCircle, X, Sparkles, ArrowUpRight, HelpCircle } from "@lucide/vue";
 import AiParserModal from "@/components/task/AiParserModal.vue";
+import { useToast } from "@/composables/useToast";
 
 const showAiModal = ref(false);
 
 const taskStore = useTaskStore();
+type ChecklistDraft = { id?: string; title: string; completed: boolean };
 
 // Filter targets for active project
 const projectTargets = computed(() => {
@@ -43,15 +45,50 @@ const isEdit = ref(false);
 const editId = ref("");
 const formTitle = ref("");
 const formDescription = ref("");
-const formMilestones = ref<{ title: string; completed: boolean }[]>([]);
+const formScope = ref("");
+const formOutOfScope = ref("");
+const formMilestones = ref<ChecklistDraft[]>([]);
+const formSuccessCriteria = ref<ChecklistDraft[]>([]);
+const formRisks = ref<ChecklistDraft[]>([]);
 const newMilestoneText = ref("");
+const newSuccessCriterionText = ref("");
+const newRiskText = ref("");
+
+function makeItemId() {
+  return Math.random().toString(36).substring(2, 9);
+}
+
+function cloneChecklist(items: ChecklistDraft[] = []) {
+  return items.map((item) => ({
+    id: item.id || makeItemId(),
+    title: item.title,
+    completed: item.completed,
+  }));
+}
+
+function normalizeChecklist(items: ChecklistDraft[]) {
+  return items
+    .map((item) => ({
+      id: item.id || makeItemId(),
+      title: item.title.trim(),
+      completed: item.completed,
+    }))
+    .filter((item) => item.title.length > 0);
+}
 
 function openAddDialog() {
   isEdit.value = false;
   editId.value = "";
   formTitle.value = "";
   formDescription.value = "";
+  formScope.value = "";
+  formOutOfScope.value = "";
   formMilestones.value = [];
+  formSuccessCriteria.value = [];
+  formRisks.value = [];
+  newMilestoneText.value = "";
+  newSuccessCriterionText.value = "";
+  newRiskText.value = "";
   showDialog.value = true;
 }
 
@@ -60,7 +97,14 @@ function openEditDialog(target: Target) {
   editId.value = target.id;
   formTitle.value = target.title;
   formDescription.value = target.description;
-  formMilestones.value = target.milestones.map((m) => ({ ...m }));
+  formScope.value = target.scope || "";
+  formOutOfScope.value = target.outOfScope || "";
+  formMilestones.value = cloneChecklist(target.milestones);
+  formSuccessCriteria.value = cloneChecklist(target.successCriteria);
+  formRisks.value = cloneChecklist(target.risks);
+  newMilestoneText.value = "";
+  newSuccessCriterionText.value = "";
+  newRiskText.value = "";
   showDialog.value = true;
 }
 
@@ -75,38 +119,106 @@ function removeMilestone(index: number) {
   formMilestones.value.splice(index, 1);
 }
 
+function addSuccessCriterion() {
+  if (newSuccessCriterionText.value.trim()) {
+    formSuccessCriteria.value.push({ id: makeItemId(), title: newSuccessCriterionText.value.trim(), completed: false });
+    newSuccessCriterionText.value = "";
+  }
+}
+
+function removeSuccessCriterion(index: number) {
+  formSuccessCriteria.value.splice(index, 1);
+}
+
+function addRisk() {
+  if (newRiskText.value.trim()) {
+    formRisks.value.push({ id: makeItemId(), title: newRiskText.value.trim(), completed: false });
+    newRiskText.value = "";
+  }
+}
+
+function removeRisk(index: number) {
+  formRisks.value.splice(index, 1);
+}
+
 function submitForm() {
   if (!formTitle.value.trim()) return;
+
+  const milestones = normalizeChecklist(formMilestones.value);
+  const successCriteria = normalizeChecklist(formSuccessCriteria.value);
+  const risks = normalizeChecklist(formRisks.value);
 
   if (isEdit.value) {
     const existing = taskStore.targets.find((t) => t.id === editId.value);
     if (existing) {
       existing.title = formTitle.value.trim();
       existing.description = formDescription.value.trim();
-      existing.milestones = formMilestones.value.map((m) => {
-        const anyM = m as any;
-        return {
-          id: anyM.id || Math.random().toString(36).substring(2, 9),
-          title: m.title,
-          completed: m.completed,
-        };
-      });
+      existing.scope = formScope.value.trim();
+      existing.outOfScope = formOutOfScope.value.trim();
+      existing.milestones = milestones;
+      existing.successCriteria = successCriteria;
+      existing.risks = risks;
       // Auto compute status
       const allDone = existing.milestones.length > 0 && existing.milestones.every((m) => m.completed);
       existing.status = allDone ? "completed" : "pending";
       taskStore.updateTarget(existing);
     }
   } else {
-    taskStore.addTarget(formTitle.value.trim(), formDescription.value.trim(), formMilestones.value);
+    taskStore.addTarget(formTitle.value.trim(), formDescription.value.trim(), milestones, formScope.value.trim(), formOutOfScope.value.trim(), successCriteria, risks);
   }
 
   showDialog.value = false;
 }
 
-function deleteTarget(id: string) {
-  if (confirm("确定要删除这个目标吗？这将会删除属于它的所有里程碑。")) {
-    taskStore.deleteTarget(id);
+const { toast } = useToast();
+
+const showDeleteConfirm = ref(false);
+const targetToDelete = ref<Target | null>(null);
+
+function requestDeleteTarget(target: Target) {
+  targetToDelete.value = target;
+  showDeleteConfirm.value = true;
+}
+
+function confirmDeleteTarget() {
+  if (targetToDelete.value) {
+    taskStore.deleteTarget(targetToDelete.value.id);
+    toast(`🗑️ 已成功删除目标：“${targetToDelete.value.title}”`);
+    targetToDelete.value = null;
   }
+  showDeleteConfirm.value = false;
+}
+
+function deriveActionFromMilestone(target: Target, milestone: any) {
+  const actionTitle = `[🎯${target.title}] ${milestone.title}`;
+  const actionDesc = `派生自项目目标「${target.title}」下的里程碑：“${milestone.title}”。`;
+
+  const exists = taskStore.actions.some((a) => a.projectId === target.projectId && a.title === actionTitle);
+  if (exists) {
+    toast("看板中已存在相同的派生行动卡片，请勿重复派生");
+    return;
+  }
+
+  taskStore.addAction(
+    actionTitle,
+    actionDesc,
+    "P2",
+    undefined,
+    "todo",
+    undefined, // serveId
+    false, // blocked
+    "", // blockerReason
+    "", // evidence
+    undefined, // supersededById
+    "", // discardedReason
+    [], // devItems
+    [], // testItems
+    [], // outputItems
+    target.id,
+    milestone.id,
+  );
+
+  toast(`🚀 派生成功！已添加看板卡片: ${actionTitle}`);
 }
 
 function toggleMilestone(target: Target, milestoneId: string) {
@@ -119,6 +231,24 @@ function toggleMilestone(target: Target, milestoneId: string) {
     const allDone = targetCopy.milestones.every((m) => m.completed);
     targetCopy.status = allDone ? "completed" : "pending";
 
+    taskStore.updateTarget(targetCopy);
+  }
+}
+
+function toggleSuccessCriterion(target: Target, criterionId: string) {
+  const targetCopy = { ...target };
+  const criterion = targetCopy.successCriteria?.find((c) => c.id === criterionId);
+  if (criterion) {
+    criterion.completed = !criterion.completed;
+    taskStore.updateTarget(targetCopy);
+  }
+}
+
+function toggleRisk(target: Target, riskId: string) {
+  const targetCopy = { ...target };
+  const risk = targetCopy.risks?.find((r) => r.id === riskId);
+  if (risk) {
+    risk.completed = !risk.completed;
     taskStore.updateTarget(targetCopy);
   }
 }
@@ -142,6 +272,11 @@ function getTargetProgress(target: Target) {
   const completed = target.milestones.filter((m) => m.completed).length;
   return Math.round((completed / target.milestones.length) * 100);
 }
+
+function getChecklistProgress(items: ChecklistDraft[] = []) {
+  if (items.length === 0) return "未定义";
+  return `${items.filter((item) => item.completed).length}/${items.length}`;
+}
 </script>
 
 <template>
@@ -152,18 +287,29 @@ function getTargetProgress(target: Target) {
         <div>
           <h2 class="text-xl font-semibold flex items-center gap-2">
             <TargetIcon class="h-5 w-5 text-emerald-500" />
-            T - TARGET 目标规划
+            T - TARGET 项目章程
+            <span class="group relative inline-flex items-center">
+              <HelpCircle class="h-4 w-4 text-muted-foreground/60 hover:text-foreground cursor-help transition-colors" />
+              <span
+                class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 p-3 bg-popover border border-border text-xs text-popover-foreground rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[100] leading-relaxed font-normal normal-case"
+              >
+                先明确目标、边界、成功标准和风险假设，再拆解里程碑与行动。
+              </span>
+            </span>
           </h2>
-          <p class="text-xs text-muted-foreground mt-1">清晰定义项目的核心目标和里程碑，统筹项目成功路线图。</p>
         </div>
         <div class="flex items-center gap-2">
           <button class="inline-flex h-9 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-500 px-4 text-sm font-medium transition-all shadow-sm gap-1.5" @click="showAiModal = true">
             <Sparkles class="h-4 w-4" />
             AI 智能拆解
           </button>
-          <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1" @click="openAddDialog">
+          <button v-if="projectTargets.length > 0" class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1 cursor-pointer" @click="openEditDialog(projectTargets[0])">
+            <Edit class="h-4 w-4" />
+            修改章程
+          </button>
+          <button v-else class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1 cursor-pointer" @click="openAddDialog">
             <Plus class="h-4 w-4" />
-            设定目标
+            建立章程
           </button>
         </div>
       </div>
@@ -181,7 +327,7 @@ function getTargetProgress(target: Target) {
     </div>
 
     <!-- Targets List -->
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-2" v-if="projectTargets.length > 0">
+    <div class="grid grid-cols-1 gap-4 max-w-4xl mx-auto w-full" v-if="projectTargets.length > 0">
       <div v-for="target in projectTargets" :key="target.id" class="group relative flex flex-col gap-4 p-5 rounded-xl border bg-background/40 hover:bg-muted/10 transition-all duration-300 shadow-sm hover:shadow-md border-border/80">
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
@@ -197,11 +343,51 @@ function getTargetProgress(target: Target) {
           </div>
 
           <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button class="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground" @click="openEditDialog(target)">
+            <button class="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-transform active:scale-90 cursor-pointer" @click="openEditDialog(target)">
               <Edit class="h-3.5 w-3.5" />
             </button>
-            <button class="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500" @click="deleteTarget(target.id)">
+            <button class="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-transform active:scale-90 cursor-pointer" @click="requestDeleteTarget(target)">
               <Trash2 class="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-2 rounded-lg border border-border/40 bg-muted/10 p-3 text-xs">
+          <div class="grid gap-2 sm:grid-cols-2">
+            <div class="rounded-md bg-background/50 p-2">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">项目范围</div>
+              <p class="mt-1 line-clamp-2 text-muted-foreground" :title="target.scope">{{ target.scope || "未定义范围" }}</p>
+            </div>
+            <div class="rounded-md bg-background/50 p-2">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">非范围</div>
+              <p class="mt-1 line-clamp-2 text-muted-foreground" :title="target.outOfScope">{{ target.outOfScope || "未定义非范围" }}</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span class="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-500">成功标准 {{ getChecklistProgress(target.successCriteria) }}</span>
+            <span class="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-500">风险假设 {{ target.risks?.length ?? 0 }} 项</span>
+          </div>
+          <div v-if="target.successCriteria?.length" class="grid gap-1">
+            <button v-for="criterion in target.successCriteria" :key="criterion.id" class="flex items-start gap-2 text-muted-foreground text-left py-1 hover:bg-muted/40 rounded px-1 transition-colors w-full min-w-0" @click="toggleSuccessCriterion(target, criterion.id)">
+              <CheckCircle2 v-if="criterion.completed" class="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+              <Circle v-else class="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 mt-0.5" />
+              <span :class="{ 'line-through text-muted-foreground/60': criterion.completed }" class="flex-1 whitespace-normal break-words leading-normal">
+                {{ criterion.title }}
+              </span>
+            </button>
+          </div>
+          <!-- Risks -->
+          <div v-if="target.risks?.length" class="grid gap-1 border-t border-border/20 pt-2 mt-1">
+            <div class="text-[10px] font-semibold uppercase tracking-wider text-amber-500 mb-1 flex items-center gap-1">
+              <AlertCircle class="h-3 w-3" />
+              风险假设
+            </div>
+            <button v-for="risk in target.risks" :key="risk.id" class="flex items-start gap-2 text-muted-foreground text-left py-1 hover:bg-muted/40 rounded px-1 transition-colors w-full min-w-0" @click="toggleRisk(target, risk.id)">
+              <CheckCircle2 v-if="risk.completed" class="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+              <Circle v-else class="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 mt-0.5" />
+              <span :class="{ 'line-through text-muted-foreground/60': risk.completed }" class="flex-1 whitespace-normal break-words leading-normal">
+                {{ risk.title }}
+              </span>
             </button>
           </div>
         </div>
@@ -214,13 +400,20 @@ function getTargetProgress(target: Target) {
           </div>
 
           <div class="grid gap-2 max-h-40 overflow-y-auto pr-1">
-            <button v-for="m in target.milestones" :key="m.id" class="flex items-center gap-2 text-xs py-1.5 px-2.5 rounded bg-muted/30 hover:bg-muted/60 text-left transition-colors" @click="toggleMilestone(target, m.id)">
-              <CheckCircle2 v-if="m.completed" class="h-4 w-4 text-emerald-500 shrink-0" />
-              <Circle v-else class="h-4 w-4 text-muted-foreground shrink-0" />
-              <span :class="{ 'line-through text-muted-foreground/60': m.completed }" class="truncate">
-                {{ m.title }}
-              </span>
-            </button>
+            <div v-for="m in target.milestones" :key="m.id" class="group flex items-center justify-between gap-2 text-xs py-1 px-2.5 rounded bg-muted/30 hover:bg-muted/50 transition-colors w-full min-w-0">
+              <button class="flex items-start gap-2 text-left flex-1 min-w-0 py-1.5 cursor-pointer" @click="toggleMilestone(target, m.id)">
+                <CheckCircle2 v-if="m.completed" class="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                <Circle v-else class="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                <span :class="{ 'line-through text-muted-foreground/60': m.completed }" class="flex-1 whitespace-normal break-words leading-normal">
+                  {{ m.title }}
+                </span>
+              </button>
+
+              <!-- Derive Action Button -->
+              <button title="派生看板任务" class="h-6 w-6 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary flex items-center justify-center cursor-pointer shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="deriveActionFromMilestone(target, m)">
+                <ArrowUpRight class="h-3.5 w-3.5" />
+              </button>
+            </div>
             <div v-if="target.milestones.length === 0" class="text-xs text-muted-foreground/50 italic py-2 text-center">暂无里程碑，点击编辑目标来增加。</div>
           </div>
 
@@ -248,28 +441,28 @@ function getTargetProgress(target: Target) {
         <TargetIcon class="h-6 w-6" />
       </div>
       <div>
-        <h3 class="font-medium text-sm">暂未设定项目目标</h3>
-        <p class="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">T - TARGET 是达成项目的北极星。点击“设定目标”添加第一项核心目标和执行里程碑。</p>
+        <h3 class="font-medium text-sm">暂未建立项目章程</h3>
+        <p class="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">T - TARGET 是项目的章程入口。先明确目标、边界、成功标准和风险假设，再进入执行。</p>
       </div>
       <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md gap-1 mt-2" @click="openAddDialog">
         <Plus class="h-4 w-4" />
-        设定第一个目标
+        建立第一个章程
       </button>
     </div>
 
     <!-- Dialog Modal -->
     <div v-if="showDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div class="w-full max-w-[500px] rounded-xl border bg-background p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
+      <div class="w-full max-w-[680px] rounded-xl border bg-background p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
         <button class="absolute top-4 right-4 h-7 w-7 rounded-md inline-flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground" @click="showDialog = false">
           <X class="h-4 w-4" />
         </button>
 
-        <h3 class="text-base font-semibold">{{ isEdit ? "编辑目标" : "设定新目标" }}</h3>
+        <h3 class="text-base font-semibold">{{ isEdit ? "编辑项目章程" : "建立项目章程" }}</h3>
 
         <div class="flex flex-col gap-4 overflow-y-auto max-h-[60vh] pr-1">
           <!-- Title -->
           <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">目标名称</label>
+            <label class="text-xs font-medium text-muted-foreground">目标名称 / 项目结果</label>
             <input
               v-model="formTitle"
               type="text"
@@ -280,13 +473,35 @@ function getTargetProgress(target: Target) {
 
           <!-- Description -->
           <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">描述</label>
+            <label class="text-xs font-medium text-muted-foreground">背景说明</label>
             <textarea
               v-model="formDescription"
-              placeholder="描述此目标的具体达成效果、验收标准等..."
+              placeholder="说明为什么要做、要解决什么问题、预期产生什么结果..."
               rows="3"
               class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
             />
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="space-y-1.5">
+              <label class="text-xs font-medium text-muted-foreground">范围说明</label>
+              <textarea
+                v-model="formScope"
+                placeholder="本项目包含哪些工作、对象、模块或交付边界..."
+                rows="3"
+                class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-xs font-medium text-muted-foreground">非范围说明</label>
+              <textarea
+                v-model="formOutOfScope"
+                placeholder="明确本轮不做什么，避免需求边界持续扩大..."
+                rows="3"
+                class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+              />
+            </div>
           </div>
 
           <!-- Milestones Builder -->
@@ -322,14 +537,114 @@ function getTargetProgress(target: Target) {
               <div v-if="formMilestones.length === 0" class="text-center text-xs text-muted-foreground/60 py-2 italic">没有设置子里程碑，达成目标更易失焦，建议添加。</div>
             </div>
           </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">成功标准（做到什么算成功）</label>
+            <div class="flex gap-2">
+              <input
+                v-model="newSuccessCriterionText"
+                type="text"
+                placeholder="例如：关键用户流程可稳定完成并通过验收..."
+                class="flex-1 h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                @keydown.enter.prevent="addSuccessCriterion"
+              />
+              <button class="h-9 inline-flex items-center justify-center rounded-lg bg-muted px-3 text-xs font-medium hover:bg-muted/80 shrink-0" @click="addSuccessCriterion">添加</button>
+            </div>
+            <div class="space-y-1.5 mt-2 bg-emerald-500/5 p-2.5 rounded-lg border border-emerald-500/20">
+              <div v-for="(item, idx) in formSuccessCriteria" :key="item.id || idx" class="flex items-center justify-between py-1 px-2 rounded hover:bg-muted/30 text-xs">
+                <div class="flex items-center gap-2 truncate">
+                  <button type="button" @click="item.completed = !item.completed" class="text-muted-foreground hover:text-emerald-500">
+                    <CheckCircle2 v-if="item.completed" class="h-4 w-4 text-emerald-500" />
+                    <Circle v-else class="h-4 w-4" />
+                  </button>
+                  <span :class="{ 'line-through text-muted-foreground': item.completed }" class="truncate">
+                    {{ item.title }}
+                  </span>
+                </div>
+                <button type="button" class="text-muted-foreground hover:text-red-500" @click="removeSuccessCriterion(idx)">
+                  <X class="h-3 w-3" />
+                </button>
+              </div>
+              <div v-if="formSuccessCriteria.length === 0" class="text-center text-xs text-muted-foreground/60 py-2 italic">未定义成功标准，后续验收口径容易不一致。</div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-muted-foreground">风险假设</label>
+            <div class="flex gap-2">
+              <input
+                v-model="newRiskText"
+                type="text"
+                placeholder="例如：外部接口权限审批可能影响交付时间..."
+                class="flex-1 h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                @keydown.enter.prevent="addRisk"
+              />
+              <button class="h-9 inline-flex items-center justify-center rounded-lg bg-muted px-3 text-xs font-medium hover:bg-muted/80 shrink-0" @click="addRisk">添加</button>
+            </div>
+            <div class="space-y-1.5 mt-2 bg-amber-500/5 p-2.5 rounded-lg border border-amber-500/20">
+              <div v-for="(item, idx) in formRisks" :key="item.id || idx" class="flex items-center justify-between py-1 px-2 rounded hover:bg-muted/30 text-xs">
+                <div class="flex items-center gap-2 truncate">
+                  <button type="button" @click="item.completed = !item.completed" class="text-muted-foreground hover:text-amber-500">
+                    <CheckCircle2 v-if="item.completed" class="h-4 w-4 text-amber-500" />
+                    <AlertCircle v-else class="h-4 w-4" />
+                  </button>
+                  <span :class="{ 'line-through text-muted-foreground': item.completed }" class="truncate">
+                    {{ item.title }}
+                  </span>
+                </div>
+                <button type="button" class="text-muted-foreground hover:text-red-500" @click="removeRisk(idx)">
+                  <X class="h-3 w-3" />
+                </button>
+              </div>
+              <div v-if="formRisks.length === 0" class="text-center text-xs text-muted-foreground/60 py-2 italic">暂无风险假设。</div>
+            </div>
+          </div>
         </div>
 
         <div class="flex justify-end gap-2 border-t pt-3 border-border/40">
           <button class="h-9 inline-flex items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-muted transition-colors" @click="showDialog = false">取消</button>
-          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md" :disabled="!formTitle.trim()" @click="submitForm">保存目标</button>
+          <button class="h-9 inline-flex items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/95 transition-all shadow-md" :disabled="!formTitle.trim()" @click="submitForm">保存章程</button>
         </div>
       </div>
     </div>
     <AiParserModal :open="showAiModal" @close="showAiModal = false" />
+
+    <!-- Beautiful custom delete confirmation dialog -->
+    <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+      <div class="w-full max-w-[460px] rounded-3xl border border-zinc-100 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 p-6 shadow-2xl flex flex-col gap-4 relative animate-in fade-in zoom-in-95 duration-200">
+        <button class="absolute top-5 right-5 h-8 w-8 rounded-full inline-flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 cursor-pointer transition-colors active:scale-95" @click="showDeleteConfirm = false">
+          <X class="h-4.5 w-4.5" />
+        </button>
+
+        <div class="flex items-start gap-4">
+          <div class="h-12 w-12 rounded-full bg-zinc-100 dark:bg-zinc-800/80 shrink-0 flex items-center justify-center">
+            <Trash2 class="h-5 w-5 text-zinc-600 dark:text-zinc-300" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-6">确定要删除此目标吗？</h3>
+            <p class="text-[13px] text-zinc-500 dark:text-zinc-400 mt-2 leading-relaxed font-normal">
+              您即将删除项目目标 <span class="font-bold text-zinc-900 dark:text-zinc-200">「{{ targetToDelete?.title }}」</span>。此操作将彻底删除此目标及其下属绑定的所有里程碑、风险描述和成功验证标准。
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-zinc-50/80 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/60 rounded-xl p-3.5 mt-1 flex items-center gap-2">
+          <span class="h-1.5 w-1.5 rounded-full bg-zinc-900 dark:bg-zinc-100 animate-pulse"></span>
+          <p class="text-zinc-800 dark:text-zinc-200 font-bold text-[13px] leading-relaxed pl-1 text-left">注意：目标删除后将导致关联任务失去上下文，且无法恢复！</p>
+        </div>
+
+        <div class="border-t border-zinc-100 dark:border-zinc-800/60 my-1"></div>
+
+        <div class="flex justify-end gap-3 pt-1">
+          <button
+            class="h-10 inline-flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors active:scale-97 cursor-pointer text-zinc-900 dark:text-zinc-100"
+            @click="showDeleteConfirm = false"
+          >
+            取消
+          </button>
+          <button class="h-10 inline-flex items-center justify-center rounded-xl bg-zinc-950 dark:bg-zinc-50 hover:bg-zinc-900 dark:hover:bg-zinc-200 px-5 text-sm font-bold text-white dark:text-zinc-950 transition-all active:scale-97 cursor-pointer" @click="confirmDeleteTarget">确定删除</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

@@ -15,6 +15,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { connectionIconType } from "@/lib/connectionPresentation";
 import DatabaseIcon from "@/components/icons/DatabaseIcon.vue";
 import { useQueryStore } from "@/stores/queryStore";
+import { useTaskStore } from "@/stores/taskStore";
 import { useToast } from "@/composables/useToast";
 import { buildAiContext, runAgentStream, type AiAction } from "@/lib/ai";
 import type { AgentEvent } from "@/lib/tauri";
@@ -480,7 +481,6 @@ async function send() {
   const text = prompt.value.trim();
   if ((!text && !selectedMentions.value.length) || isGenerating.value) return;
 
-  if (!props.connection || !props.tab) return;
   if (!settings.isConfigured()) {
     toast(t("ai.noConfig"));
     return;
@@ -503,9 +503,47 @@ async function send() {
   currentSessionId.value = sessionId;
   const agentEvents: AgentEvent[] = [];
   try {
-    const context = await buildAiContext(props.tab, props.connection, {
-      mentionedTables,
-    });
+    let context;
+    if (props.connection && props.tab) {
+      context = await buildAiContext(props.tab, props.connection, {
+        mentionedTables,
+      });
+    } else {
+      const conn = connectionStore.connections[0];
+      context = {
+        connectionId: conn?.id || "",
+        connectionName: conn?.name || "TASK",
+        databaseType: (conn?.db_type || "sqlite") as any,
+        database: conn?.database || "task_local",
+        currentSql: "",
+        tables: [],
+        truncated: false,
+      };
+    }
+
+    // Inject current active project context
+    const taskStore = useTaskStore();
+    const activeProj = taskStore.projects.find((p) => p.id === taskStore.activeProjectId);
+    if (activeProj) {
+      const projTargets = taskStore.targets.filter((t) => t.projectId === activeProj.id);
+      const projActions = taskStore.actions.filter((a) => a.projectId === activeProj.id);
+      (context as any).projectContext = {
+        projectName: activeProj.name,
+        projectDesc: activeProj.description,
+        targets: projTargets.map((t) => ({
+          title: t.title,
+          description: t.description,
+          status: t.status,
+        })),
+        actions: projActions.map((a) => ({
+          title: a.title,
+          description: a.description,
+          status: a.status,
+          priority: a.priority,
+        })),
+      };
+    }
+
     const history: AiMessage[] = messages.value.slice(0, -2).map((m) => ({
       role: m.role,
       content: m.content,
@@ -581,7 +619,7 @@ async function send() {
         action: requestedAction,
         instruction: displayText,
         assistantContent: msg?.content || "",
-        connection: props.connection,
+        connection: props.connection || connectionStore.connections[0],
       });
       if (msg && requestedMode === "agent") msg.agentSteps = buildAiAgentStepItems(agentPlan);
       if (agentPlan.handoffSql) emit("requestAutoExecuteSql", agentPlan.handoffSql);
@@ -629,14 +667,15 @@ function clearMessages() {
 }
 
 async function persistConversation() {
-  if (!messages.value.length || !props.connection) return;
+  if (!messages.value.length) return;
+  const conn = props.connection || connectionStore.connections[0];
   if (!conversationId.value) conversationId.value = uuid();
   const first = messages.value.find((m) => m.role === "user");
   await saveAiConversation({
     id: conversationId.value,
     title: first ? first.content.slice(0, 50) : "Untitled",
-    connectionName: props.connection.name,
-    database: props.tab?.database || "",
+    connectionName: conn?.name || "TASK",
+    database: props.tab?.database || "task_local",
     messages: messages.value.map((m) => ({
       role: m.role,
       content: m.content,
@@ -851,97 +890,6 @@ const messageRenderer = computed(() => {
 
     <div class="p-2">
       <div class="relative rounded-lg border bg-background px-2 pb-2 pt-1">
-        <div v-if="connectionStore.connections.length" class="flex items-center gap-1 mb-1 text-xs text-foreground/80">
-          <DatabaseIcon v-if="connection" :db-type="connectionIconType(connection)" class="h-3 w-3 shrink-0" />
-          <Server v-else class="h-3 w-3 shrink-0" />
-          <Select
-            :model-value="connection?.id || ''"
-            @update:model-value="
-              (v) => {
-                if (typeof v === 'string') changeConnection(v);
-              }
-            "
-          >
-            <SelectTrigger class="h-5 w-auto border-0 rounded-md bg-transparent dark:bg-transparent p-0 px-1 text-xs text-foreground/80 shadow-none focus:ring-0 focus-visible:ring-0 [&_svg]:size-3">
-              <SelectValue :placeholder="t('editor.selectConnection')">{{ connection?.name || t("editor.selectConnection") }}</SelectValue>
-            </SelectTrigger>
-            <SelectContent class="min-w-48">
-              <SelectItem v-for="conn in connectionStore.connections" :key="conn.id" :value="conn.id">
-                <div class="flex min-w-0 items-center gap-2">
-                  <DatabaseIcon :db-type="connectionIconType(conn)" class="h-3.5 w-3.5 shrink-0" />
-                  <span class="truncate">{{ conn.name }}</span>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <template v-if="connection">
-            <Database class="h-3 w-3 shrink-0 text-foreground/40" />
-            <Select
-              :model-value="selectedDatabaseSelectValue"
-              @update:model-value="
-                (v) => {
-                  if (typeof v === 'string') changeDatabase(v);
-                }
-              "
-              @update:open="
-                (open: boolean) => {
-                  if (open) loadDatabases();
-                }
-              "
-            >
-              <SelectTrigger class="h-5 w-auto border-0 rounded-md bg-transparent dark:bg-transparent p-0 px-1 text-xs text-foreground/80 shadow-none focus:ring-0 focus-visible:ring-0 [&_svg]:size-3">
-                <SelectValue :placeholder="t('editor.selectDatabase')">{{ selectedDatabaseLabel }}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="option in dbSelectOptions" :key="option.value" :value="option.value">{{ option.label }}</SelectItem>
-                <SelectItem v-if="!dbSelectOptions.length && connection && tab" :value="selectedDatabaseSelectValue">{{ selectedDatabaseLabel }}</SelectItem>
-              </SelectContent>
-            </Select>
-          </template>
-        </div>
-        <div v-if="mentionOpen" class="absolute bottom-full left-2 right-2 z-20 mb-1 max-h-56 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
-          <div v-if="mentionLoading" class="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
-            <Loader2 class="h-3.5 w-3.5 animate-spin" />
-            <span>{{ t("common.loading") }}</span>
-          </div>
-          <div v-else-if="mentionError" class="px-2 py-2 text-xs text-destructive">
-            {{ mentionError }}
-          </div>
-          <div v-else-if="!mentionCandidates.length" class="px-2 py-2 text-xs text-muted-foreground">
-            {{ t("ai.tableMentionEmpty") }}
-          </div>
-          <div v-else class="max-h-56 overflow-auto p-1">
-            <button
-              v-for="(candidate, index) in mentionCandidates"
-              :key="`${candidate.schema || ''}.${candidate.name}`"
-              type="button"
-              class="flex w-full min-w-0 items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
-              :class="{ 'bg-muted': index === mentionSelectedIndex }"
-              @mousedown.prevent="insertMention(candidate)"
-              @mouseenter="mentionSelectedIndex = index"
-            >
-              <Table2 class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span class="min-w-0 flex-1 truncate">
-                <template v-if="candidate.schema">{{ candidate.schema }}.</template>{{ candidate.name }}
-              </span>
-              <span class="shrink-0 text-[10px] text-muted-foreground">{{ formatMentionTableType(candidate.tableType) }}</span>
-            </button>
-          </div>
-        </div>
-        <div v-if="promptMentionChips.length" class="mb-1.5 flex flex-wrap gap-1">
-          <button
-            v-for="mention in promptMentionChips"
-            :key="mention.raw"
-            type="button"
-            class="group inline-flex max-w-full items-center gap-1 rounded border border-border/80 bg-muted/60 px-1.5 py-0.5 text-[11px] text-foreground/90 hover:bg-muted"
-            :title="mentionDisplayName(mention)"
-            @click="removeMentionChip(mention)"
-          >
-            <Table2 class="h-3 w-3 shrink-0 text-primary" />
-            <span class="truncate">{{ mentionDisplayName(mention) }}</span>
-            <X class="h-3 w-3 shrink-0 text-muted-foreground group-hover:text-foreground" />
-          </button>
-        </div>
         <textarea
           ref="promptTextareaRef"
           v-model="prompt"
@@ -949,9 +897,6 @@ const messageRenderer = computed(() => {
           class="w-full resize-none bg-transparent text-xs outline-none placeholder:text-muted-foreground mb-1"
           :placeholder="activePlaceholder"
           :disabled="isGenerating"
-          @input="refreshMentionState"
-          @click="refreshMentionState"
-          @keyup="refreshMentionState"
           @compositionstart="promptCompositionActive = true"
           @compositionend="promptCompositionActive = false"
           @keydown="onPromptKeydown"
@@ -963,7 +908,7 @@ const messageRenderer = computed(() => {
           <button v-if="isGenerating" class="h-7 w-7 shrink-0 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center" :title="t('ai.stopGenerating')" @click="cancelStream">
             <Square class="h-3.5 w-3.5" />
           </button>
-          <button v-else class="h-7 w-7 shrink-0 rounded-full bg-foreground text-background flex items-center justify-center disabled:opacity-30" :disabled="!prompt.trim() || !props.tab?.database" @click="send">
+          <button v-else class="h-7 w-7 shrink-0 rounded-full bg-foreground text-background flex items-center justify-center disabled:opacity-30" :disabled="!prompt.trim()" @click="send">
             <ArrowUp class="h-4 w-4" />
           </button>
         </div>

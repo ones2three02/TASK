@@ -55,7 +55,7 @@ function evaluateSingleSqlStatementSafety(sql: string, options: SqlSafetyOptions
   if (!options.allowWrites && !READ_KEYWORDS.has(firstKeyword)) {
     return {
       allowed: false,
-      reason: "MCP SQL execution is read-only for this session. Set DBX_MCP_ALLOW_WRITES=1 to allow write statements.",
+      reason: "MCP SQL execution is read-only for this session. Set TASK_MCP_ALLOW_WRITES=1 to allow write statements.",
     };
   }
 
@@ -72,8 +72,8 @@ function evaluateSingleSqlStatementSafety(sql: string, options: SqlSafetyOptions
 }
 
 export function sqlSafetyFromEnv(env: NodeJS.ProcessEnv = process.env): SqlSafetyOptions {
-  const allowWrites = parseBooleanEnv(env.DBX_MCP_ALLOW_WRITES);
-  const allowDangerous = parseBooleanEnv(env.DBX_MCP_ALLOW_DANGEROUS_SQL);
+  const allowWrites = parseBooleanEnv(env.TASK_MCP_ALLOW_WRITES);
+  const allowDangerous = parseBooleanEnv(env.TASK_MCP_ALLOW_DANGEROUS_SQL);
   return {
     allowWrites: allowWrites ?? true,
     allowDangerous: allowDangerous ?? false,

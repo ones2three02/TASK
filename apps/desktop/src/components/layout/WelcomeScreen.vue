@@ -128,7 +128,7 @@ const { t } = useI18n();
               {{ t("welcome.mcpDescription") }}
             </p>
             <div class="mt-2 flex flex-wrap items-center gap-2">
-              <code class="max-w-full break-all rounded bg-muted px-2 py-0.5 text-[11px] select-all">npx @dbx-app/mcp-server</code>
+              <code class="max-w-full break-all rounded bg-muted px-2 py-0.5 text-[11px] select-all">npx @task-app/mcp-server</code>
               <a href="#" class="text-xs text-primary hover:underline" @click.prevent="emit('open-mcp-guide')">{{ t("welcome.mcpLearnMore") }}</a>
             </div>
           </div>
@@ -137,7 +137,7 @@ const { t } = useI18n();
 
       <!-- Project Info -->
       <div class="mt-2 flex items-center justify-center gap-3 text-[11px] text-muted-foreground/60">
-        <span>DBX {{ appVersion ? "v" + appVersion : "" }}</span>
+        <span>TASK {{ appVersion ? "v" + appVersion : "" }}</span>
         <span>·</span>
         <a href="#" class="hover:text-foreground transition-colors" @click.prevent="emit('open-github')">GitHub</a>
       </div>

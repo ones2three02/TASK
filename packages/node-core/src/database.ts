@@ -319,11 +319,11 @@ function bridgeAppDataDir(): string {
   const home = homedir();
   switch (platform()) {
     case "darwin":
-      return join(home, "Library", "Application Support", "com.dbx.app");
+      return join(home, "Library", "Application Support", "com.task.app");
     case "win32":
-      return join(process.env.APPDATA || join(home, "AppData", "Roaming"), "com.dbx.app");
+      return join(process.env.APPDATA || join(home, "AppData", "Roaming"), "com.task.app");
     default:
-      return join(home, ".config", "com.dbx.app");
+      return join(home, ".config", "com.task.app");
   }
 }
 
@@ -334,7 +334,7 @@ async function bridgeDataRequest<T>(path: string, body: Record<string, unknown>)
     const port = (await readFile(portFile, "utf-8")).trim();
     bridgeUrl = `http://127.0.0.1:${port}`;
   } catch {
-    throw new Error("DBX desktop app is not running. This database type requires DBX to be running for query execution.");
+    throw new Error("TASK desktop app is not running. This database type requires TASK to be running for query execution.");
   }
   const res = await fetch(`${bridgeUrl}${path}`, {
     method: "POST",
@@ -878,13 +878,13 @@ export function evaluateMongoWriteSafety(command: MongoWriteCommand, options: { 
   if (!options.allowWrites) {
     return {
       allowed: false,
-      reason: "MCP MongoDB execution is read-only by default. Set DBX_MCP_ALLOW_WRITES=1 to allow write commands.",
+      reason: "MCP MongoDB execution is read-only by default. Set TASK_MCP_ALLOW_WRITES=1 to allow write commands.",
     };
   }
   if (!options.allowDangerous && (command.kind === "update" || command.kind === "delete") && isEmptyJsonObject(command.filter)) {
     return {
       allowed: false,
-      reason: "MongoDB update/delete commands must include a non-empty filter unless DBX_MCP_ALLOW_DANGEROUS_SQL=1 is set.",
+      reason: "MongoDB update/delete commands must include a non-empty filter unless TASK_MCP_ALLOW_DANGEROUS_SQL=1 is set.",
     };
   }
   return { allowed: true };
@@ -896,13 +896,13 @@ export function evaluateMongoAggregateSafety(command: MongoAggregateCommand, opt
   if (!options.allowWrites) {
     return {
       allowed: false,
-      reason: `MongoDB aggregate stage "${writeStage}" writes data. Set DBX_MCP_ALLOW_WRITES=1 to allow write commands.`,
+      reason: `MongoDB aggregate stage "${writeStage}" writes data. Set TASK_MCP_ALLOW_WRITES=1 to allow write commands.`,
     };
   }
   if (!options.allowDangerous) {
     return {
       allowed: false,
-      reason: `MongoDB aggregate stage "${writeStage}" is dangerous. Set DBX_MCP_ALLOW_DANGEROUS_SQL=1 to allow it.`,
+      reason: `MongoDB aggregate stage "${writeStage}" is dangerous. Set TASK_MCP_ALLOW_DANGEROUS_SQL=1 to allow it.`,
     };
   }
   return { allowed: true };

@@ -1,16 +1,16 @@
 use std::sync::Arc;
 use tauri::{Emitter, State};
 
-use dbx_core::agent_service::AgentProgressEvent;
-use dbx_core::jdbc::{self, JdbcDriverInfo, JdbcMavenBundleInfo, JdbcMavenInstallRequest, JdbcPluginStatus};
-use dbx_core::plugins::InstalledPlugin;
+use task_core::agent_service::AgentProgressEvent;
+use task_core::jdbc::{self, JdbcDriverInfo, JdbcMavenBundleInfo, JdbcMavenInstallRequest, JdbcPluginStatus};
+use task_core::plugins::InstalledPlugin;
 
 use super::connection::AppState;
 
 #[tauri::command]
 pub async fn list_plugins(state: State<'_, Arc<AppState>>) -> Result<Vec<InstalledPlugin>, String> {
     let root_dir = state.plugins.root_dir().to_path_buf();
-    tauri::async_runtime::spawn_blocking(move || dbx_core::plugins::PluginRegistry::new(root_dir).list_installed())
+    tauri::async_runtime::spawn_blocking(move || task_core::plugins::PluginRegistry::new(root_dir).list_installed())
         .await
         .map_err(|err| err.to_string())?
 }

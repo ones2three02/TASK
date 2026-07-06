@@ -20,6 +20,8 @@ export interface ConnectionDeepLinkDraft {
 }
 
 const CONNECTION_DEEP_LINK_TARGET = "connection/new";
+const CONNECTION_DEEP_LINK_PROTOCOL = "task:";
+const LEGACY_CONNECTION_DEEP_LINK_PROTOCOL = "task:";
 
 function normalizePath(url: URL): string {
   return [url.hostname, url.pathname.replace(/^\/+/, "")].filter(Boolean).join("/").replace(/\/+$/, "");
@@ -72,7 +74,7 @@ export function parseConnectionDeepLink(value: string): ConnectionDeepLinkDraft 
     return null;
   }
 
-  if (url.protocol !== "dbx:") return null;
+  if (url.protocol !== CONNECTION_DEEP_LINK_PROTOCOL && url.protocol !== LEGACY_CONNECTION_DEEP_LINK_PROTOCOL) return null;
   if (normalizePath(url) !== CONNECTION_DEEP_LINK_TARGET) return null;
 
   const params = url.searchParams;

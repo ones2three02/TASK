@@ -204,7 +204,7 @@ export function useDialogSources() {
     }
   }
 
-  async function onImportClick(source: "dbx" | "navicat" | "dbeaver" | "datagrip" = "dbx") {
+  async function onImportClick(source: "task" | "navicat" | "dbeaver" | "datagrip" = "task") {
     try {
       const result = await connectionStore.readImportFile(source);
       if (!result) return;

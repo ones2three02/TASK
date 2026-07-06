@@ -102,6 +102,9 @@ watch(
         <p v-if="isDesktop && updateInfo?.update_available && updateInfo.portable_mode" class="text-xs text-muted-foreground">
           {{ t("updates.portableManualUpdate") }}
         </p>
+        <p v-if="isDesktop && updateInfo?.update_available && updateInfo.platform_available === false" class="text-xs text-muted-foreground">
+          {{ t("updates.platformUnavailable") }}
+        </p>
       </div>
       <DialogFooter>
         <Button v-if="!isDownloadingUpdate && !updateReady" variant="outline" @click="open = false">{{ t("dangerDialog.cancel") }}</Button>

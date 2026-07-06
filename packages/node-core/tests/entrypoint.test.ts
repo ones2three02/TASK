@@ -7,7 +7,7 @@ import { test } from "vitest";
 import { isMainModule } from "../src/entrypoint.js";
 
 test("matches a module invoked through its real file path", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "dbx-entrypoint-"));
+  const dir = await mkdtemp(join(tmpdir(), "task-entrypoint-"));
   try {
     const entry = join(dir, "cli.js");
     await writeFile(entry, "", "utf-8");
@@ -19,10 +19,10 @@ test("matches a module invoked through its real file path", async () => {
 });
 
 test("matches a module invoked through an npm-style symlink", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "dbx-entrypoint-"));
+  const dir = await mkdtemp(join(tmpdir(), "task-entrypoint-"));
   try {
     const entry = join(dir, "dist", "cli.js");
-    const bin = join(dir, "dbx");
+    const bin = join(dir, "task");
     await mkdir(join(dir, "dist"));
     await writeFile(entry, "", "utf-8");
     await symlink(entry, bin);
@@ -34,7 +34,7 @@ test("matches a module invoked through an npm-style symlink", async () => {
 });
 
 test("does not match a different entry file", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "dbx-entrypoint-"));
+  const dir = await mkdtemp(join(tmpdir(), "task-entrypoint-"));
   try {
     const entry = join(dir, "cli.js");
     const other = join(dir, "other.js");

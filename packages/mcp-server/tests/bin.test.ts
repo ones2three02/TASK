@@ -36,7 +36,7 @@ test("responds to initialize when invoked through an npm-style symlink", async (
         params: {
           protocolVersion: "2024-11-05",
           capabilities: {},
-          clientInfo: { name: "dbx-test", version: "0.0.0" },
+          clientInfo: { name: "task-test", version: "0.0.0" },
         },
       }),
     );
@@ -44,7 +44,7 @@ test("responds to initialize when invoked through an npm-style symlink", async (
     const response = await responsePromise;
 
     assert.equal(response.id, 1);
-    assert.equal(response.result.serverInfo.name, "dbx");
+    assert.equal(response.result.serverInfo.name, "task");
   } finally {
     child?.kill();
     await rm(bin.dir, { recursive: true, force: true });
@@ -52,8 +52,8 @@ test("responds to initialize when invoked through an npm-style symlink", async (
 });
 
 async function symlinkedMcpServer() {
-  const dir = await mkdtemp(join(tmpdir(), "dbx-mcp-bin-"));
-  const path = join(dir, "dbx-mcp-server");
+  const dir = await mkdtemp(join(tmpdir(), "task-mcp-bin-"));
+  const path = join(dir, "task-mcp-server");
   await symlink(mcpBin, path);
   return { dir, path };
 }

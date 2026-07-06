@@ -232,8 +232,8 @@ html.disable-transitions *::after {
   animation-duration: 0s !important;
 }
 
-body.dbx-table-reference-dragging,
-body.dbx-table-reference-dragging * {
+body.task-table-reference-dragging,
+body.task-table-reference-dragging * {
   user-select: none !important;
   -webkit-user-select: none !important;
 }
@@ -271,8 +271,8 @@ body.dbx-table-reference-dragging * {
   }
 }
 
-.dbx-editor-font-family {
-  font-family: var(--dbx-editor-font-family, var(--font-mono, monospace));
+.task-editor-font-family {
+  font-family: var(--task-editor-font-family, var(--font-mono, monospace));
 }
 
 /* Splitpanes */

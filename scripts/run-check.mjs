@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { performance } from "node:perf_hooks";
+import path from "node:path";
 
 const tasks = [
   {
@@ -22,13 +23,36 @@ const tasks = [
     command: "vitest",
     args: ["run"],
   },
+  {
+    name: "cargo fmt",
+    command: "cargo",
+    args: ["fmt", "--", "--check"],
+  },
+  {
+    name: "cargo clippy",
+    command: "cargo",
+    args: ["clippy", "--all-targets"],
+  },
+  {
+    name: "cargo test",
+    command: "cargo",
+    args: ["test"],
+  },
 ];
 
 function runTask(task) {
   const startedAt = performance.now();
+  const env = { ...process.env };
+  const binDir = path.join(process.cwd(), "node_modules", ".bin");
+  if (env.PATH) {
+    env.PATH = `${binDir}${path.delimiter}${env.PATH}`;
+  } else {
+    env.PATH = binDir;
+  }
+
   const child = spawn(task.command, task.args, {
     cwd: process.cwd(),
-    env: process.env,
+    env,
     stdio: ["ignore", "pipe", "pipe"],
   });
   const stdout = [];
@@ -65,7 +89,7 @@ function outputFailureExcerpt(output) {
   const selected = new Set();
 
   for (let index = 0; index < lines.length; index += 1) {
-    if (!/\bnot ok\b|AssertionError|ERR_ASSERT|^# fail\b|^# tests\b|^# pass\b/.test(lines[index])) continue;
+    if (!/\bnot ok\b|AssertionError|ERR_ASSERT|^# fail\b|^# tests\b|^# pass\b|error\[E\d+\]:|error: \b/.test(lines[index])) continue;
     const start = Math.max(0, index - 2);
     const end = Math.min(lines.length, index + 14);
     for (let lineIndex = start; lineIndex < end; lineIndex += 1) {

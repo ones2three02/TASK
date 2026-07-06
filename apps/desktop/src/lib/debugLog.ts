@@ -1,5 +1,7 @@
-const DEBUG_LOG_ENABLED_KEY = "dbx-debug-logging-enabled";
-const DEBUG_LOG_ENTRIES_KEY = "dbx-debug-log-entries";
+const DEBUG_LOG_ENABLED_KEY = "task-debug-logging-enabled";
+const DEBUG_LOG_ENTRIES_KEY = "task-debug-log-entries";
+const LEGACY_DEBUG_LOG_ENABLED_KEY = "task-debug-logging-enabled";
+const LEGACY_DEBUG_LOG_ENTRIES_KEY = "task-debug-log-entries";
 const MAX_DEBUG_LOG_ENTRIES = 1500;
 const MAX_TEXT_LENGTH = 4000;
 const MAX_LABEL_LENGTH = 120;
@@ -38,11 +40,11 @@ function safeLocalStorageRemove(key: string) {
 }
 
 export function isDebugLoggingEnabled(): boolean {
-  return safeLocalStorageGet(DEBUG_LOG_ENABLED_KEY) === "1";
+  return (safeLocalStorageGet(DEBUG_LOG_ENABLED_KEY) ?? safeLocalStorageGet(LEGACY_DEBUG_LOG_ENABLED_KEY)) === "1";
 }
 
 function readEntries(): DebugLogEntry[] {
-  const raw = safeLocalStorageGet(DEBUG_LOG_ENTRIES_KEY);
+  const raw = safeLocalStorageGet(DEBUG_LOG_ENTRIES_KEY) ?? safeLocalStorageGet(LEGACY_DEBUG_LOG_ENTRIES_KEY);
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -95,7 +97,7 @@ export function appendDebugLog(level: DebugLogLevel, ...args: unknown[]) {
 export function setDebugLoggingEnabled(enabled: boolean) {
   safeLocalStorageSet(DEBUG_LOG_ENABLED_KEY, enabled ? "1" : "0");
   if (enabled) {
-    appendDebugLog("info", "[DBX][debug-log] enabled", {
+    appendDebugLog("info", "[TASK][debug-log] enabled", {
       url: location.href,
       viewport: `${window.innerWidth}x${window.innerHeight}`,
       devicePixelRatio: window.devicePixelRatio,
@@ -111,14 +113,14 @@ export function clearDebugLogs() {
 
 export function getDebugLogText(): string {
   const entries = readEntries();
-  const header = [`DBX debug log`, `Exported: ${new Date().toISOString()}`, `User agent: ${navigator.userAgent}`, `Platform: ${navigator.platform}`, `Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown"}`, ""];
+  const header = [`TASK debug log`, `Exported: ${new Date().toISOString()}`, `User agent: ${navigator.userAgent}`, `Platform: ${navigator.platform}`, `Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown"}`, ""];
   const body = entries.map((entry) => `[${entry.timestamp}] [${entry.level.toUpperCase()}] ${entry.message}`);
   return [...header, ...body].join("\n");
 }
 
 export async function downloadDebugLogs() {
   const text = await getDebugLogBundleText();
-  const filename = `dbx-debug-log-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
+  const filename = `task-debug-log-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
   if (typeof window !== "undefined" && isTauriRuntimeLike()) {
     const [{ save }, { writeTextFile }] = await Promise.all([import("@tauri-apps/plugin-dialog"), import("@tauri-apps/plugin-fs")]);
     const path = await save({

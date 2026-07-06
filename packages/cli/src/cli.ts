@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
-import { buildSchemaContext, createBackend, DIRECT_QUERY_TYPES, BRIDGE_REQUIRED_TYPES, evaluateSqlSafety, formatSchemaContext, getDbxDiagnostics, isMainModule, postBridge, type Backend, type DbxDiagnostics, type SqlSafetyOptions } from "@dbx-app/node-core";
+import { buildSchemaContext, createBackend, DIRECT_QUERY_TYPES, BRIDGE_REQUIRED_TYPES, evaluateSqlSafety, formatSchemaContext, getTaskDiagnostics, isMainModule, postBridge, type Backend, type TaskDiagnostics, type SqlSafetyOptions } from "@task-app/node-core";
 import { connectionSummary, csvTable, errorPayload, formatCell, formatErrorMessage, mdTable } from "./cli-format.js";
 
 export interface CliResult {
@@ -13,7 +13,7 @@ interface RunOptions {
   backend?: Backend;
   backendFactory?: (env?: NodeJS.ProcessEnv) => Promise<Backend>;
   env?: NodeJS.ProcessEnv;
-  diagnostics?: () => Promise<DbxDiagnostics>;
+  diagnostics?: () => Promise<TaskDiagnostics>;
 }
 
 interface ParsedFlags {
@@ -62,8 +62,8 @@ export async function runCli(argv: string[], options: RunOptions = {}): Promise<
     const backend = options.backend ?? (ownedBackend = await backendFactory(env));
 
     if (args[0] === "doctor") {
-      ensureArgCount(args, 1, "dbx doctor");
-      const diagnostics = await (options.diagnostics ?? getDbxDiagnostics)();
+      ensureArgCount(args, 1, "task doctor");
+      const diagnostics = await (options.diagnostics ?? getTaskDiagnostics)();
       if (flags.format === "json") return okJson(diagnostics);
       if (flags.format === "csv") {
         return ok(
@@ -90,7 +90,7 @@ export async function runCli(argv: string[], options: RunOptions = {}): Promise<
     }
 
     if (args[0] === "capabilities") {
-      ensureArgCount(args, 1, "dbx capabilities");
+      ensureArgCount(args, 1, "task capabilities");
       const payload = {
         directQueryTypes: [...DIRECT_QUERY_TYPES],
         bridgeRequiredTypes: [...BRIDGE_REQUIRED_TYPES],
@@ -104,14 +104,14 @@ export async function runCli(argv: string[], options: RunOptions = {}): Promise<
           ["Mode", "Types"],
           [
             ["Direct", payload.directQueryTypes.join(", ")],
-            ["Requires DBX Desktop", payload.bridgeRequiredTypes.join(", ")],
+            ["Requires TASK Desktop", payload.bridgeRequiredTypes.join(", ")],
           ],
         )}\n`,
       );
     }
 
     if (args[0] === "connections" && args[1] === "list") {
-      ensureArgCount(args, 2, "dbx connections list");
+      ensureArgCount(args, 2, "task connections list");
       const connections = (await backend.loadConnections()).map(connectionSummary);
       if (flags.format === "json") return okJson({ connections });
       if (flags.format === "csv") return ok(csvTable(["name", "type", "host", "port", "database"], connections));
@@ -124,7 +124,7 @@ export async function runCli(argv: string[], options: RunOptions = {}): Promise<
     }
 
     if (args[0] === "schema" && args[1] === "list") {
-      ensureArgCount(args, 3, "dbx schema list");
+      ensureArgCount(args, 3, "task schema list");
       const connectionName = required(args[2], "Connection name is required.");
       const config = await findConnectionOrThrow(backend, connectionName);
       const tables = await backend.listTables(config, flags.schema);
@@ -139,7 +139,7 @@ export async function runCli(argv: string[], options: RunOptions = {}): Promise<
     }
 
     if (args[0] === "schema" && args[1] === "describe") {
-      ensureArgCount(args, 4, "dbx schema describe");
+      ensureArgCount(args, 4, "task schema describe");
       const connectionName = required(args[2], "Connection name is required.");
       const table = required(args[3], "Table name is required.");
       const config = await findConnectionOrThrow(backend, connectionName);
@@ -157,9 +157,9 @@ export async function runCli(argv: string[], options: RunOptions = {}): Promise<
     }
 
     if (args[0] === "query") {
-      const usesDefaultConnection = !!env.DBX_CONNECTION && args.length === (flags.file ? 1 : 2);
-      ensureArgCount(args, usesDefaultConnection ? (flags.file ? 1 : 2) : flags.file ? 2 : 3, "dbx query");
-      const connectionName = usesDefaultConnection ? env.DBX_CONNECTION! : required(args[1], "Connection name is required.");
+      const usesDefaultConnection = !!env.TASK_CONNECTION && args.length === (flags.file ? 1 : 2);
+      ensureArgCount(args, usesDefaultConnection ? (flags.file ? 1 : 2) : flags.file ? 2 : 3, "task query");
+      const connectionName = usesDefaultConnection ? env.TASK_CONNECTION! : required(args[1], "Connection name is required.");
       if (flags.file && args[2]) {
         throw new CliError("INVALID_ARGUMENT", "Provide SQL either inline or with --file, not both.");
       }
@@ -191,9 +191,9 @@ export async function runCli(argv: string[], options: RunOptions = {}): Promise<
     }
 
     if (args[0] === "context") {
-      const usesDefaultConnection = !!env.DBX_CONNECTION && args.length === 1;
-      ensureArgCount(args, usesDefaultConnection ? 1 : 2, "dbx context");
-      const connectionName = usesDefaultConnection ? env.DBX_CONNECTION! : required(args[1], "Connection name is required.");
+      const usesDefaultConnection = !!env.TASK_CONNECTION && args.length === 1;
+      ensureArgCount(args, usesDefaultConnection ? 1 : 2, "task context");
+      const connectionName = usesDefaultConnection ? env.TASK_CONNECTION! : required(args[1], "Connection name is required.");
       const config = await findConnectionOrThrow(backend, connectionName);
       const context = await buildSchemaContext(backend, config, {
         schema: flags.schema,
@@ -201,12 +201,12 @@ export async function runCli(argv: string[], options: RunOptions = {}): Promise<
         maxTables: flags.maxTables,
       });
       if (flags.format === "json") return okJson(context);
-      if (flags.format === "csv") throw new CliError("INVALID_OPTION", "CSV format is not supported for dbx context.");
+      if (flags.format === "csv") throw new CliError("INVALID_OPTION", "CSV format is not supported for task context.");
       return ok(`${formatSchemaContext(context)}\n`);
     }
 
     if (args[0] === "open") {
-      ensureArgCount(args, 3, "dbx open");
+      ensureArgCount(args, 3, "task open");
       const connectionName = required(args[1], "Connection name is required.");
       const table = required(args[2], "Table name is required.");
       const response = await postBridge("/open-table", {
@@ -216,11 +216,11 @@ export async function runCli(argv: string[], options: RunOptions = {}): Promise<
         database: flags.database,
       });
       if (!response.ok) {
-        return fail("DBX_NOT_RUNNING", response.text || "DBX is not running. Please start DBX first.", flags.json);
+        return fail("TASK_NOT_RUNNING", response.text || "TASK is not running. Please start TASK first.", flags.json);
       }
       if (flags.format === "json") return okJson({ opened: true, connection: connectionName, table, schema: flags.schema, database: flags.database });
-      if (flags.format === "csv") throw new CliError("INVALID_OPTION", "CSV format is not supported for dbx open.");
-      return ok(`Opened ${table} in DBX\n`);
+      if (flags.format === "csv") throw new CliError("INVALID_OPTION", "CSV format is not supported for task open.");
+      return ok(`Opened ${table} in TASK\n`);
     }
 
     return fail("USAGE", usage(), flags.json);
@@ -324,8 +324,8 @@ function parseBooleanEnv(value: string | undefined): boolean {
 
 function sqlSafetyFromCliEnv(env: NodeJS.ProcessEnv): Required<Pick<SqlSafetyOptions, "allowWrites" | "allowDangerous">> {
   return {
-    allowWrites: parseBooleanEnv(env.DBX_MCP_ALLOW_WRITES),
-    allowDangerous: parseBooleanEnv(env.DBX_MCP_ALLOW_DANGEROUS_SQL),
+    allowWrites: parseBooleanEnv(env.TASK_MCP_ALLOW_WRITES),
+    allowDangerous: parseBooleanEnv(env.TASK_MCP_ALLOW_DANGEROUS_SQL),
   };
 }
 
@@ -363,21 +363,21 @@ function fail(code: string, message: string, json: boolean): CliResult {
 function usage(): string {
   return [
     "Usage:",
-    "  dbx doctor [--json]",
-    "  dbx capabilities [--json]",
-    "  dbx connections list [--json]",
-    "  dbx schema list <connection> [--schema name] [--json]",
-    "  dbx schema describe <connection> <table> [--schema name] [--json]",
-    "  dbx query <connection> <sql> [--file path] [--limit n] [--timeout 10s] [--allow-writes] [--allow-dangerous-sql] [--json]",
-    "  dbx context <connection> [--schema name] [--tables a,b] [--max-tables n] [--json]",
-    "  dbx open <connection> <table> [--schema name] [--database name] [--json]",
+    "  task doctor [--json]",
+    "  task capabilities [--json]",
+    "  task connections list [--json]",
+    "  task schema list <connection> [--schema name] [--json]",
+    "  task schema describe <connection> <table> [--schema name] [--json]",
+    "  task query <connection> <sql> [--file path] [--limit n] [--timeout 10s] [--allow-writes] [--allow-dangerous-sql] [--json]",
+    "  task context <connection> [--schema name] [--tables a,b] [--max-tables n] [--json]",
+    "  task open <connection> <table> [--schema name] [--database name] [--json]",
   ].join("\n");
 }
 
-function formatDoctor(diagnostics: DbxDiagnostics): string {
+function formatDoctor(diagnostics: TaskDiagnostics): string {
   const rows = [
     ["App data directory", diagnostics.appDataDir],
-    ["DBX database", diagnostics.dbPathExists ? `found (${diagnostics.dbPath})` : `missing (${diagnostics.dbPath})`],
+    ["TASK database", diagnostics.dbPathExists ? `found (${diagnostics.dbPath})` : `missing (${diagnostics.dbPath})`],
     ["Connections table", diagnostics.connectionsTableExists ? `${diagnostics.connectionRowCount} row(s)` : "missing"],
     ["Connection loading", diagnostics.loadConnectionsOk ? `ok (${diagnostics.loadedConnectionCount} loaded)` : `failed (${diagnostics.loadConnectionsError ?? "unknown error"})`],
     ...(diagnostics.loadConnectionsHint ? [["Connection fix", diagnostics.loadConnectionsHint]] : []),

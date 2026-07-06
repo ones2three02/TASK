@@ -7,7 +7,7 @@ import { augmentLatestJsonWithJdbcPlugin } from "../../.github/scripts/augment-l
 test("allows JDBC plugin runtime changes without a manual version bump before release", () => {
   assert.deepEqual(
     evaluateJdbcPluginVersionChange({
-      changedFiles: ["plugins/jdbc/src/main/java/app/dbx/jdbc/DbxJdbcPlugin.java"],
+      changedFiles: ["plugins/jdbc/src/main/java/app/task/jdbc/TaskJdbcPlugin.java"],
       basePomVersion: "0.1.1",
       baseManifestVersion: "0.1.1",
       headPomVersion: "0.1.1",
@@ -20,7 +20,7 @@ test("allows JDBC plugin runtime changes without a manual version bump before re
 test("allows JDBC plugin runtime changes when pom and manifest versions are bumped together", () => {
   assert.deepEqual(
     evaluateJdbcPluginVersionChange({
-      changedFiles: ["plugins/jdbc/src/main/java/app/dbx/jdbc/DbxJdbcPlugin.java"],
+      changedFiles: ["plugins/jdbc/src/main/java/app/task/jdbc/TaskJdbcPlugin.java"],
       basePomVersion: "0.1.1",
       baseManifestVersion: "0.1.1",
       headPomVersion: "0.1.2",
@@ -58,7 +58,7 @@ test("requires JDBC plugin pom and manifest versions to match", () => {
 
 test("auto bumps JDBC plugin patch version when runtime files changed for release", () => {
   const result = evaluateJdbcPluginReleaseBump({
-    changedFiles: ["plugins/jdbc/src/main/java/app/dbx/jdbc/DbxJdbcPlugin.java"],
+    changedFiles: ["plugins/jdbc/src/main/java/app/task/jdbc/TaskJdbcPlugin.java"],
     pomXml: "<project><version>0.1.9</version></project>",
     manifestJson: '{ "version": "0.1.9" }',
   });
@@ -86,7 +86,7 @@ test("auto bump refuses mismatched JDBC plugin source versions", () => {
   assert.throws(
     () =>
       evaluateJdbcPluginReleaseBump({
-        changedFiles: ["plugins/jdbc/src/main/java/app/dbx/jdbc/DbxJdbcPlugin.java"],
+        changedFiles: ["plugins/jdbc/src/main/java/app/task/jdbc/TaskJdbcPlugin.java"],
         pomXml: "<project><version>0.1.9</version></project>",
         manifestJson: '{ "version": "0.1.8" }',
       }),
@@ -108,7 +108,7 @@ test("adds JDBC plugin metadata to latest.json without disturbing updater fields
     }),
     jdbcVersion: "0.1.3",
     protocolVersion: 1,
-    url: "https://github.com/t8y2/dbx/releases/latest/download/dbx-jdbc-plugin-latest.zip",
+    url: "https://github.com/ones2three02/TASK/releases/latest/download/task-jdbc-plugin-latest.zip",
   });
   const parsed = JSON.parse(result);
 
@@ -117,6 +117,6 @@ test("adds JDBC plugin metadata to latest.json without disturbing updater fields
   assert.deepEqual(parsed.jdbc_plugin, {
     version: "0.1.3",
     protocol_version: 1,
-    url: "https://github.com/t8y2/dbx/releases/latest/download/dbx-jdbc-plugin-latest.zip",
+    url: "https://github.com/ones2three02/TASK/releases/latest/download/task-jdbc-plugin-latest.zip",
   });
 });

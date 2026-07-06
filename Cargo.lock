@@ -1840,127 +1840,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dbx"
-version = "0.5.32"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "calamine",
- "chrono",
- "csv",
- "dbx-core",
- "deadpool-postgres",
- "duckdb",
- "font-kit",
- "futures",
- "log",
- "mongodb",
- "percent-encoding",
- "portpicker",
- "redis",
- "reqwest 0.12.28",
- "russh",
- "rust_decimal",
- "rustls 0.23.40",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-log",
- "tauri-plugin-process",
- "tauri-plugin-shell",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tauri-plugin-window-state",
- "tiberius",
- "tokio",
- "tokio-postgres",
- "tokio-util",
- "uuid",
- "zip 4.6.1",
-]
-
-[[package]]
-name = "dbx-core"
-version = "0.1.0"
-dependencies = [
- "aes-gcm 0.10.3",
- "anyhow",
- "argon2",
- "async-trait",
- "base64 0.22.1",
- "bytes",
- "calamine",
- "chrono",
- "csv",
- "deadpool-postgres",
- "duckdb",
- "encoding_rs",
- "font-kit",
- "futures",
- "iana-time-zone",
- "log",
- "mongodb",
- "mysql_async",
- "pageant",
- "percent-encoding",
- "portpicker",
- "rayon",
- "redis",
- "regex",
- "reqwest 0.12.28",
- "rusqlite",
- "russh",
- "rust_decimal",
- "rustls 0.23.40",
- "rustls-pemfile 2.2.0",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sqlparser",
- "sysinfo",
- "tiberius",
- "tokio",
- "tokio-postgres",
- "tokio-postgres-rustls",
- "tokio-util",
- "uuid",
- "webpki-roots 0.26.11",
- "zip 4.6.1",
-]
-
-[[package]]
-name = "dbx-web"
-version = "0.5.32"
-dependencies = [
- "aes-gcm 0.10.3",
- "argon2",
- "async-stream",
- "axum",
- "base64 0.22.1",
- "chrono",
- "dbx-core",
- "futures",
- "log",
- "pbkdf2 0.12.2",
- "reqwest 0.12.28",
- "rustls 0.23.40",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "tokio",
- "tokio-util",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "deadpool"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7806,6 +7685,129 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
+name = "task"
+version = "0.5.46"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "calamine",
+ "chrono",
+ "csv",
+ "deadpool-postgres",
+ "duckdb",
+ "font-kit",
+ "futures",
+ "log",
+ "mongodb",
+ "percent-encoding",
+ "portpicker",
+ "redis",
+ "reqwest 0.12.28",
+ "russh",
+ "rust_decimal",
+ "rustls 0.23.40",
+ "serde",
+ "serde_json",
+ "task-core",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-log",
+ "tauri-plugin-process",
+ "tauri-plugin-shell",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tauri-plugin-window-state",
+ "tiberius",
+ "tokio",
+ "tokio-postgres",
+ "tokio-util",
+ "uuid",
+ "zip 4.6.1",
+]
+
+[[package]]
+name = "task-core"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm 0.10.3",
+ "anyhow",
+ "argon2",
+ "async-trait",
+ "base64 0.22.1",
+ "bytes",
+ "calamine",
+ "chrono",
+ "csv",
+ "deadpool-postgres",
+ "duckdb",
+ "encoding_rs",
+ "font-kit",
+ "futures",
+ "iana-time-zone",
+ "log",
+ "mongodb",
+ "mysql_async",
+ "pageant",
+ "percent-encoding",
+ "portpicker",
+ "rayon",
+ "redis",
+ "regex",
+ "reqwest 0.12.28",
+ "rusqlite",
+ "russh",
+ "rust_decimal",
+ "rustls 0.23.40",
+ "rustls-pemfile 2.2.0",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlparser",
+ "sysinfo",
+ "tiberius",
+ "tokio",
+ "tokio-postgres",
+ "tokio-postgres-rustls",
+ "tokio-util",
+ "utoipa",
+ "uuid",
+ "webpki-roots 0.26.11",
+ "zip 4.6.1",
+]
+
+[[package]]
+name = "task-web"
+version = "0.5.46"
+dependencies = [
+ "aes-gcm 0.10.3",
+ "argon2",
+ "async-stream",
+ "axum",
+ "base64 0.22.1",
+ "chrono",
+ "futures",
+ "log",
+ "pbkdf2 0.12.2",
+ "reqwest 0.12.28",
+ "rustls 0.23.40",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "task-core",
+ "tokio",
+ "tokio-util",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "utoipa",
+ "uuid",
+]
+
+[[package]]
 name = "tauri"
 version = "2.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8717,6 +8719,7 @@ dependencies = [
  "tower-service",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -9047,6 +9050,31 @@ name = "utf8_iter"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
+
+[[package]]
+name = "utoipa"
+version = "5.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bde15df68e80b16c7d16b9616e80770ad158988daa56a27dccd1e55558b0160"
+dependencies = [
+ "indexmap 2.14.0",
+ "serde",
+ "serde_json",
+ "utoipa-gen",
+]
+
+[[package]]
+name = "utoipa-gen"
+version = "5.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ba0b99ee52df3028635d93840c797102da61f8a7bb3cf751032455895b52ef8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "regex",
+ "syn 2.0.117",
+ "uuid",
+]
 
 [[package]]
 name = "uuid"

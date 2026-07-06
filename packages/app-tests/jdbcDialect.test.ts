@@ -57,19 +57,19 @@ test("JDBC tree shape follows the inferred driver dialect", () => {
 });
 
 test("Databend JDBC keeps database as schema context for table data", () => {
-  const databend = { db_type: "jdbc" as const, connection_string: "jdbc:databend://db.example.com:8000/dbx_test" };
+  const databend = { db_type: "jdbc" as const, connection_string: "jdbc:databend://db.example.com:8000/task_test" };
 
   assert.equal(effectiveDatabaseTypeForConnection(databend), "databend");
   assert.equal(connectionUsesDatabaseObjectTreeMode(databend), true);
   assert.equal(connectionUsesSchemaExecutionContext(databend), true);
-  assert.equal(connectionObjectTreeQuerySchema(databend, "dbx_test", undefined), "dbx_test");
-  assert.equal(connectionObjectTreeNodeSchema(databend, "dbx_test", undefined), "dbx_test");
+  assert.equal(connectionObjectTreeQuerySchema(databend, "task_test", undefined), "task_test");
+  assert.equal(connectionObjectTreeNodeSchema(databend, "task_test", undefined), "task_test");
   assert.equal(
     qualifiedTableName({
       databaseType: effectiveDatabaseTypeForConnection(databend),
-      schema: connectionObjectTreeNodeSchema(databend, "dbx_test", undefined),
+      schema: connectionObjectTreeNodeSchema(databend, "task_test", undefined),
       tableName: "jdbc_probe",
     }),
-    "`dbx_test`.`jdbc_probe`",
+    "`task_test`.`jdbc_probe`",
   );
 });

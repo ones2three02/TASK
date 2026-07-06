@@ -8,9 +8,9 @@ use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
 use crate::commands::connection::{ensure_connection_writable, AppState};
-use dbx_core::sql_file_import::{execute_sql_file_content, sql_file_error_progress, sql_file_progress};
+use task_core::sql_file_import::{execute_sql_file_content, sql_file_error_progress, sql_file_progress};
 
-pub use dbx_core::sql::{decode_sql_file_bytes, SqlFilePreview, SqlFileRequest, SqlFileStatus};
+pub use task_core::sql::{decode_sql_file_bytes, SqlFilePreview, SqlFileRequest, SqlFileStatus};
 
 static SQL_FILE_EXECUTIONS: OnceLock<RwLock<HashMap<String, CancellationToken>>> = OnceLock::new();
 

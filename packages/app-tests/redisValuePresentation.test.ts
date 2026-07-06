@@ -3,11 +3,11 @@ import { test } from "vitest";
 import { canEditRedisMemberDetail, clampRedisMemberDetailSheetWidth, formatRedisCommandResult, formatRedisMemberDetail, formatRedisStringValue, getRedisMemberSelectionKey, highlightRedisJsonDetail, parseRedisJsonDetail } from "../../apps/desktop/src/lib/redisValuePresentation.ts";
 
 test("formats JSON object strings for Redis member details", () => {
-  const detail = formatRedisMemberDetail('{"id":1,"name":"Ada","tags":["dbx","redis"]}');
+  const detail = formatRedisMemberDetail('{"id":1,"name":"Ada","tags":["task","redis"]}');
 
   assert.equal(detail.format, "json");
-  assert.equal(detail.rawText, '{"id":1,"name":"Ada","tags":["dbx","redis"]}');
-  assert.equal(detail.text, '{\n  "id": 1,\n  "name": "Ada",\n  "tags": [\n    "dbx",\n    "redis"\n  ]\n}');
+  assert.equal(detail.rawText, '{"id":1,"name":"Ada","tags":["task","redis"]}');
+  assert.equal(detail.text, '{\n  "id": 1,\n  "name": "Ada",\n  "tags": [\n    "task",\n    "redis"\n  ]\n}');
 });
 
 test("keeps plain Redis member strings unchanged", () => {

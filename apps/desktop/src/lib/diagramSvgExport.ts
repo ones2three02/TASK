@@ -61,7 +61,7 @@ function tableHeight(table: DiagramTable, options: TableDiagramSvgOptions): numb
 }
 
 function tableDiagramDefs(): string {
-  return ["<defs>", '<marker id="dbx-diagram-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">', '<path d="M 0 0 L 8 4 L 0 8 z" fill="#2563eb"/>', "</marker>", "</defs>"].join("");
+  return ["<defs>", '<marker id="task-diagram-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">', '<path d="M 0 0 L 8 4 L 0 8 z" fill="#2563eb"/>', "</marker>", "</defs>"].join("");
 }
 
 function isForeignKeyColumn(table: DiagramTable, columnName: string): boolean {
@@ -74,7 +74,7 @@ export function buildTableDiagramSvg(options: TableDiagramSvgOptions): string {
   for (const relationship of options.relationships) {
     const path = options.relationshipPaths[relationship.id];
     if (!path) continue;
-    parts.push(`<path d="${escapeXml(path)}" marker-end="url(#dbx-diagram-arrow)">` + `<title>${escapeXml(`${relationship.sourceTable}.${relationship.sourceColumn} -> ${relationship.targetTable}.${relationship.targetColumn}`)}</title>` + "</path>");
+    parts.push(`<path d="${escapeXml(path)}" marker-end="url(#task-diagram-arrow)">` + `<title>${escapeXml(`${relationship.sourceTable}.${relationship.sourceColumn} -> ${relationship.targetTable}.${relationship.targetColumn}`)}</title>` + "</path>");
   }
   parts.push("</g>");
 
@@ -248,5 +248,5 @@ function fileToken(value: string): string {
 export function diagramSvgFileName(connectionName: string, databaseName: string, mode: DiagramSvgMode): string {
   const context = [connectionName, databaseName].map(fileToken).filter(Boolean);
   const suffix = mode === "engineering" ? "engineering-er" : "table-structure";
-  return ["dbx", ...(context.length > 0 ? context : ["diagram"]), suffix].join("-") + ".svg";
+  return ["task", ...(context.length > 0 ? context : ["diagram"]), suffix].join("-") + ".svg";
 }

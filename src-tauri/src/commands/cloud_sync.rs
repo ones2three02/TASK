@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
-use dbx_core::cloud_sync::{
+use serde::{Deserialize, Serialize};
+use task_core::cloud_sync::{
     apply_sync_snapshot, build_sync_snapshot, forget_webdav_password, resolve_webdav_password, save_webdav_password,
     webdav_saved_password_status, ApplySnapshotOptions, ApplySnapshotSummary, WebDavClient, WebDavConfig,
     WebDavPasswordStatus, WebDavSyncSummary,
 };
-use dbx_core::storage::DesktopSettings;
-use serde::{Deserialize, Serialize};
+use task_core::storage::DesktopSettings;
 use tauri::State;
 
-use dbx_core::connection::AppState;
+use task_core::connection::AppState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

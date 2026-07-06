@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   ConnectionConfig,
   DatabaseInfo,
   TableInfo,
@@ -95,25 +95,46 @@ import type { DataGridSavePreparation } from "./tauri";
 // Helpers
 // ---------------------------------------------------------------------------
 
+async function readErrorMessage(res: Response): Promise<string> {
+  const requestId = res.headers.get("x-request-id");
+  const text = await res.text();
+  let message = text;
+
+  try {
+    const json = JSON.parse(text) as { message?: unknown };
+    if (typeof json.message === "string" && json.message.trim()) {
+      message = json.message;
+    }
+  } catch {
+    // Non-JSON error responses are still valid for legacy endpoints.
+  }
+
+  return requestId ? `[Request-ID: ${requestId}] ${message}` : message;
+}
+
+async function throwHttpError(res: Response): Promise<never> {
+  throw new Error(await readErrorMessage(res));
+}
+
 async function post<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
   return res.json();
 }
 
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
   return res.json();
 }
 
 async function del<T>(url: string): Promise<T> {
   const res = await fetch(url, { method: "DELETE" });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
   return res.json();
 }
 
@@ -197,7 +218,7 @@ export async function importJdbcDrivers(pathsOrFiles: (string | File)[]): Promis
     }
   }
   const res = await fetch("/api/jdbc/drivers", { method: "POST", body: formData });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
   return res.json();
 }
 
@@ -302,7 +323,7 @@ export async function importAgentsFromZip(fileOrPath: string | File): Promise<nu
   const formData = new FormData();
   formData.append("file", fileOrPath);
   const res = await fetch("/api/agents/import-offline", { method: "POST", body: formData });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
   const result: { count: number } = await res.json();
   return result.count;
 }
@@ -743,7 +764,7 @@ export async function aiStream(sessionId: string, request: AiCompletionRequest, 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ session_id: sessionId, request }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
 
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
@@ -799,7 +820,7 @@ export async function aiAgentStream(sessionId: string, request: AiCompletionRequ
     body: JSON.stringify({ session_id: sessionId, request, connection_id: connectionId, database, db_type: dbType, mode: mode || "ask" }),
     signal,
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
 
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
@@ -940,7 +961,7 @@ export async function previewSqlFile(fileOrPath: string | File): Promise<SqlFile
   const formData = new FormData();
   formData.append("file", fileOrPath);
   const res = await fetch("/api/sql-file/preview", { method: "POST", body: formData });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
   return res.json();
 }
 
@@ -987,7 +1008,7 @@ export async function startTransfer(request: TransferRequest, onProgress: (progr
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ request }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
 
   // 2. SSE to listen for progress
   return new Promise((resolve, reject) => {
@@ -1022,7 +1043,7 @@ export async function previewTableImportFile(fileOrPath: string | File): Promise
   const formData = new FormData();
   formData.append("file", fileOrPath);
   const res = await fetch("/api/import/preview", { method: "POST", body: formData });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
   return res.json();
 }
 
@@ -1033,7 +1054,7 @@ export async function importTableFile(request: TableImportRequest, onProgress: (
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ request }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
 
   // 2. SSE to listen for progress
   return new Promise((resolve, reject) => {
@@ -1077,7 +1098,7 @@ export async function exportDatabaseSql(request: DatabaseExportRequest, onProgre
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ request }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await throwHttpError(res);
 
   // 2. SSE to listen for progress
   return new Promise((resolve, reject) => {
@@ -1431,8 +1452,8 @@ export async function checkMcpServerStatus(): Promise<import("./tauri").McpServe
     latest_version: null,
     update_available: false,
     bin_path: null,
-    install_command: "npm install -g @dbx-app/mcp-server@latest --registry=https://registry.npmjs.org",
-    update_command: "npm install -g @dbx-app/mcp-server@latest --registry=https://registry.npmjs.org",
+    install_command: "npm install -g @task-app/mcp-server@latest --registry=https://registry.npmjs.org",
+    update_command: "npm install -g @task-app/mcp-server@latest --registry=https://registry.npmjs.org",
     error: "MCP Server status is only available in the desktop app.",
   };
 }

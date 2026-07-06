@@ -1,6 +1,6 @@
 import { createI18n } from "vue-i18n";
 import zhCN from "./locales/zh-CN";
-import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/safeStorage";
+import { safeLocalStorageGetWithLegacy, safeLocalStorageSet } from "@/lib/safeStorage";
 
 export type Locale = "en" | "es" | "it" | "pt-BR" | "zh-CN" | "zh-TW";
 type LocaleMessages = Record<string, unknown>;
@@ -63,7 +63,7 @@ function detectUserLocale(): Locale {
   }
 }
 
-const savedLocale = normalizeLocale(safeLocalStorageGet("dbx-locale"));
+const savedLocale = normalizeLocale(safeLocalStorageGetWithLegacy("task-locale", "task-locale"));
 const initialLocale = savedLocale ?? detectUserLocale();
 
 const i18n = createI18n({
@@ -92,7 +92,7 @@ export async function loadSavedLocale() {
 export async function setLocale(locale: Locale) {
   await loadLocaleMessages(locale);
   i18nGlobal.locale.value = locale;
-  safeLocalStorageSet("dbx-locale", locale);
+  safeLocalStorageSet("task-locale", locale);
 }
 
 export function currentLocale(): Locale {

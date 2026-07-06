@@ -1,7 +1,7 @@
 {
-  "name": "@dbx-app/node-core",
+  "name": "@task-app/node-core",
   "version": "0.4.8",
-  "description": "Shared Node.js database and DBX connection utilities for DBX CLI and MCP server",
+  "description": "Shared Node.js database and TASK connection utilities for TASK CLI and MCP server",
   "license": "Apache-2.0",
   "files": [
     "dist"

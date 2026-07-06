@@ -108,7 +108,7 @@ async function openTableTarget(target: NavigationTarget) {
       }
     }
     if (dataResult.status === "rejected") throw dataResult.reason;
-    if (columnsResult.status === "rejected") console.error("[DBX] ERROR fetching table metadata:", columnsResult.reason);
+    if (columnsResult.status === "rejected") console.error("[TASK] ERROR fetching table metadata:", columnsResult.reason);
   } catch (e: any) {
     queryStore.setErrorResult(tabId, e);
   }

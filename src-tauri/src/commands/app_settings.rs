@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use dbx_core::storage::DesktopSettings;
+use task_core::storage::DesktopSettings;
 use tauri::{AppHandle, Manager, State};
 
 use super::connection::AppState;

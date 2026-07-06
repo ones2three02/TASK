@@ -19,8 +19,8 @@ import { buildElasticsearchCompletionItemsFromContext, getElasticsearchCompletio
 import { extractIdentifierAt, isSqlKeyword, matchTable } from "@/lib/sqlNavigation";
 import { lineColumnToOffset, parseSqlErrorLocation } from "@/lib/sqlDiagnostics";
 import {
-  DBX_TABLE_REFERENCE_MIME,
-  DBX_TABLE_REFERENCE_DROP_EVENT,
+  TASK_TABLE_REFERENCE_MIME,
+  TASK_TABLE_REFERENCE_DROP_EVENT,
   activeTableReferencePayloadValue,
   clearActiveTableReferencePayload,
   hasTableReferencePayloadType,
@@ -460,7 +460,7 @@ async function ensureForeignKeysForTable(table: { name: string; schema?: string 
     const foreignKeys = await connectionStore.listCompletionForeignKeys(props.connectionId, target.database, table.name, target.schema);
     cachedForeignKeysByTable.set(cacheKey, foreignKeys);
   } catch (e) {
-    console.warn(`[DBX] Failed to load foreign keys for ${cacheKey}:`, e);
+    console.warn(`[TASK] Failed to load foreign keys for ${cacheKey}:`, e);
     cachedForeignKeysByTable.set(cacheKey, []);
   }
 }
@@ -760,7 +760,7 @@ async function formatCurrentSql() {
 }
 
 function droppedTableReference(event: DragEvent) {
-  return activeTableReferencePayloadValue() ?? parseTableReferencePayload(event.dataTransfer?.getData(DBX_TABLE_REFERENCE_MIME));
+  return activeTableReferencePayloadValue() ?? parseTableReferencePayload(event.dataTransfer?.getData(TASK_TABLE_REFERENCE_MIME));
 }
 
 function hasDroppedTableReference(event: DragEvent) {
@@ -807,13 +807,13 @@ function onTableReferenceDropEvent(event: Event) {
 
 function registerTableReferenceDropListener() {
   if (tableReferenceDropListenerRegistered) return;
-  window.addEventListener(DBX_TABLE_REFERENCE_DROP_EVENT, onTableReferenceDropEvent);
+  window.addEventListener(TASK_TABLE_REFERENCE_DROP_EVENT, onTableReferenceDropEvent);
   tableReferenceDropListenerRegistered = true;
 }
 
 function unregisterTableReferenceDropListener() {
   if (!tableReferenceDropListenerRegistered) return;
-  window.removeEventListener(DBX_TABLE_REFERENCE_DROP_EVENT, onTableReferenceDropEvent);
+  window.removeEventListener(TASK_TABLE_REFERENCE_DROP_EVENT, onTableReferenceDropEvent);
   tableReferenceDropListenerRegistered = false;
 }
 
@@ -1277,7 +1277,7 @@ async function performAsyncCompletionWithResult(epoch: number, completionContext
         if (columns.length === 0) return;
         cachedColumnsByTable.set(cacheKey, columns);
       } catch (e) {
-        console.error(`[DBX] Failed to load columns for ${cacheKey}:`, e);
+        console.error(`[TASK] Failed to load columns for ${cacheKey}:`, e);
       }
     }),
   );
@@ -1748,7 +1748,7 @@ onMounted(async () => {
                 emit("clickColumn", matchedCols);
               }
             } catch (e) {
-              console.error("[DBX] Ctrl+click error:", e);
+              console.error("[TASK] Ctrl+click error:", e);
             }
           }, 0);
           return true;

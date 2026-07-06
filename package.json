@@ -1,6 +1,6 @@
 {
-  "name": "dbx",
-  "version": "0.5.32",
+  "name": "task",
+  "version": "0.5.46",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -8,10 +8,10 @@
     "dev": "vite --config apps/desktop/vite.config.ts",
     "dev:tauri": "tauri dev",
     "dev:web": "vite --config apps/desktop/vite.config.ts --port 5173 --mode web",
-    "dev:backend": "RUST_LOG=${RUST_LOG:-info} DBX_PASSWORD=${DBX_PASSWORD:-test} cargo watch -x 'run -p dbx-web'",
-    "build:packages": "pnpm --filter @dbx-app/node-core build && pnpm --filter @dbx-app/cli build && pnpm --filter @dbx-app/mcp-server build",
-    "test:packages": "pnpm --filter @dbx-app/node-core test && pnpm --filter @dbx-app/cli test && pnpm --filter @dbx-app/mcp-server test",
-    "pack:packages": "rm -rf /tmp/dbx-pack-check && mkdir -p /tmp/dbx-pack-check && pnpm --filter @dbx-app/node-core pack --pack-destination /tmp/dbx-pack-check && pnpm --filter @dbx-app/cli pack --pack-destination /tmp/dbx-pack-check && pnpm --filter @dbx-app/mcp-server pack --pack-destination /tmp/dbx-pack-check",
+    "dev:backend": "RUST_LOG=${RUST_LOG:-info} TASK_PASSWORD=${TASK_PASSWORD:-test} cargo watch -x 'run -p task-web'",
+    "build:packages": "pnpm --filter @task-app/node-core build && pnpm --filter @task-app/cli build && pnpm --filter @task-app/mcp-server build",
+    "test:packages": "pnpm --filter @task-app/node-core test && pnpm --filter @task-app/cli test && pnpm --filter @task-app/mcp-server test",
+    "pack:packages": "rm -rf /tmp/task-pack-check && mkdir -p /tmp/task-pack-check && pnpm --filter @task-app/node-core pack --pack-destination /tmp/task-pack-check && pnpm --filter @task-app/cli pack --pack-destination /tmp/task-pack-check && pnpm --filter @task-app/mcp-server pack --pack-destination /tmp/task-pack-check",
     "publish:dry-run": "pnpm build:packages && pnpm pack:packages",
     "typecheck": "vue-tsc --noEmit --project apps/desktop/tsconfig.json",
     "build": "vite build --config apps/desktop/vite.config.ts",
@@ -22,7 +22,8 @@
     "test": "vitest run",
     "preview": "vite preview --config apps/desktop/vite.config.ts",
     "tauri": "tauri",
-    "prepare": "husky"
+    "prepare": "husky",
+    "gen:api": "openapi-typescript http://localhost:4224/api-docs/openapi.json -o apps/desktop/src/types/api.d.ts"
   },
   "dependencies": {
     "@babel/runtime": "^7.29.7",
@@ -92,10 +93,12 @@
     "typescript": "~6.0.3",
     "vite": "^8.0.16",
     "vitest": "^4.1.8",
-    "vue-tsc": "^3.3.3"
+    "vue-tsc": "^3.3.3",
+    "openapi-typescript": "^7.6.1"
   },
   "lint-staged": {
-    "apps/desktop/src/**/*.{ts,vue}": "oxfmt"
+    "apps/desktop/src/**/*.{ts,vue}": "oxfmt",
+    "**/*.rs": "rustfmt --edition 2021"
   },
   "engines": {
     "node": ">=22.13.0"
@@ -107,5 +110,8 @@
       "esbuild",
       "keytar"
     ]
+  },
+  "volta": {
+    "node": "22.19.0"
   }
 }

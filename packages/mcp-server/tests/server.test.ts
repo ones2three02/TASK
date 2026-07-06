@@ -3,8 +3,8 @@ import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vitest";
-import type { Backend, ConnectionConfig } from "@dbx-app/node-core";
-import { createDbxMcpServer, DBX_MCP_PACKAGE_VERSION } from "../src/index.js";
+import type { Backend, ConnectionConfig } from "@task-app/node-core";
+import { createTaskMcpServer, TASK_MCP_PACKAGE_VERSION } from "../src/index.js";
 
 const connection: ConnectionConfig = {
   id: "1",
@@ -30,15 +30,15 @@ const backend: Backend = {
 };
 
 test("creates an MCP server without starting stdio transport", () => {
-  const server = createDbxMcpServer(backend, { isWebMode: true });
+  const server = createTaskMcpServer(backend, { isWebMode: true });
 
   assert.equal(typeof server.connect, "function");
 });
 
 test("MCP server metadata version matches package metadata", () => {
-  const server = createDbxMcpServer(backend, { isWebMode: true });
+  const server = createTaskMcpServer(backend, { isWebMode: true });
 
-  assert.equal((server as any).server._serverInfo.version, DBX_MCP_PACKAGE_VERSION);
+  assert.equal((server as any).server._serverInfo.version, TASK_MCP_PACKAGE_VERSION);
 });
 
 test("README runtime requirements match package engines", async () => {
@@ -61,9 +61,9 @@ test("execute query scopes the connection to the requested database", async () =
       return { columns: ["total"], rows: [{ total: 1 }], row_count: 1 };
     },
   };
-  const server = createDbxMcpServer(scopedBackend, { isWebMode: true });
+  const server = createTaskMcpServer(scopedBackend, { isWebMode: true });
 
-  await (server as any)._registeredTools.dbx_execute_query.handler({
+  await (server as any)._registeredTools.task_execute_query.handler({
     connection_name: "local",
     database: "stores_demo",
     sql: "SELECT FIRST 1 tabname FROM systables",
@@ -81,9 +81,9 @@ test("execute query runs safe multi-statement SQL one statement at a time", asyn
       return { columns: ["value"], rows: [{ value: executed.length }], row_count: 1 };
     },
   };
-  const server = createDbxMcpServer(scopedBackend, { isWebMode: true });
+  const server = createTaskMcpServer(scopedBackend, { isWebMode: true });
 
-  const result = await (server as any)._registeredTools.dbx_execute_query.handler({
+  const result = await (server as any)._registeredTools.task_execute_query.handler({
     connection_name: "local",
     sql: "select 1; select 2;",
   });
@@ -94,9 +94,9 @@ test("execute query runs safe multi-statement SQL one statement at a time", asyn
 });
 
 test("execute query reports the blocked statement number for unsafe multi-statement SQL", async () => {
-  const server = createDbxMcpServer(backend, { isWebMode: true });
+  const server = createTaskMcpServer(backend, { isWebMode: true });
 
-  const result = await (server as any)._registeredTools.dbx_execute_query.handler({
+  const result = await (server as any)._registeredTools.task_execute_query.handler({
     connection_name: "local",
     sql: "select 1; delete from users;",
   });
@@ -118,9 +118,9 @@ test("mongodb list tables returns collections from the selected database", async
       return [{ name: "projects", type: "COLLECTION" }];
     },
   };
-  const server = createDbxMcpServer(scopedBackend, { isWebMode: true });
+  const server = createTaskMcpServer(scopedBackend, { isWebMode: true });
 
-  const result = await (server as any)._registeredTools.dbx_list_tables.handler({
+  const result = await (server as any)._registeredTools.task_list_tables.handler({
     connection_name: "local",
     database: "pystrument",
   });
@@ -154,9 +154,9 @@ test("mongodb describe table returns inferred document fields", async () => {
       },
     ],
   };
-  const server = createDbxMcpServer(scopedBackend, { isWebMode: true });
+  const server = createTaskMcpServer(scopedBackend, { isWebMode: true });
 
-  const result = await (server as any)._registeredTools.dbx_describe_table.handler({
+  const result = await (server as any)._registeredTools.task_describe_table.handler({
     connection_name: "local",
     database: "pystrument",
     table: "projects",
@@ -177,9 +177,9 @@ test("mongodb execute query formats shell-style find results", async () => {
       row_count: 1,
     }),
   };
-  const server = createDbxMcpServer(scopedBackend, { isWebMode: true });
+  const server = createTaskMcpServer(scopedBackend, { isWebMode: true });
 
-  const result = await (server as any)._registeredTools.dbx_execute_query.handler({
+  const result = await (server as any)._registeredTools.task_execute_query.handler({
     connection_name: "local",
     database: "pystrument",
     sql: "db.projects.find({}).limit(1)",
@@ -191,9 +191,9 @@ test("mongodb execute query formats shell-style find results", async () => {
 });
 
 test("connection lookup failures include a stable MCP error code", async () => {
-  const server = createDbxMcpServer(backend, { isWebMode: true });
+  const server = createTaskMcpServer(backend, { isWebMode: true });
 
-  const result = await (server as any)._registeredTools.dbx_list_tables.handler({
+  const result = await (server as any)._registeredTools.task_list_tables.handler({
     connection_name: "missing",
   });
 
@@ -212,9 +212,9 @@ test("add connection accepts H2 file paths without a port", async () => {
       return { id: "h2-file", ...config };
     },
   };
-  const server = createDbxMcpServer(scopedBackend, { isWebMode: true });
+  const server = createTaskMcpServer(scopedBackend, { isWebMode: true });
 
-  const result = await (server as any)._registeredTools.dbx_add_connection.handler({
+  const result = await (server as any)._registeredTools.task_add_connection.handler({
     name: "h2-local",
     db_type: "h2",
     host: "/data/app.mv.db",
@@ -229,9 +229,9 @@ test("add connection accepts H2 file paths without a port", async () => {
 });
 
 test("SQL safety failures include a stable MCP error code", async () => {
-  const server = createDbxMcpServer(backend, { isWebMode: true });
+  const server = createTaskMcpServer(backend, { isWebMode: true });
 
-  const result = await (server as any)._registeredTools.dbx_execute_query.handler({
+  const result = await (server as any)._registeredTools.task_execute_query.handler({
     connection_name: "local",
     sql: "drop table users",
   });
@@ -248,9 +248,9 @@ test("query exceptions include a stable MCP error code", async () => {
       throw new Error("database timeout");
     },
   };
-  const server = createDbxMcpServer(scopedBackend, { isWebMode: true });
+  const server = createTaskMcpServer(scopedBackend, { isWebMode: true });
 
-  const result = await (server as any)._registeredTools.dbx_execute_query.handler({
+  const result = await (server as any)._registeredTools.task_execute_query.handler({
     connection_name: "local",
     sql: "select 1",
   });
@@ -261,19 +261,19 @@ test("query exceptions include a stable MCP error code", async () => {
 
 test("desktop bridge failures include a stable MCP error code", async () => {
   const oldHome = process.env.HOME;
-  const dir = await mkdtemp(join(tmpdir(), "dbx-mcp-home-"));
+  const dir = await mkdtemp(join(tmpdir(), "task-mcp-home-"));
   process.env.HOME = dir;
 
   try {
-    const server = createDbxMcpServer(backend, { isWebMode: false });
-    const result = await (server as any)._registeredTools.dbx_open_table.handler({
+    const server = createTaskMcpServer(backend, { isWebMode: false });
+    const result = await (server as any)._registeredTools.task_open_table.handler({
       connection_name: "local",
       table: "users",
     });
 
     assert.equal(result.isError, true);
-    assert.match(result.content[0].text, /DBX_NOT_RUNNING:/);
-    assert.match(result.content[0].text, /DBX is not running/);
+    assert.match(result.content[0].text, /TASK_NOT_RUNNING:/);
+    assert.match(result.content[0].text, /TASK is not running/);
   } finally {
     if (oldHome === undefined) delete process.env.HOME;
     else process.env.HOME = oldHome;
@@ -282,30 +282,30 @@ test("desktop bridge failures include a stable MCP error code", async () => {
 });
 
 test("mongodb execute-and-show blocks aggregate write stages before desktop bridge", async () => {
-  const oldAllowWrites = process.env.DBX_MCP_ALLOW_WRITES;
-  const oldAllowDangerous = process.env.DBX_MCP_ALLOW_DANGEROUS_SQL;
-  delete process.env.DBX_MCP_ALLOW_WRITES;
-  delete process.env.DBX_MCP_ALLOW_DANGEROUS_SQL;
+  const oldAllowWrites = process.env.TASK_MCP_ALLOW_WRITES;
+  const oldAllowDangerous = process.env.TASK_MCP_ALLOW_DANGEROUS_SQL;
+  delete process.env.TASK_MCP_ALLOW_WRITES;
+  delete process.env.TASK_MCP_ALLOW_DANGEROUS_SQL;
   const mongoConnection: ConnectionConfig = { ...connection, db_type: "mongodb" };
   const scopedBackend: Backend = {
     ...backend,
     findConnection: async () => mongoConnection,
   };
-  const server = createDbxMcpServer(scopedBackend, { isWebMode: false });
+  const server = createTaskMcpServer(scopedBackend, { isWebMode: false });
 
   try {
-    const result = await (server as any)._registeredTools.dbx_execute_and_show.handler({
+    const result = await (server as any)._registeredTools.task_execute_and_show.handler({
       connection_name: "local",
       database: "pystrument",
       sql: 'db.projects.aggregate([{"$out":"projects_dump"}])',
     });
 
     assert.match(result.content[0].text, /SQL_BLOCKED:/);
-    assert.match(result.content[0].text, /DBX_MCP_ALLOW_DANGEROUS_SQL=1/);
+    assert.match(result.content[0].text, /TASK_MCP_ALLOW_DANGEROUS_SQL=1/);
   } finally {
-    if (oldAllowWrites === undefined) delete process.env.DBX_MCP_ALLOW_WRITES;
-    else process.env.DBX_MCP_ALLOW_WRITES = oldAllowWrites;
-    if (oldAllowDangerous === undefined) delete process.env.DBX_MCP_ALLOW_DANGEROUS_SQL;
-    else process.env.DBX_MCP_ALLOW_DANGEROUS_SQL = oldAllowDangerous;
+    if (oldAllowWrites === undefined) delete process.env.TASK_MCP_ALLOW_WRITES;
+    else process.env.TASK_MCP_ALLOW_WRITES = oldAllowWrites;
+    if (oldAllowDangerous === undefined) delete process.env.TASK_MCP_ALLOW_DANGEROUS_SQL;
+    else process.env.TASK_MCP_ALLOW_DANGEROUS_SQL = oldAllowDangerous;
   }
 });

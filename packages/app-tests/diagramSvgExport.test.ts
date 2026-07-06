@@ -70,6 +70,6 @@ test("exports the engineering ER diagram with Chen-style shapes and cardinalitie
 });
 
 test("builds safe SVG file names from the active diagram context", () => {
-  assert.equal(diagramSvgFileName("prod/main", "billing db", "engineering"), "dbx-prod-main-billing-db-engineering-er.svg");
-  assert.equal(diagramSvgFileName("", "", "table"), "dbx-diagram-table-structure.svg");
+  assert.equal(diagramSvgFileName("prod/main", "billing db", "engineering"), "task-prod-main-billing-db-engineering-er.svg");
+  assert.equal(diagramSvgFileName("", "", "table"), "task-diagram-table-structure.svg");
 });

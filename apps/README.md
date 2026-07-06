@@ -1,6 +1,6 @@
 # Apps
 
-Runnable DBX applications live here.
+Runnable TASK applications live here.
 
 ## Directories
 

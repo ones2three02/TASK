@@ -1,7 +1,7 @@
 import type { ConnectionConfig, DatabaseType } from "@/types/database";
 import { usesTreeSchemaMode } from "@/lib/databaseCapabilities";
 
-export const TREE_SCHEMA_DEFAULT_DATABASE_SELECT_VALUE = "__dbx_tree_schema_default_database__";
+export const TREE_SCHEMA_DEFAULT_DATABASE_SELECT_VALUE = "__task_tree_schema_default_database__";
 
 export function resolveDefaultDatabase(connection: Pick<ConnectionConfig, "database">, options: string[]): string {
   return connection.database || options[0] || "";

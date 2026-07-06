@@ -1,30 +1,39 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { ClipboardCheck, Moon, Sun, SunMoon, Bot, Settings, FolderPlus, HelpCircle } from "@lucide/vue";
+import { ClipboardCheck, Moon, Sun, SunMoon, Bot, Settings, CloudDownload, LoaderCircle, Bell } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import LightDropdown from "@/components/ui/LightDropdown.vue";
 import WindowControls from "@/components/layout/WindowControls.vue";
 import { shouldReserveMacTrafficLightInset, useWindowControls } from "@/composables/useWindowControls";
 import type { AppThemeMode } from "@/lib/appTheme";
+import { useTaskStore } from "@/stores/taskStore";
 
 const props = defineProps<{
   isDark: boolean;
   themeMode: AppThemeMode;
   showAiPanel: boolean;
+  appVersion?: string;
+  checkingUpdates?: boolean;
+  hasUpdateAvailable?: boolean;
 }>();
 
 const emit = defineEmits<{
   "new-project": [];
   "set-theme-mode": [mode: AppThemeMode];
   "toggle-ai": [];
+  "check-updates": [];
   "open-settings": [];
   "open-about": [];
+  "toggle-inbox": [];
 }>();
 
+const taskStore = useTaskStore();
+const unreadCount = computed(() => taskStore.notifications.filter((n) => !n.read).length);
+
 const { t } = useI18n();
-const { isMac, isDesktop, minimize, toggleMaximize, close } = useWindowControls();
+const { isMac, isDesktop, isFullscreen, minimize, toggleMaximize, close } = useWindowControls();
 
 const themeItems = computed(() => [
   { value: "light", label: t("toolbar.themeLight") || "明亮", icon: Sun },
@@ -37,6 +46,13 @@ const themeTriggerIcon = computed(() => {
   return props.isDark ? Moon : Sun;
 });
 
+const displayVersion = computed(() => `v${props.appVersion || "1.0.0"}`);
+const updateTooltip = computed(() => {
+  if (props.checkingUpdates) return t("updates.checking") || "正在检查更新...";
+  if (props.hasUpdateAvailable) return t("updates.availableTitle") || "发现新版本";
+  return t("updates.check") || "检查更新";
+});
+
 function onToolbarDblClick() {
   if (isDesktop) return;
   toggleMaximize();
@@ -44,21 +60,27 @@ function onToolbarDblClick() {
 </script>
 
 <template>
-  <div class="h-10 flex items-center justify-between px-3 border-b bg-muted/30 shrink-0 overflow-hidden" :class="{ 'pl-17.5': shouldReserveMacTrafficLightInset(isMac, false, isDesktop) }" data-tauri-drag-region @dblclick="onToolbarDblClick">
+  <div class="h-10 flex items-center justify-between px-3 border-b bg-muted/30 shrink-0 overflow-hidden" :class="{ 'pl-[208px]': shouldReserveMacTrafficLightInset(isMac, isFullscreen, isDesktop) }" data-tauri-drag-region @dblclick="onToolbarDblClick">
     <!-- Brand / Title -->
-    <div class="flex items-center gap-2 select-none" data-tauri-drag-region>
-      <div class="h-6 w-6 rounded bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
-        <ClipboardCheck class="h-4 w-4" />
-      </div>
-      <span class="text-sm font-bold tracking-wider text-foreground">TASK</span>
-      <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border/40 select-none">v1.0.0</span>
-    </div>
+    <div class="flex items-center gap-2 select-none" data-tauri-drag-region></div>
 
     <!-- Central spacer -->
     <div class="flex-1 h-full" data-tauri-drag-region />
 
     <!-- Action Toolbar Controls -->
     <div class="flex items-center gap-1.5">
+      <!-- Update Checker -->
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button variant="ghost" size="icon" class="relative h-8 w-8 rounded-md" :class="{ 'bg-primary/10 text-primary hover:bg-primary/20': hasUpdateAvailable }" :disabled="checkingUpdates" :aria-label="updateTooltip" @click="emit('check-updates')">
+            <LoaderCircle v-if="checkingUpdates" class="h-4 w-4 animate-spin" />
+            <CloudDownload v-else class="h-4 w-4" />
+            <span v-if="hasUpdateAvailable" class="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{{ updateTooltip }}</TooltipContent>
+      </Tooltip>
+
       <!-- AI Assistant Button -->
       <Tooltip>
         <TooltipTrigger as-child>
@@ -90,6 +112,20 @@ function onToolbarDblClick() {
           </span>
         </TooltipTrigger>
         <TooltipContent>切换主题模式</TooltipContent>
+      </Tooltip>
+
+      <!-- Inbox Bell -->
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button variant="ghost" size="icon" class="relative h-8 w-8 rounded-md" @click="emit('toggle-inbox')">
+            <Bell class="h-4 w-4" />
+            <span v-if="unreadCount > 0" class="absolute right-1 top-1 flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>收件箱</TooltipContent>
       </Tooltip>
 
       <!-- Settings -->

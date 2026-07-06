@@ -77,7 +77,7 @@ export class ConnectionStoreError extends Error {
 
   constructor(path: string, cause: unknown) {
     const message = cause instanceof Error ? cause.message : String(cause);
-    super(`Failed to load DBX connections from ${path}: ${message}`);
+    super(`Failed to load TASK connections from ${path}: ${message}`);
     this.name = "ConnectionStoreError";
   }
 }

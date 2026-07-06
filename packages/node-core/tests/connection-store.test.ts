@@ -7,8 +7,8 @@ import Database from "better-sqlite3";
 import { inspectConnectionStore, loadConnections } from "../src/connections.js";
 
 test("connection store diagnostics report rows even when loading fails", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "dbx-store-"));
-  const path = join(dir, "dbx.db");
+  const dir = await mkdtemp(join(tmpdir(), "task-store-"));
+  const path = join(dir, "task.db");
 
   try {
     const db = new Database(path);
@@ -19,7 +19,7 @@ test("connection store diagnostics report rows even when loading fails", async (
     db.prepare("INSERT INTO connections (id, config_json) VALUES (?, ?)").run("broken", "{not json");
     db.close();
 
-    await assert.rejects(() => loadConnections({ path }), /Failed to load DBX connections/);
+    await assert.rejects(() => loadConnections({ path }), /Failed to load TASK connections/);
 
     const diagnostics = await inspectConnectionStore({ path });
     assert.equal(diagnostics.dbPath, path);
@@ -27,14 +27,14 @@ test("connection store diagnostics report rows even when loading fails", async (
     assert.equal(diagnostics.connectionsTableExists, true);
     assert.equal(diagnostics.connectionRowCount, 1);
     assert.equal(diagnostics.loadConnectionsOk, false);
-    assert.match(diagnostics.loadConnectionsError ?? "", /Failed to load DBX connections/);
+    assert.match(diagnostics.loadConnectionsError ?? "", /Failed to load TASK connections/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 });
 
 test("missing connection store is treated as an empty store", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "dbx-store-"));
+  const dir = await mkdtemp(join(tmpdir(), "task-store-"));
   const path = join(dir, "missing.db");
 
   try {

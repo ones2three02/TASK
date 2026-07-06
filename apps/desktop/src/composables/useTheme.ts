@@ -1,9 +1,9 @@
 import { computed, ref } from "vue";
-import { APP_THEME_STORAGE_KEY, getTauriThemeForMode, normalizeAppThemeMode, resolveAppThemeAppearance, type AppThemeMode } from "@/lib/appTheme";
-import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/safeStorage";
+import { APP_THEME_STORAGE_KEY, LEGACY_APP_THEME_STORAGE_KEY, getTauriThemeForMode, normalizeAppThemeMode, resolveAppThemeAppearance, type AppThemeMode } from "@/lib/appTheme";
+import { safeLocalStorageGetWithLegacy, safeLocalStorageSet } from "@/lib/safeStorage";
 import { isTauriRuntime } from "@/lib/tauriRuntime";
 
-const themeMode = ref<AppThemeMode>(normalizeAppThemeMode(safeLocalStorageGet(APP_THEME_STORAGE_KEY)));
+const themeMode = ref<AppThemeMode>(normalizeAppThemeMode(safeLocalStorageGetWithLegacy(APP_THEME_STORAGE_KEY, LEGACY_APP_THEME_STORAGE_KEY)));
 const systemPrefersDark = ref(readSystemPrefersDark());
 const isDark = computed(() => resolveAppThemeAppearance(themeMode.value, systemPrefersDark.value) === "dark");
 

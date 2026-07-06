@@ -11,7 +11,15 @@ import TargetManager from "@/components/task/TargetManager.vue";
 import ActionManager from "@/components/task/ActionManager.vue";
 import ServeManager from "@/components/task/ServeManager.vue";
 import KeepManager from "@/components/task/KeepManager.vue";
+import CalendarManager from "@/components/task/CalendarManager.vue";
+import DashboardManager from "@/components/task/DashboardManager.vue";
 import TaskRoadmap from "@/components/task/TaskRoadmap.vue";
+import CommandPalette from "@/components/layout/CommandPalette.vue";
+import ShortcutsHelpModal from "@/components/layout/ShortcutsHelpModal.vue";
+import AiParserModal from "@/components/task/AiParserModal.vue";
+import AiDiagnosticModal from "@/components/task/AiDiagnosticModal.vue";
+import InboxPanel from "@/components/layout/InboxPanel.vue";
+import CodexPet from "@/components/task/CodexPet.vue";
 import { useTaskStore } from "@/stores/taskStore";
 import EditorToolbar from "@/components/layout/EditorToolbar.vue";
 import ContentArea from "@/components/layout/ContentArea.vue";
@@ -61,13 +69,14 @@ import {
   isToggleSidebarShortcut,
   isZoomInShortcut,
   isZoomOutShortcut,
+  isSwitchModuleShortcut,
 } from "@/lib/keyboardShortcuts";
 import { isPreviewTab } from "@/lib/tabPresentation";
 import { supportsSqlFileExecution } from "@/lib/databaseCapabilities";
 import { classifyAiSqlExecution } from "@/lib/aiSqlExecutionPolicy";
 import { buildHistoryAiAnalysisPrompt } from "@/lib/historyAiAnalysis";
 import { countAvailableAgentDriverUpdates, type AgentDriverUpdateBadgeState } from "@/lib/agentDriverUpdateBadge";
-import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/safeStorage";
+import { safeLocalStorageGetWithLegacy, safeLocalStorageSet } from "@/lib/safeStorage";
 import { rankSavedSqlHistory } from "@/lib/savedSqlHistory";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -93,7 +102,19 @@ const queryStore = useQueryStore();
 const settingsStore = useSettingsStore();
 const savedSqlStore = useSavedSqlStore();
 const taskStore = useTaskStore();
-const activeModule = ref<"target" | "action" | "serve" | "keep">("target");
+const activeModule = ref<"dashboard" | "target" | "action" | "serve" | "keep" | "calendar">("dashboard");
+const showCommandPalette = ref(false);
+const showAiParserModal = ref(false);
+const showAiDiagnosticModal = ref(false);
+const showInbox = ref(false);
+const showShortcutsHelp = ref(false);
+
+function triggerOpenCreateAction() {
+  activeModule.value = "action";
+  nextTick(() => {
+    window.dispatchEvent(new CustomEvent("task-open-add-action"));
+  });
+}
 const { message: toastMessage, visible: toastVisible, toast } = useToast();
 const { isDark, themeMode, applyTheme, setThemeMode } = useTheme();
 const { checkingUpdates, updateInfo, updateCheckMessage, showUpdateDialog, isDownloadingUpdate, downloadProgress, updateReady, hasUpdateAvailable, openUrl, checkUpdates, openLatestRelease, downloadAndInstallUpdate, restartApp } = useAppUpdater();
@@ -112,9 +133,9 @@ const showSettingsDialog = ref(false);
 const showDriverStore = ref(false);
 const agentDriverUpdateCount = ref(0);
 const showHistory = ref(false);
-const showAiPanel = ref(safeLocalStorageGet("dbx-ai-panel-open") === "true");
-const showSqlLibraryPanel = ref(safeLocalStorageGet("dbx-sql-library-open") === "true");
-const sidebarOpen = ref(safeLocalStorageGet("dbx-sidebar-open") !== "false");
+const showAiPanel = ref(safeLocalStorageGetWithLegacy("task-ai-panel-open", "task-ai-panel-open") === "true");
+const showSqlLibraryPanel = ref(safeLocalStorageGetWithLegacy("task-sql-library-open", "task-sql-library-open") === "true");
+const sidebarOpen = ref(safeLocalStorageGetWithLegacy("task-sidebar-open", "task-sidebar-open") !== "false");
 const aiPanelReady = ref(false);
 const { sidebarWidth, aiPanelWidth, historyWidth, sqlLibraryWidth, startSidebarResize, startAiPanelResize, startHistoryResize, startSqlLibraryResize } = usePanelResize();
 const aiAssistantRef = ref<AiAssistantHandle | null>(null);
@@ -222,7 +243,7 @@ const appVersion = ref("");
 const isClassicLayout = computed(() => settingsStore.editorSettings.appLayout === "classic");
 const updateNotificationsEnabled = computed(() => settingsStore.editorSettings.updateNotificationsEnabled);
 const toolbarAgentDriverUpdateCount = computed(() => (updateNotificationsEnabled.value ? agentDriverUpdateCount.value : 0));
-const toolbarHasUpdateAvailable = computed(() => updateNotificationsEnabled.value && hasUpdateAvailable.value);
+const toolbarHasUpdateAvailable = computed(() => hasUpdateAvailable.value);
 const hasSqlFileConnections = computed(() => connectionStore.connections.some((c) => supportsSqlFileExecution(c.db_type)));
 const connectionStats = computed(() => ({
   total: connectionStore.connections.length,
@@ -277,9 +298,9 @@ async function applyUiScale(scale: number) {
   try {
     const { getCurrentWebview } = await import("@tauri-apps/api/webview");
     await getCurrentWebview().setZoom(scale);
-    window.dispatchEvent(new CustomEvent("dbx:ui-scale-applied", { detail: { scale } }));
+    window.dispatchEvent(new CustomEvent("task:ui-scale-applied", { detail: { scale } }));
   } catch (error) {
-    console.warn("[DBX] Failed to apply UI scale", { scale, error });
+    console.warn("[TASK] Failed to apply UI scale", { scale, error });
   }
 }
 
@@ -314,7 +335,7 @@ watch(
   () => queryStore.activeTabId,
   (id, previousId) => {
     if (previousId && previousId !== id && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("dbx:before-tab-switch", { detail: { tabId: id, fromTabId: previousId } }));
+      window.dispatchEvent(new CustomEvent("task:before-tab-switch", { detail: { tabId: id, fromTabId: previousId } }));
     }
     if (id) newQueryContextSource.value = "tab";
     selectedSql.value = "";
@@ -341,18 +362,18 @@ watch(
 
 function toggleAiPanel() {
   showAiPanel.value = !showAiPanel.value;
-  safeLocalStorageSet("dbx-ai-panel-open", String(showAiPanel.value));
+  safeLocalStorageSet("task-ai-panel-open", String(showAiPanel.value));
 }
 
 function toggleSqlLibrary() {
   showSqlLibraryPanel.value = !showSqlLibraryPanel.value;
-  safeLocalStorageSet("dbx-sql-library-open", String(showSqlLibraryPanel.value));
+  safeLocalStorageSet("task-sql-library-open", String(showSqlLibraryPanel.value));
 }
 
 function fixWithAi(errorMessage: string) {
   if (!showAiPanel.value) {
     showAiPanel.value = true;
-    safeLocalStorageSet("dbx-ai-panel-open", "true");
+    safeLocalStorageSet("task-ai-panel-open", "true");
   }
   nextTick(() => aiAssistantRef.value?.triggerAction("fix", errorMessage));
 }
@@ -360,7 +381,7 @@ function fixWithAi(errorMessage: string) {
 function openAiPanel() {
   if (!showAiPanel.value) {
     showAiPanel.value = true;
-    safeLocalStorageSet("dbx-ai-panel-open", "true");
+    safeLocalStorageSet("task-ai-panel-open", "true");
   }
 }
 
@@ -778,15 +799,15 @@ function changeActiveSchema(schema: string | undefined) {
   if (tab) queryStore.updateSchema(tab.id, schema);
 }
 function openGitHub() {
-  openUrl("https://github.com/t8y2/dbx");
+  openUrl("https://github.com/ones2three02/TASK");
 }
 function openMcpGuide() {
-  openUrl("https://dbxio.com/cn/docs/mcp");
+  openUrl("https://github.com/ones2three02/TASK");
 }
 
 function setSidebarOpen(open: boolean) {
   sidebarOpen.value = open;
-  safeLocalStorageSet("dbx-sidebar-open", open ? "true" : "false");
+  safeLocalStorageSet("task-sidebar-open", open ? "true" : "false");
 }
 
 function ensureQueryTab(): string {
@@ -833,6 +854,51 @@ function onAiRequestAutoExecuteSql(sql: string) {
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.defaultPrevented) return;
+
+  // 1. Esc key handling to close drawers/modals
+  if (e.key === "Escape") {
+    e.preventDefault();
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent("task-close-all"));
+    showCommandPalette.value = false;
+    showSaveSqlDialog.value = false;
+    showAiParserModal.value = false;
+    showAiDiagnosticModal.value = false;
+    showInbox.value = false;
+    showShortcutsHelp.value = false;
+    return;
+  }
+
+  // 2. ? key handling to show shortcuts help modal
+  if (e.key === "?") {
+    const activeEl = document.activeElement;
+    const isInputActive = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.hasAttribute("contenteditable") || activeEl.closest("[contenteditable='true']"));
+    if (!isInputActive) {
+      e.preventDefault();
+      e.stopPropagation();
+      showShortcutsHelp.value = true;
+      return;
+    }
+  }
+
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    e.stopPropagation();
+    showCommandPalette.value = !showCommandPalette.value;
+    return;
+  }
+
+  const switchNum = isSwitchModuleShortcut(e);
+  if (switchNum !== null) {
+    e.preventDefault();
+    e.stopPropagation();
+    const modules: ("dashboard" | "target" | "action" | "serve" | "keep")[] = ["dashboard", "target", "action", "serve", "keep"];
+    const targetModule = modules[switchNum - 1];
+    if (targetModule) {
+      activeModule.value = targetModule;
+    }
+    return;
+  }
 
   const shortcuts = settingsStore.editorSettings.shortcuts;
 
@@ -984,7 +1050,7 @@ onMounted(async () => {
   applyTheme();
   void applyUiScale(settingsStore.editorSettings.uiScale);
   window.addEventListener("keydown", handleKeydown);
-  window.addEventListener("dbx-open-driver-store", openDriverStoreFromEvent);
+  window.addEventListener("task-open-driver-store", openDriverStoreFromEvent);
   if (isDesktop) {
     document.addEventListener("contextmenu", handleContextMenu);
   }
@@ -1037,7 +1103,7 @@ onUnmounted(() => {
     clearInterval(updateCheckTimer);
   }
   window.removeEventListener("keydown", handleKeydown);
-  window.removeEventListener("dbx-open-driver-store", openDriverStoreFromEvent);
+  window.removeEventListener("task-open-driver-store", openDriverStoreFromEvent);
   document.removeEventListener("contextmenu", handleContextMenu);
 });
 </script>
@@ -1047,7 +1113,19 @@ onUnmounted(() => {
   <div v-show="!setupRequired && (!needsAuth || authenticated)" class="fixed inset-0 h-screen w-screen overflow-hidden">
     <TooltipProvider :delay-duration="300">
       <div class="h-screen w-screen max-w-full min-w-[760px] min-h-[600px] flex flex-col bg-background text-foreground overflow-hidden">
-        <AppToolbar :is-dark="isDark" :theme-mode="themeMode" :show-ai-panel="showAiPanel" @set-theme-mode="setThemeMode" @toggle-ai="toggleAiPanel" @open-settings="showSettingsDialog = true" />
+        <AppToolbar
+          :is-dark="isDark"
+          :theme-mode="themeMode"
+          :show-ai-panel="showAiPanel"
+          :app-version="appVersion"
+          :checking-updates="checkingUpdates"
+          :has-update-available="toolbarHasUpdateAvailable"
+          @set-theme-mode="setThemeMode"
+          @toggle-ai="toggleAiPanel"
+          @check-updates="checkUpdates({ silent: false })"
+          @open-settings="showSettingsDialog = true"
+          @toggle-inbox="showInbox = !showInbox"
+        />
 
         <div :class="isClassicLayout ? 'app-layout-classic flex-1 flex min-h-0' : 'app-panel-gutter flex-1 flex min-h-0 gap-1 p-1'">
           <AppSidebar v-show="sidebarOpen" ref="appSidebarRef" :sidebar-width="sidebarWidth" :active-module="activeModule" :classic-layout="isClassicLayout" @select-module="(mod) => (activeModule = mod)" @start-resize="startSidebarResize" />
@@ -1059,11 +1137,13 @@ onUnmounted(() => {
 
           <div :class="isClassicLayout ? 'flex-1 min-w-0 overflow-hidden' : 'flex-1 min-w-0 overflow-hidden rounded-md border border-border/80 bg-background'">
             <div class="h-full flex flex-col min-w-0">
-              <TaskRoadmap :active-module="activeModule" @select-module="(mod) => (activeModule = mod)" />
-              <TargetManager v-if="activeModule === 'target'" />
+              <TaskRoadmap v-if="activeModule !== 'dashboard'" :active-module="activeModule" @select-module="(mod) => (activeModule = mod)" />
+              <DashboardManager v-if="activeModule === 'dashboard'" @select-module="(mod) => (activeModule = mod)" @run-ai-diagnostic="showAiDiagnosticModal = true" />
+              <TargetManager v-else-if="activeModule === 'target'" />
               <ActionManager v-else-if="activeModule === 'action'" />
               <ServeManager v-else-if="activeModule === 'serve'" />
               <KeepManager v-else-if="activeModule === 'keep'" />
+              <CalendarManager v-else-if="activeModule === 'calendar'" />
             </div>
           </div>
 
@@ -1175,6 +1255,23 @@ onUnmounted(() => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CommandPalette
+        v-if="showCommandPalette"
+        @close="showCommandPalette = false"
+        @selectModule="activeModule = $event"
+        @openAiParser="showAiParserModal = true"
+        @openAiDiagnostic="showAiDiagnosticModal = true"
+        @openSettings="showSettingsDialog = true"
+        @toggleTheme="setThemeMode(isDark ? 'light' : 'dark')"
+        @openCreateAction="triggerOpenCreateAction"
+        @toggleInbox="showInbox = !showInbox"
+        @openShortcutsHelp="showShortcutsHelp = true"
+      />
+      <ShortcutsHelpModal :open="showShortcutsHelp" @update:open="showShortcutsHelp = $event" />
+      <AiParserModal :open="showAiParserModal" @close="showAiParserModal = false" />
+      <AiDiagnosticModal :open="showAiDiagnosticModal" @close="showAiDiagnosticModal = false" />
+      <InboxPanel :show="showInbox" @close="showInbox = false" @navigate-to-kanban="activeModule = 'action'" />
+      <CodexPet />
     </TooltipProvider>
   </div>
 </template>

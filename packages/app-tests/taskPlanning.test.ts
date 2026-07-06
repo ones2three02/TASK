@@ -1,0 +1,317 @@
+import { test } from "vitest";
+import assert from "node:assert/strict";
+import { buildProjectRetrospective, calculateActionStats, calculateProjectOverview, calculateTargetProgress, exportProjectSnapshot, normalizeAction, normalizeKeep, normalizeServe, normalizeTarget, normalizeImportedProjectSnapshot } from "../../apps/desktop/src/lib/taskPlanning.ts";
+
+const project = {
+  id: "project-1",
+  name: "TASK 优化",
+  description: "完善项目规划闭环",
+  createdAt: "2026-06-01T00:00:00.000Z",
+};
+
+const targets = [
+  {
+    id: "target-1",
+    projectId: "project-1",
+    title: "完成闭环规划",
+    description: "让项目从目标到归档可追踪",
+    status: "pending" as const,
+    createdAt: "2026-06-01T00:00:00.000Z",
+    milestones: [
+      { id: "m-1", title: "目标设计", completed: true },
+      { id: "m-2", title: "行动拆解", completed: false },
+    ],
+  },
+  {
+    id: "target-2",
+    projectId: "project-1",
+    title: "完成发布准备",
+    description: "补齐文档和验证",
+    status: "completed" as const,
+    createdAt: "2026-06-02T00:00:00.000Z",
+    milestones: [],
+  },
+];
+
+const actions = [
+  {
+    id: "action-1",
+    projectId: "project-1",
+    title: "补充 Dashboard",
+    description: "增加项目总览",
+    status: "done" as const,
+    priority: "P1" as const,
+    dueDate: "2026-06-10",
+    createdAt: "2026-06-01T00:00:00.000Z",
+  },
+  {
+    id: "action-2",
+    projectId: "project-1",
+    title: "更新 README",
+    description: "同步产品说明",
+    status: "todo" as const,
+    priority: "P2" as const,
+    dueDate: "2026-06-12",
+    createdAt: "2026-06-01T00:00:00.000Z",
+  },
+  {
+    id: "action-3",
+    projectId: "project-1",
+    title: "准备演示",
+    description: "",
+    status: "in_progress" as const,
+    priority: "P3" as const,
+    createdAt: "2026-06-01T00:00:00.000Z",
+  },
+];
+
+const serves = [
+  {
+    id: "serve-1",
+    projectId: "project-1",
+    title: "项目规划工具交付",
+    description: "可用于工作项目规划",
+    deliverable: "TASK 闭环增强版",
+    client: "个人项目负责人",
+    status: "delivered" as const,
+    deliveredAt: "2026-06-15",
+    acceptanceStatus: "accepted" as const,
+    createdAt: "2026-06-01T00:00:00.000Z",
+  },
+];
+
+const keeps = [
+  {
+    id: "keep-1",
+    projectId: "project-1",
+    name: "复盘文档",
+    type: "document" as const,
+    content: "记录项目经验",
+    createdAt: "2026-06-16T00:00:00.000Z",
+  },
+];
+
+test("calculates target progress from milestones and target status", () => {
+  const progress = calculateTargetProgress(targets);
+
+  assert.equal(progress.total, 2);
+  assert.equal(progress.completed, 1);
+  assert.equal(progress.totalMilestones, 3);
+  assert.equal(progress.completedMilestones, 2);
+  assert.equal(progress.percent, 67);
+});
+
+test("calculates action stats including overdue unfinished actions", () => {
+  const stats = calculateActionStats(actions, "2026-06-16");
+
+  assert.equal(stats.total, 3);
+  assert.equal(stats.done, 1);
+  assert.equal(stats.inProgress, 1);
+  assert.equal(stats.todo, 1);
+  assert.equal(stats.overdue, 1);
+  assert.equal(stats.highPriority, 1);
+  assert.equal(stats.percent, 33);
+});
+
+test("recommends creating actions when targets exist without actions", () => {
+  const overview = calculateProjectOverview(project, targets, [], [], [], "2026-06-16");
+
+  assert.equal(overview.recommendation.stage, "action");
+  assert.match(overview.recommendation.message, /拆解/);
+});
+
+test("builds a retrospective document containing all TASK sections", () => {
+  const retrospective = buildProjectRetrospective(project, targets, actions, serves, keeps);
+
+  assert.match(retrospective, /# 项目复盘 - TASK 优化/);
+  assert.match(retrospective, /## Target 目标达成/);
+  assert.match(retrospective, /## Action 行动结果/);
+  assert.match(retrospective, /## Serve 交付价值/);
+  assert.match(retrospective, /## Keep 资产沉淀/);
+});
+
+test("exports and normalizes project snapshots without reusing imported ids", () => {
+  const snapshot = exportProjectSnapshot(project, targets, actions, serves, keeps);
+  const ids = ["new-project", "new-target", "new-m1", "new-m2", "new-target-2", "new-action", "new-action-2", "new-action-3", "new-serve", "new-keep"];
+  const normalized = normalizeImportedProjectSnapshot(snapshot, () => ids.shift() ?? "fallback-id");
+
+  assert.equal(snapshot.version, 2);
+  assert.equal(normalized.version, 2);
+  assert.equal(normalized.project.id, "new-project");
+  assert.notEqual(normalized.project.id, project.id);
+  assert.equal(normalized.targets[0].projectId, "new-project");
+  assert.equal(normalized.targets[0].id, "new-target");
+  assert.equal(normalized.targets[0].milestones[0].id, "new-m1");
+  assert.deepEqual(normalized.targets[0].successCriteria, []);
+  assert.deepEqual(normalized.targets[0].risks, []);
+  assert.equal(normalized.actions[0].projectId, "new-project");
+  assert.equal(normalized.actions[0].serveId, undefined);
+  assert.equal(normalized.actions[0].blocked, false);
+  assert.equal(normalized.actions[0].evidence, "");
+  assert.equal(normalized.serves[0].acceptanceStatus, "accepted");
+  assert.deepEqual(normalized.serves[0].acceptanceChecklist, []);
+  assert.deepEqual(normalized.serves[0].evidence, []);
+  assert.deepEqual(normalized.serves[0].reworkItems, []);
+  assert.equal(normalized.keeps[0].projectId, "new-project");
+  assert.equal(normalized.keeps[0].relatedServeId, undefined);
+});
+
+test("normalizers fill TASK v2 lifecycle defaults for legacy records", () => {
+  const target = normalizeTarget({
+    ...targets[0],
+  });
+  const action = normalizeAction({
+    ...actions[0],
+  });
+  const serve = normalizeServe({
+    ...serves[0],
+  });
+  const keep = normalizeKeep({
+    ...keeps[0],
+  });
+
+  assert.equal(target.scope, undefined);
+  assert.equal(target.outOfScope, undefined);
+  assert.deepEqual(target.successCriteria, []);
+  assert.deepEqual(target.risks, []);
+  assert.equal(action.blocked, false);
+  assert.equal(action.blockerReason, undefined);
+  assert.equal(action.evidence, "");
+  assert.deepEqual(serve.acceptanceChecklist, []);
+  assert.deepEqual(serve.evidence, []);
+  assert.deepEqual(serve.reworkItems, []);
+  assert.equal(keep.relatedServeId, undefined);
+  assert.equal(keep.relatedActionId, undefined);
+});
+
+test("normalizes real TASK v1 snapshots into v2 lifecycle contract", () => {
+  const legacySnapshot = {
+    version: 1,
+    exportedAt: "2026-06-17T00:00:00.000Z",
+    project,
+    targets: [
+      {
+        id: "legacy-target",
+        projectId: "project-1",
+        title: "旧目标",
+        description: "旧 v1 目标结构",
+        status: "pending" as const,
+        createdAt: "2026-06-01T00:00:00.000Z",
+        milestones: [],
+      },
+    ],
+    actions: [
+      {
+        id: "legacy-action",
+        projectId: "project-1",
+        title: "旧行动",
+        description: "旧 v1 行动结构",
+        status: "todo" as const,
+        priority: "medium" as const,
+        createdAt: "2026-06-01T00:00:00.000Z",
+      },
+    ],
+    serves: [
+      {
+        id: "legacy-serve",
+        projectId: "project-1",
+        title: "旧交付",
+        description: "旧 v1 交付结构",
+        deliverable: "旧交付物",
+        client: "旧客户",
+        status: "delivered" as const,
+        deliveredAt: "2026-06-15",
+        acceptanceStatus: "pending" as const,
+        createdAt: "2026-06-01T00:00:00.000Z",
+      },
+    ],
+    keeps: [
+      {
+        id: "legacy-keep",
+        projectId: "project-1",
+        name: "旧文档",
+        type: "document" as const,
+        content: "旧沉淀内容",
+        createdAt: "2026-06-16T00:00:00.000Z",
+      },
+    ],
+  };
+  const ids = ["new-project", "new-target", "new-action", "new-serve", "new-keep"];
+  const normalized = normalizeImportedProjectSnapshot(legacySnapshot, () => ids.shift() ?? "fallback-id");
+
+  assert.equal(normalized.version, 2);
+  assert.equal(normalized.targets[0].projectId, "new-project");
+  assert.deepEqual(normalized.targets[0].successCriteria, []);
+  assert.deepEqual(normalized.targets[0].risks, []);
+  assert.equal(normalized.actions[0].blocked, false);
+  assert.equal(normalized.actions[0].evidence, "");
+  assert.equal(normalized.serves[0].status, "delivered");
+  assert.equal(normalized.serves[0].acceptanceStatus, "pending");
+  assert.deepEqual(normalized.serves[0].acceptanceChecklist, []);
+  assert.deepEqual(normalized.serves[0].evidence, []);
+  assert.deepEqual(normalized.serves[0].reworkItems, []);
+  assert.equal(normalized.keeps[0].type, "document");
+  assert.equal(normalized.keeps[0].relatedServeId, undefined);
+  assert.equal(normalized.keeps[0].relatedActionId, undefined);
+});
+
+test("calculates lifecycle quality gates for TASK v2", () => {
+  const overview = calculateProjectOverview(
+    project,
+    [
+      {
+        ...targets[0],
+        successCriteria: [],
+      },
+    ],
+    [
+      {
+        ...actions[0],
+        blocked: true,
+        blockerReason: "等待验收标准确认",
+      },
+    ],
+    [
+      {
+        ...serves[0],
+        status: "delivered" as const,
+        acceptanceStatus: "pending" as const,
+        acceptanceChecklist: [],
+      },
+      {
+        ...serves[0],
+        id: "serve-accepted-without-keep",
+        status: "accepted" as const,
+        acceptanceStatus: "accepted" as const,
+        acceptanceChecklist: [{ id: "check-1", title: "验收通过", completed: true }],
+      },
+    ],
+    [],
+    "2026-06-16",
+  );
+
+  const gateIds = overview.qualityGates.map((gate) => gate.id);
+
+  assert.ok(gateIds.includes("target-success-criteria"));
+  assert.ok(gateIds.includes("action-unlinked-serve"));
+  assert.ok(gateIds.includes("action-blocked"));
+  assert.ok(gateIds.includes("serve-pending-acceptance"));
+  assert.ok(gateIds.includes("keep-missing-after-serve"));
+  const targetGate = overview.qualityGates.find((gate) => gate.id === "target-success-criteria");
+  const blockedGate = overview.qualityGates.find((gate) => gate.id === "action-blocked");
+  const pendingAcceptanceGate = overview.qualityGates.find((gate) => gate.id === "serve-pending-acceptance");
+  const missingKeepGate = overview.qualityGates.find((gate) => gate.id === "keep-missing-after-serve");
+
+  assert.equal(targetGate?.stage, "target");
+  assert.equal(targetGate?.severity, "warning");
+  assert.equal(targetGate?.count, 1);
+  assert.equal(blockedGate?.stage, "action");
+  assert.equal(blockedGate?.severity, "danger");
+  assert.equal(blockedGate?.count, 1);
+  assert.equal(pendingAcceptanceGate?.stage, "serve");
+  assert.equal(pendingAcceptanceGate?.severity, "warning");
+  assert.equal(pendingAcceptanceGate?.count, 1);
+  assert.equal(missingKeepGate?.stage, "keep");
+  assert.equal(missingKeepGate?.severity, "info");
+  assert.equal(missingKeepGate?.count, 1);
+});

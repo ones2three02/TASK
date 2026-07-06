@@ -1,1 +1,1 @@
-pub use dbx_core::models::connection::*;
+pub use task_core::models::connection::*;

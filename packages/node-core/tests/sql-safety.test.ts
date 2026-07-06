@@ -60,7 +60,7 @@ test("sqlSafetyFromEnv allows writes by default but keeps dangerous SQL blocked"
 });
 
 test("sqlSafetyFromEnv supports explicitly disabling writes", () => {
-  const options = sqlSafetyFromEnv({ DBX_MCP_ALLOW_WRITES: "0" } as NodeJS.ProcessEnv);
+  const options = sqlSafetyFromEnv({ TASK_MCP_ALLOW_WRITES: "0" } as NodeJS.ProcessEnv);
 
   assert.equal(options.allowWrites, false);
   assert.equal(options.allowDangerous, false);

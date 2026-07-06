@@ -17,6 +17,7 @@ pub mod keychain;
 pub mod mcp;
 pub mod mcp_bridge;
 pub mod mongo_cmd;
+pub mod office_cli;
 pub mod plugins;
 pub mod query;
 pub mod query_cancel;

@@ -3,7 +3,7 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::connection::AppState;
 
-pub use dbx_core::table_export::{ExportStatus, TableExportProgress, TableExportRequest};
+pub use task_core::table_export::{ExportStatus, TableExportProgress, TableExportRequest};
 
 fn emit_progress(app: &AppHandle, progress: TableExportProgress) {
     let _ = app.emit("table-export-progress", progress);
@@ -20,7 +20,7 @@ pub async fn start_table_export(
 
     tokio::spawn(async move {
         let result =
-            dbx_core::table_export::export_table_data_core(&state, &request, |progress| emit_progress(&app, progress))
+            task_core::table_export::export_table_data_core(&state, &request, |progress| emit_progress(&app, progress))
                 .await;
 
         if let Err(e) = result {
@@ -37,7 +37,7 @@ pub async fn start_table_export(
             );
         }
 
-        dbx_core::database_export::clear_export_cancelled(&export_id).await;
+        task_core::database_export::clear_export_cancelled(&export_id).await;
     });
 
     Ok(())
@@ -45,6 +45,6 @@ pub async fn start_table_export(
 
 #[tauri::command]
 pub async fn cancel_table_export(export_id: String) -> Result<(), String> {
-    dbx_core::database_export::set_export_cancelled(&export_id).await;
+    task_core::database_export::set_export_cancelled(&export_id).await;
     Ok(())
 }

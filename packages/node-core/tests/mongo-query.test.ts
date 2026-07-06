@@ -61,10 +61,10 @@ test("mongoAggregateWriteStage detects write stages", () => {
 });
 
 test("mongodb executeQuery blocks aggregate write stages until dangerous SQL is enabled", async () => {
-  const oldAllowWrites = process.env.DBX_MCP_ALLOW_WRITES;
-  const oldAllowDangerous = process.env.DBX_MCP_ALLOW_DANGEROUS_SQL;
-  delete process.env.DBX_MCP_ALLOW_WRITES;
-  delete process.env.DBX_MCP_ALLOW_DANGEROUS_SQL;
+  const oldAllowWrites = process.env.TASK_MCP_ALLOW_WRITES;
+  const oldAllowDangerous = process.env.TASK_MCP_ALLOW_DANGEROUS_SQL;
+  delete process.env.TASK_MCP_ALLOW_WRITES;
+  delete process.env.TASK_MCP_ALLOW_DANGEROUS_SQL;
   const config = {
     id: "mongo",
     name: "mongo",
@@ -78,12 +78,12 @@ test("mongodb executeQuery blocks aggregate write stages until dangerous SQL is 
     ssl: false,
   } as const;
 
-  await assert.rejects(executeQuery(config, 'db.projects.aggregate([{"$merge":{"into":"projects_dump"}}])'), /DBX_MCP_ALLOW_DANGEROUS_SQL=1/);
+  await assert.rejects(executeQuery(config, 'db.projects.aggregate([{"$merge":{"into":"projects_dump"}}])'), /TASK_MCP_ALLOW_DANGEROUS_SQL=1/);
 
-  if (oldAllowWrites === undefined) delete process.env.DBX_MCP_ALLOW_WRITES;
-  else process.env.DBX_MCP_ALLOW_WRITES = oldAllowWrites;
-  if (oldAllowDangerous === undefined) delete process.env.DBX_MCP_ALLOW_DANGEROUS_SQL;
-  else process.env.DBX_MCP_ALLOW_DANGEROUS_SQL = oldAllowDangerous;
+  if (oldAllowWrites === undefined) delete process.env.TASK_MCP_ALLOW_WRITES;
+  else process.env.TASK_MCP_ALLOW_WRITES = oldAllowWrites;
+  if (oldAllowDangerous === undefined) delete process.env.TASK_MCP_ALLOW_DANGEROUS_SQL;
+  else process.env.TASK_MCP_ALLOW_DANGEROUS_SQL = oldAllowDangerous;
 });
 
 test("parseMongoWriteCommand accepts supported write commands", () => {
@@ -108,8 +108,8 @@ test("parseMongoWriteCommand accepts supported write commands", () => {
 });
 
 test("mongodb executeQuery blocks writes when writes are explicitly disabled", async () => {
-  const oldAllowWrites = process.env.DBX_MCP_ALLOW_WRITES;
-  process.env.DBX_MCP_ALLOW_WRITES = "0";
+  const oldAllowWrites = process.env.TASK_MCP_ALLOW_WRITES;
+  process.env.TASK_MCP_ALLOW_WRITES = "0";
   await assert.rejects(
     executeQuery(
       {
@@ -128,8 +128,8 @@ test("mongodb executeQuery blocks writes when writes are explicitly disabled", a
     ),
     /read-only/i,
   );
-  if (oldAllowWrites === undefined) delete process.env.DBX_MCP_ALLOW_WRITES;
-  else process.env.DBX_MCP_ALLOW_WRITES = oldAllowWrites;
+  if (oldAllowWrites === undefined) delete process.env.TASK_MCP_ALLOW_WRITES;
+  else process.env.TASK_MCP_ALLOW_WRITES = oldAllowWrites;
 });
 
 test("mongoDocumentsToQueryResult turns documents into rows", () => {

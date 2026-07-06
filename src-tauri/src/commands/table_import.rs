@@ -8,7 +8,7 @@ use crate::commands::connection::{ensure_connection_writable, AppState};
 use crate::commands::transfer::get_db_type;
 
 // Re-export types for backward compatibility
-pub use dbx_core::table_import::{TableImportPreview, TableImportProgress, TableImportRequest, TableImportSummary};
+pub use task_core::table_import::{TableImportPreview, TableImportProgress, TableImportRequest, TableImportSummary};
 
 static CANCELLED_IMPORTS: OnceLock<RwLock<HashSet<String>>> = OnceLock::new();
 
@@ -30,7 +30,7 @@ async fn clear_cancelled(import_id: &str) {
 
 #[tauri::command]
 pub async fn preview_table_import_file(file_path: String) -> Result<TableImportPreview, String> {
-    dbx_core::table_import::preview_table_import_file_core(&file_path).await
+    task_core::table_import::preview_table_import_file_core(&file_path).await
 }
 
 #[tauri::command]
@@ -49,7 +49,7 @@ pub async fn import_table_file(
         state.get_or_create_pool(&request.connection_id, Some(&request.database)).await?
     };
 
-    let result = dbx_core::table_import::import_table_file_core(
+    let result = task_core::table_import::import_table_file_core(
         &state,
         &request,
         &db_type,
